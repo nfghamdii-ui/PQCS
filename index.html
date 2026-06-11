@@ -868,10 +868,6 @@ function sbTab(which){
   if(which==='reg'){ L.style.display='none'; R.style.display=''; tr.style.background='#1c212c'; tr.style.color='#fff'; tl.style.background='transparent'; tl.style.color='#8b93a7'; }
   else { L.style.display=''; R.style.display='none'; tl.style.background='#1c212c'; tl.style.color='#fff'; tr.style.background='transparent'; tr.style.color='#8b93a7'; }
 }
-function sbHideAll(){
-  ['sb-login-box','sb-reg-box','sb-pending-box','sb-proj-box'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none';});
-  document.getElementById('sb-tabs').style.display='none';
-}
 async function sbSignOut(){ try{localStorage.removeItem('pqcs-last-project');localStorage.removeItem('pqcs-signin-at');}catch(e){} await sb.auth.signOut(); location.reload(); }
 
 async function sbInit(){
@@ -1265,7 +1261,6 @@ var DB = {pqd:[], mat:[], mir:[], events:[]};
 var T = null;
 
 // ── STORAGE ──────────────────────────────────────────────────────────────────
-function load(){ /* data now loaded from Supabase via sbLoadAll() */ }
 function persist(){
   // push every in-memory record to its Supabase table (fire and forget, ordered)
   (async function(){
@@ -1501,7 +1496,6 @@ function toast(msg,icon){
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 async function bootApp(){
-  function setTxt(id,v){var e=document.getElementById(id); if(e) e.textContent=v;}
   var niAdmin=document.getElementById('ni-admin');
   if(niAdmin) niAdmin.style.display = (CUR_PROFILE && CUR_PROFILE.role==='admin') ? '' : 'none';
   document.getElementById('ls').style.display='none';
@@ -1509,7 +1503,6 @@ async function bootApp(){
   try{ await sbLoadAVL(); }catch(e){ console.error('AVL load failed',e); }
   try{ await sbLoadComponents(); }catch(e){ console.error('components load failed',e); }
   try{ await sbLoadAll(); }catch(e){ console.error('data load failed',e); }
-  document.getElementById('nb-pqd').textContent=DB.pqd.length;
   document.getElementById('date-c').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
   document.getElementById('save-lbl').textContent='Saved '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
   document.getElementById('nb-pqd').textContent=(DB.pqd||[]).length;
