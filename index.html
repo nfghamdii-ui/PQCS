@@ -134,7 +134,26 @@ tbody tr:hover td{background:rgba(79,142,247,.03)}
 @keyframes sp{to{transform:rotate(360deg)}}
 @media(max-width:768px){.fg{grid-template-columns:1fr}.fg-f{grid-column:1}.content{padding:12px 10px}}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+  // Try multiple CDNs for the Supabase library; load synchronously-ordered with fallback.
+  var sources = [
+    "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js",
+    "https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js",
+    "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+  ];
+  var i = 0;
+  function tryNext(){
+    if(i >= sources.length){ return; }
+    var s = document.createElement('script');
+    s.src = sources[i++];
+    s.onload = function(){ /* loaded; sbWaitForLib will pick it up */ };
+    s.onerror = function(){ tryNext(); };
+    document.head.appendChild(s);
+  }
+  tryNext();
+})();
+</script>
 </head>
 <body>
 <!-- ===== SUPABASE AUTH + PROJECT PICKER OVERLAY ===== -->
@@ -2283,7 +2302,7 @@ function sbWaitForLib(tries){
     sbStartSessionTimer();
     return;
   }
-  if(tries < 40){ setTimeout(function(){ sbWaitForLib(tries+1); }, 150); return; } // wait up to ~6s
+  if(tries < 66){ setTimeout(function(){ sbWaitForLib(tries+1); }, 150); return; } // wait up to ~10s
   // give up: make sure app stays hidden, show login gate with error
   document.getElementById('app').style.display='none';
   document.getElementById('sb-gate').style.display='flex';
