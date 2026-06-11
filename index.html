@@ -231,12 +231,12 @@ tbody tr:hover td{background:rgba(79,142,247,.03)}
     </div>
     <nav class="sb-nav">
       <div class="ni" onclick="goTo(&#39;dash&#39;,this)"><div class="ni-ico">▪</div>Dashboard</div>
-      <div class="ni on" onclick="goTo(&#39;pqd&#39;,this)"><div class="ni-ico">▤</div>Pre-qualification<span class="ni-badge" id="nb-pqd">42</span></div>
-      <div class="ni" onclick="goTo(&#39;mat&#39;,this)"><div class="ni-ico">◈</div>Material Submittal<span class="ni-badge" id="nb-mat">4</span></div>
-      <div class="ni" onclick="goTo(&#39;mir&#39;,this)"><div class="ni-ico">▥</div>Material Inspection<span class="ni-badge" id="nb-mir">1</span></div>
+      <div class="ni on" onclick="goTo(&#39;pqd&#39;,this)"><div class="ni-ico">▤</div>Pre-qualification<span class="ni-badge" id="nb-pqd">0</span></div>
+      <div class="ni" onclick="goTo(&#39;mat&#39;,this)"><div class="ni-ico">◈</div>Material Submittal<span class="ni-badge" id="nb-mat">0</span></div>
+      <div class="ni" onclick="goTo(&#39;mir&#39;,this)"><div class="ni-ico">▥</div>Material Inspection<span class="ni-badge" id="nb-mir">0</span></div>
       <div class="ni" onclick="goTo(&#39;rpt&#39;,this)"><div class="ni-ico">▦</div>Reports</div>
       <div class="ni" onclick="goTo(&#39;comp&#39;,this)"><div class="ni-ico">◉</div>Components<span class="ni-badge" id="nb-comp" style="background:rgba(74,222,128,.15);color:var(--grn)">0</span></div>
-      <div class="ni" onclick="goTo(&#39;avl&#39;,this)"><div class="ni-ico">▣</div>AVL — Vendor List<span class="ni-badge" id="nb-avl">3359</span></div>
+      <div class="ni" onclick="goTo(&#39;avl&#39;,this)"><div class="ni-ico">▣</div>AVL — Vendor List<span class="ni-badge" id="nb-avl">0</span></div>
       <div class="ni" onclick="goTo(&#39;proc&#39;,this)"><div class="ni-ico">§</div>Procedure</div>
       <div class="ni" onclick="goTo(&#39;dlog&#39;,this)"><div class="ni-ico">▤</div>Delivery Log</div>
       <div class="ni" onclick="goTo(&#39;chk&#39;,this)"><div class="ni-ico">☑</div>PQD Checklist</div>
@@ -1509,6 +1509,7 @@ async function bootApp(){
   document.getElementById('nb-mat').textContent=(DB.mat||[]).length;
   document.getElementById('nb-mir').textContent=(DB.mir||[]).length;
   var nbc=document.getElementById('nb-comp'); if(nbc) nbc.textContent=(COMP_DATA||[]).length;
+  var nba=document.getElementById('nb-avl'); if(nba) nba.textContent=(window.AVL_DATA||[]).length;
   if(typeof rComp==='function'){ try{ rComp(); }catch(e){} }
   renderDash();renderRptHist();render();
 }
