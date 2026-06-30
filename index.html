@@ -2708,17 +2708,35 @@ function paSummaryRows(){
     };
   });
 }
-// Colour rule matching the original report: Pass=green, Failed/Rejected=red, Under process/Under Review/Ongoing=amber.
-function paStatusColor(v){
+// Colour rules taken EXACTLY from the original Excel file (PA_Visits_Summary.xlsx).
+// Different columns colour the same word differently, so the column matters.
+//   col 'assess'  : Done -> dark green #548235 + white text
+//   col 'report'  : Failed -> amber #FFC000 ; Under process -> grey #DBDBDB ; Ongoing -> blue #B4C7E7 ; Pass/Approved -> none
+//   col 'pastatus': Failed -> red #FF0000 ; Under process -> grey #DBDBDB ; Pass -> none
+//   col 'pqd'     : (original has no fill on these) -> none
+function paCellColor(col, v){
   var s=String(v||'').toLowerCase().trim();
-  if(s==='pass'||s==='approved'||s==='done') return {bg:'#C6EFCE',fg:'#006100'};
-  if(s==='failed'||s==='fail'||s==='rejected') return {bg:'#FFC7CE',fg:'#9C0006'};
-  if(s.indexOf('process')>-1||s.indexOf('review')>-1||s.indexOf('ongoing')>-1||s.indexOf('pending')>-1) return {bg:'#FFEB9C',fg:'#9C6500'};
+  if(col==='assess'){
+    if(s==='done') return {bg:'#548235',fg:'#FFFFFF'};
+    return null;
+  }
+  if(col==='report'){
+    if(s==='failed'||s==='fail') return {bg:'#FFC000',fg:'#000000'};
+    if(s.indexOf('process')>-1) return {bg:'#DBDBDB',fg:'#000000'};
+    if(s==='ongoing') return {bg:'#B4C7E7',fg:'#000000'};
+    return null;
+  }
+  if(col==='pastatus'){
+    if(s==='failed'||s==='fail') return {bg:'#FF0000',fg:'#FFFFFF'};
+    if(s.indexOf('process')>-1) return {bg:'#DBDBDB',fg:'#000000'};
+    if(s==='ongoing') return {bg:'#B4C7E7',fg:'#000000'};
+    return null;
+  }
   return null;
 }
 window.genPASummary=function(){
   var rows=paSummaryRows();
-  var cT=function(v){var c=paStatusColor(v);if(!c)return '<td style="border:1px solid var(--brd);padding:5px 7px;font-size:10px">'+(v||'')+'</td>';return '<td style="border:1px solid var(--brd);padding:5px 7px;font-size:10px;background:'+c.bg+';color:'+c.fg+';font-weight:700">'+(v||'')+'</td>';};
+  var cC=function(v,col){var c=paCellColor(col,v);if(!c)return '<td style="border:1px solid var(--brd);padding:5px 7px;font-size:10px">'+(v||'')+'</td>';return '<td style="border:1px solid var(--brd);padding:5px 7px;font-size:10px;background:'+c.bg+';color:'+c.fg+';font-weight:700">'+(v||'')+'</td>';};
   var td=function(v){return '<td style="border:1px solid var(--brd);padding:5px 7px;font-size:10px">'+(v||'')+'</td>';};
   var t='<table style="width:100%;border-collapse:collapse;font-size:10px"><thead>'
     +'<tr style="background:var(--bg3)">'
@@ -2744,8 +2762,8 @@ window.genPASummary=function(){
   } else {
     rows.forEach(function(r,i){
       t+='<tr>'+td(i+1)+'<td style="border:1px solid var(--brd);padding:5px 7px;font-size:10px;font-weight:700">'+r.supplier+'</td>'
-        +cT(r.pqdStatus)+td(r.pqdRef)+td(r.scope)+td(r.location)
-        +td(r.assessment)+td(r.techAssessor)+cT(r.techReport)+td(r.qmsAssessor)+cT(r.qmsReport)+cT(r.paStatus)+td(r.paRef)+td(r.remarks)+'</tr>';
+        +td(r.pqdStatus)+td(r.pqdRef)+td(r.scope)+td(r.location)
+        +cC(r.assessment,'assess')+td(r.techAssessor)+cC(r.techReport,'report')+td(r.qmsAssessor)+cC(r.qmsReport,'report')+cC(r.paStatus,'pastatus')+td(r.paRef)+td(r.remarks)+'</tr>';
     });
   }
   t+='</tbody></table>';
@@ -2762,11 +2780,20 @@ window.exportPASummaryXLSX=function(){
   var styles=''
     +'<Style ss:ID="hdr"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#2F5496" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
     +'<Style ss:ID="cell"><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
-    +'<Style ss:ID="pass"><Font ss:Bold="1" ss:Color="#006100"/><Interior ss:Color="#C6EFCE" ss:Pattern="Solid"/><Alignment ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
-    +'<Style ss:ID="fail"><Font ss:Bold="1" ss:Color="#9C0006"/><Interior ss:Color="#FFC7CE" ss:Pattern="Solid"/><Alignment ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
-    +'<Style ss:ID="warn"><Font ss:Bold="1" ss:Color="#9C6500"/><Interior ss:Color="#FFEB9C" ss:Pattern="Solid"/><Alignment ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
+    +'<Style ss:ID="done"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#548235" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
+    +'<Style ss:ID="amber"><Font ss:Bold="1" ss:Color="#000000"/><Interior ss:Color="#FFC000" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
+    +'<Style ss:ID="red"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#FF0000" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
+    +'<Style ss:ID="grey"><Font ss:Color="#000000"/><Interior ss:Color="#DBDBDB" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
+    +'<Style ss:ID="blue"><Font ss:Color="#000000"/><Interior ss:Color="#B4C7E7" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
     +'<Style ss:ID="title"><Font ss:Bold="1" ss:Size="14"/></Style>';
-  var styFor=function(v){var c=paStatusColor(v);if(!c)return 'cell';if(c.bg==='#C6EFCE')return 'pass';if(c.bg==='#FFC7CE')return 'fail';return 'warn';};
+  // pick the Excel style id for a value within a given column type
+  var styFor=function(v,col){var c=paCellColor(col,v);if(!c)return 'cell';
+    if(c.bg==='#548235')return 'done';
+    if(c.bg==='#FFC000')return 'amber';
+    if(c.bg==='#FF0000')return 'red';
+    if(c.bg==='#DBDBDB')return 'grey';
+    if(c.bg==='#B4C7E7')return 'blue';
+    return 'cell';};
   var cell=function(v,style){return '<Cell ss:StyleID="'+(style||'cell')+'"><Data ss:Type="String">'+esc(v)+'</Data></Cell>';};
   var x='<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?>'
     +'<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'
@@ -2780,8 +2807,8 @@ window.exportPASummaryXLSX=function(){
   // header row 1 (top)
   x+='<Row>'+cell('F.','hdr')+cell('Suppliers proposed for participation','hdr')+cell('PQD Status','hdr')+cell('PQD Ref Document No','hdr')+cell('Scope','hdr')+cell('Location','hdr')+cell('Assessment Performed','hdr')+cell('Technical Assessor','hdr')+cell('Technical report','hdr')+cell('QMS Assessor','hdr')+cell('QMS Report','hdr')+cell('PA Status','hdr')+cell('PA Ref Document No','hdr')+cell('Remarks','hdr')+'</Row>';
   rows.forEach(function(r,i){
-    x+='<Row>'+cell(i+1)+cell(r.supplier)+cell(r.pqdStatus,styFor(r.pqdStatus))+cell(r.pqdRef)+cell(r.scope)+cell(r.location)
-      +cell(r.assessment)+cell(r.techAssessor)+cell(r.techReport,styFor(r.techReport))+cell(r.qmsAssessor)+cell(r.qmsReport,styFor(r.qmsReport))+cell(r.paStatus,styFor(r.paStatus))+cell(r.paRef)+cell(r.remarks)+'</Row>';
+    x+='<Row>'+cell(i+1)+cell(r.supplier)+cell(r.pqdStatus)+cell(r.pqdRef)+cell(r.scope)+cell(r.location)
+      +cell(r.assessment,styFor(r.assessment,'assess'))+cell(r.techAssessor)+cell(r.techReport,styFor(r.techReport,'report'))+cell(r.qmsAssessor)+cell(r.qmsReport,styFor(r.qmsReport,'report'))+cell(r.paStatus,styFor(r.paStatus,'pastatus'))+cell(r.paRef)+cell(r.remarks)+'</Row>';
   });
   x+='</Table></Worksheet></Workbook>';
   var blob=new Blob([x],{type:'application/vnd.ms-excel'});
