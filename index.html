@@ -256,7 +256,7 @@ tbody tr:hover td{background:var(--acc-soft)}
     </div>
     <nav class="sb-nav">
       <div class="ni" onclick="goTo(&#39;dash&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></div>Dashboard</div>
-      <div class="ni on" onclick="goTo(&#39;pqd&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>Pre-qualification<span class="ni-badge" id="nb-pqd">56</span></div>
+      <div class="ni" onclick="goTo(&#39;pqd&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>Pre-qualification<span class="ni-badge" id="nb-pqd">56</span></div>
       <div class="ni" onclick="goTo(&#39;mat&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></div>Material Submittal<span class="ni-badge" id="nb-mat">0</span></div>
       <div class="ni" onclick="goTo(&#39;mir&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/></svg></div>Material Inspection<span class="ni-badge" id="nb-mir">2</span></div>
       <div class="ni" onclick="goTo(&#39;rpt&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>Reports</div>
@@ -1583,6 +1583,11 @@ async function bootApp(){
   var nba=document.getElementById('nb-avl'); if(nba) nba.textContent=(window.AVL_DATA||[]).length;
   if(typeof rComp==='function'){ try{ rComp(); }catch(e){} }
   renderDash();renderRptHist();render();
+  // Always land on the Dashboard when the app loads / refreshes
+  try{
+    var dashNav=document.querySelector('.ni[onclick*="goTo(\'dash\'"]');
+    goTo('dash', dashNav);
+  }catch(e){ console.error('default page',e); }
 }
 function sbWaitForLib(tries){
   tries = tries||0;
