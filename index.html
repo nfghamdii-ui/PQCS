@@ -273,6 +273,7 @@ tbody tr:hover td{background:var(--acc-soft)}
       <div class="ni" onclick="goTo(&#39;mat&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></div>Material Submittal<span class="ni-badge" id="nb-mat">0</span></div>
       <div class="ni" onclick="goTo(&#39;mir&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/></svg></div>Material Inspection<span class="ni-badge" id="nb-mir">2</span></div>
       <div class="ni" onclick="goTo(&#39;fat&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/><rect x="3" y="3" width="7" height="7" rx="1"/></svg></div>FAT Tracker<span class="ni-badge" id="nb-fat">0</span></div>
+      <div class="ni" onclick="goTo(&#39;pasum&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9 13l2 2 4-4"/></svg></div>PA Summary</div>
       <div class="ni" onclick="goTo(&#39;rpt&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>Reports</div>
       <div class="ni" onclick="goTo(&#39;comp&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.7l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.7l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></svg></div>Components<span class="ni-badge" id="nb-comp" style="background:rgba(63,207,142,.15);color:var(--grn)">849</span></div>
       <div class="ni" onclick="goTo(&#39;avl&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></div>AVL — Vendor List<span class="ni-badge" id="nb-avl">3547</span></div>
@@ -440,13 +441,24 @@ tbody tr:hover td{background:var(--acc-soft)}
       </table></div></div>
       </div><!-- end pg-fat -->
 
+      <!-- PA SUMMARY PAGE (standalone) -->
+      <div id="pg-pasum" style="display: none;">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <button class="btn btn-p" onclick="genPASummary()">📋 Generate / Refresh</button>
+          <button class="btn btn-s" onclick="exportPASummaryXLSX()">⬇ Export PA Summary (Excel)</button>
+          <button class="btn btn-s" onclick="window.print()">🖨 Print</button>
+        </div>
+        <div id="pasum-out">
+          <div class="card"><div style="text-align:center;padding:40px;color:var(--t3);font-size:11px">Loading Physical Assessment Summary…</div></div>
+        </div>
+      </div><!-- end pg-pasum -->
+
+
 
       <!-- REPORTS PAGE -->
       <div id="pg-rpt" style="display: none;">
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
           <button class="btn btn-p" onclick="genLookAhead()">📅 Two-Week Look-Ahead</button>
-          <button class="btn btn-p" onclick="genPASummary()">📋 Physical Assessment Summary</button>
-          <button class="btn btn-s" onclick="exportPASummaryXLSX()">⬇ Export PA Summary (Excel)</button>
           <button class="btn btn-s" onclick="window.print()">🖨 Print</button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 240px;gap:12px;align-items:start">
@@ -1643,19 +1655,20 @@ window.addEventListener('DOMContentLoaded',function(){ sbWaitForLib(0); });
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────────
 window.goTo=function(page,el){
-  ['dash','pqd','mat','mir','fat','rpt','comp','avl','proc','dlog','chk','cal','admin'].forEach(function(p){
+  ['dash','pqd','mat','mir','fat','pasum','rpt','comp','avl','proc','dlog','chk','cal','admin'].forEach(function(p){
     var e=document.getElementById('pg-'+p);if(e)e.style.display='none';
   });
   var pg=document.getElementById('pg-'+page);if(pg)pg.style.display='';
   if(page==='admin'){ adminRender(); }
   document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('on');});
   if(el)el.classList.add('on');
-  var tt={dash:'Dashboard',pqd:'Pre-qualification (PQD)',mat:'Material Submittal',mir:'Material Inspection',fat:'FAT Schedule Tracker',rpt:'Reports',comp:'Components & Category',avl:'AVL — SEVEN Vendor List',proc:'Procedure — QA/QC Requirements',dlog:'Material Delivery Log',chk:'PQD Checklist',cal:'Calendar',admin:'Admin — Users & Projects'};
+  var tt={dash:'Dashboard',pqd:'Pre-qualification (PQD)',mat:'Material Submittal',mir:'Material Inspection',fat:'FAT Schedule Tracker',pasum:'Physical Assessment Summary',rpt:'Reports',comp:'Components & Category',avl:'AVL — SEVEN Vendor List',proc:'Procedure — QA/QC Requirements',dlog:'Material Delivery Log',chk:'PQD Checklist',cal:'Calendar',admin:'Admin — Users & Projects'};
   var t=document.getElementById('pg-title');if(t)t.textContent=tt[page]||'';
   if(page==='dash')renderDash();
   if(page==='mat')rMAT();
   if(page==='mir')rMIR();
   if(page==='fat')rFAT();
+  if(page==='pasum')genPASummary();
   if(page==='rpt')renderRptHist();
   if(page==='avl')rAVL();
   if(page==='dlog')rDLOG();
@@ -2894,7 +2907,8 @@ window.genPASummary=function(){
   t+='</tbody></table>';
   var rDate=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   var html='<div style="overflow-x:auto"><div style="background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r);padding:16px"><h3 style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:8px">Physical Assessment Summary</h3><div style="font-size:11px;color:var(--t2);margin-bottom:10px">P4 Makkah Entertainment Complex | MBL | '+rDate+' | '+rows.length+' supplier(s)</div>'+t+'</div></div>';
-  document.getElementById('rpt-out').innerHTML=html;
+  var out=document.getElementById('pasum-out')||document.getElementById('rpt-out');
+  if(out)out.innerHTML=html;
 };
 
 // Export the same data as a real .xls (Excel XML) with coloured status cells.
