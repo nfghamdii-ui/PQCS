@@ -2816,29 +2816,35 @@ function exportPA_xlsx(rows, stamp){
     if(c.bg==='#DBDBDB')return 4; if(c.bg==='#B4C7E7')return 5; return 0;
   }
   // ----- styles.xml -----
-  var colorFills=['548235','FFC000','FF0000','DBDBDB','B4C7E7','2F5496'];
+  var colorFills=['548235','FFC000','FF0000','DBDBDB','B4C7E7','000000','F4B183','B4C7E7'];
   var fillsXml='<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>';
   colorFills.forEach(function(c){ fillsXml+='<fill><patternFill patternType="solid"><fgColor rgb="FF'+c+'"/><bgColor indexed="64"/></patternFill></fill>'; });
-  var fontsXml='<font><sz val="11"/><name val="Calibri"/></font>'
-    +'<font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font>'
-    +'<font><b/><color rgb="FF000000"/><sz val="11"/><name val="Calibri"/></font>';
-  // cellXfs indexes:
-  // 0 plain-center, 1 done, 2 amber, 3 red, 4 grey, 5 blue, 6 header, 7 plain-left, 8 bold-left, 9 title
+  // fills index: 0 none,1 gray,2 green,3 amber,4 red,5 grey,6 lightblue,7 black,8 orange,9 lightblue(PQD)
+  var fontsXml='<font><sz val="11"/><name val="Calibri"/></font>'                          /*0 normal black*/
+    +'<font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font>'         /*1 bold white*/
+    +'<font><b/><color rgb="FF000000"/><sz val="11"/><name val="Calibri"/></font>'         /*2 bold black*/
+    +'<font><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font>'             /*3 white normal*/
+    +'<font><sz val="24"/><name val="Calibri"/></font>';                                   /*4 title 24*/
+  // cellXfs:
+  // 0 plain-center, 1 done, 2 amber, 3 red, 4 grey, 5 blue(status),
+  // 6 header-black(white font), 7 plain-left, 8 bold-left(supplier), 9 title(orange),
+  // 10 header-pqd(lightblue, black font)
   var xfs=[
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>',
-    '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
+    '<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
     '<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
     '<xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
     '<xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
     '<xf numFmtId="0" fontId="0" fillId="6" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
-    '<xf numFmtId="0" fontId="1" fillId="7" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>',
+    '<xf numFmtId="0" fontId="3" fillId="7" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>',
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>',
     '<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>',
-    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+    '<xf numFmtId="0" fontId="4" fillId="8" borderId="0" xfId="0" applyFill="1" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
+    '<xf numFmtId="0" fontId="2" fillId="9" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
   ];
   var styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    +'<fonts count="3">'+fontsXml+'</fonts>'
+    +'<fonts count="5">'+fontsXml+'</fonts>'
     +'<fills count="'+(2+colorFills.length)+'">'+fillsXml+'</fills>'
     +'<borders count="2"><border/><border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom></border></borders>'
     +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
@@ -2850,19 +2856,21 @@ function exportPA_xlsx(rows, stamp){
     return '<c r="'+colName(colIdx)+rowNum+'" t="inlineStr" s="'+style+'"><is><t xml:space="preserve">'+esc(val)+'</t></is></c>';
   }
   var sd='';
-  // row1 title
-  sd+='<row r="1">'+cellXml(1,0,'Physical Assessment Summary',9)+'</row>';
+  // row1 title (orange, size 24)
+  sd+='<row r="1" ht="32" customHeight="1">'+cellXml(1,0,'Physical Assessment Summary',9)+'</row>';
   // row2 empty
   sd+='<row r="2"></row>';
-  // row3 header top
+  // row3 header top  (PQD group + Phys Assessment group). PQD cols light-blue, rest black.
   var top=['F.','Suppliers proposed for participation','PQD','','Scope','Location','Physical Assessment','','','','','','','Remarks'];
-  var r3='<row r="3">'; top.forEach(function(v,ci){ r3+=cellXml(3,ci,v,6); }); r3+='</row>'; sd+=r3;
+  var topSty=[6,6,10,10,6,6,6,6,6,6,6,6,6,6];
+  var r3='<row r="3" ht="20" customHeight="1">'; top.forEach(function(v,ci){ r3+=cellXml(3,ci,v,topSty[ci]); }); r3+='</row>'; sd+=r3;
   // row4 header sub
   var sub=['','','Status','Ref Document No','','','Assessment Performed','Technical Assessor','Technical report','QMS Assessor','QMS Report','Status','Ref Document No',''];
-  var r4='<row r="4">'; sub.forEach(function(v,ci){ r4+=cellXml(4,ci,v,6); }); r4+='</row>'; sd+=r4;
+  var subSty=[6,6,10,10,6,6,6,6,6,6,6,6,6,6];
+  var r4='<row r="4" ht="32" customHeight="1">'; sub.forEach(function(v,ci){ r4+=cellXml(4,ci,v,subSty[ci]); }); r4+='</row>'; sd+=r4;
   // data rows from row5
   rows.forEach(function(r,i){
-    var rn=5+i; var rr='<row r="'+rn+'">';
+    var rn=5+i; var rr='<row r="'+rn+'" ht="32" customHeight="1">';
     rr+=cellXml(rn,0,i+1,0);
     rr+=cellXml(rn,1,r.supplier,8);
     rr+=cellXml(rn,2,r.pqdStatus,0);
@@ -2884,10 +2892,10 @@ function exportPA_xlsx(rows, stamp){
     +'<mergeCell ref="A1:N1"/><mergeCell ref="C3:D3"/><mergeCell ref="G3:M3"/>'
     +'<mergeCell ref="A3:A4"/><mergeCell ref="B3:B4"/><mergeCell ref="E3:E4"/><mergeCell ref="F3:F4"/><mergeCell ref="N3:N4"/></mergeCells>';
   var cols='<cols>'
-    +'<col min="1" max="1" width="5"/><col min="2" max="2" width="26"/><col min="3" max="3" width="18"/><col min="4" max="4" width="30"/>'
-    +'<col min="5" max="5" width="22"/><col min="6" max="6" width="14"/><col min="7" max="7" width="16"/><col min="8" max="8" width="16"/>'
-    +'<col min="9" max="9" width="15"/><col min="10" max="10" width="16"/><col min="11" max="11" width="15"/><col min="12" max="12" width="12"/>'
-    +'<col min="13" max="13" width="30"/><col min="14" max="14" width="22"/></cols>';
+    +'<col min="1" max="1" width="4"/><col min="2" max="2" width="44.3"/><col min="3" max="3" width="31.1"/><col min="4" max="4" width="52.1"/>'
+    +'<col min="5" max="5" width="25.9"/><col min="6" max="6" width="23.9"/><col min="7" max="7" width="21.7"/><col min="8" max="8" width="24.3"/>'
+    +'<col min="9" max="9" width="35.3"/><col min="10" max="10" width="24.4"/><col min="11" max="11" width="38.3"/><col min="12" max="12" width="15.7"/>'
+    +'<col min="13" max="13" width="51.4"/><col min="14" max="14" width="60"/></cols>';
   var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
     +cols+'<sheetData>'+sd+'</sheetData>'+merges+'</worksheet>';
