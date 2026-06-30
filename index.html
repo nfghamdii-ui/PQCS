@@ -179,6 +179,19 @@ tbody tr:hover td{background:var(--acc-soft)}
   tryNext();
 })();
 </script><script src="./PQCS_files/supabase.min.js.download"></script><script src="file:///C:/Users/Naif%20Alghamdi/Downloads/PQCS_files/supabase.min.js.download"></script><script src="file:///C:/Users/Naif%20Alghamdi/Downloads/PQCS_files/supabase.min.js.download"></script>
+<script>
+/* Load fflate (tiny zip lib) so we can build a real .xlsx with colours in the browser. */
+(function(){
+  var srcs=[
+    "https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js",
+    "https://unpkg.com/fflate@0.8.2/umd/index.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/fflate/0.8.2/umd/index.js"
+  ];
+  var i=0;
+  function tryNext(){ if(i>=srcs.length) return; var s=document.createElement('script'); s.src=srcs[i++]; s.onerror=tryNext; document.head.appendChild(s); }
+  tryNext();
+})();
+</script>
 </head>
 <body>
 <!-- ===== SUPABASE AUTH + PROJECT PICKER OVERLAY ===== -->
@@ -2781,35 +2794,157 @@ window.genPASummary=function(){
 window.exportPASummaryXLSX=function(){
   var rows=paSummaryRows();
   if(!rows.length){alert('No suppliers with a completed Physical Assessment (PA = Done) to export.');return;}
+  var d=new Date(); var stamp=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+
+  // Preferred path: build a real .xlsx (with fflate) -> proper cell fills in any Excel.
+  if(window.fflate && fflate.zipSync){
+    try{ exportPA_xlsx(rows, stamp); toast('Exported','✓'); return; }
+    catch(e){ console.error('xlsx export failed, falling back',e); }
+  }
+  // Fallback: SpreadsheetML .xls (older format, colours may vary by Excel version)
+  exportPA_xls(rows, stamp);
+  toast('Exported','✓');
+};
+
+// ---- Real .xlsx built by hand (zipped with fflate), colours guaranteed in any Excel ----
+function exportPA_xlsx(rows, stamp){
+  var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+  // style index per (column,value): 0 plain,1 done,2 amber,3 red,4 grey,5 blue,6 header,7 plain-left,8 bold-left,9 title
+  function sIdx(col,v){
+    var c=paCellColor(col,v); if(!c) return 0;
+    if(c.bg==='#548235')return 1; if(c.bg==='#FFC000')return 2; if(c.bg==='#FF0000')return 3;
+    if(c.bg==='#DBDBDB')return 4; if(c.bg==='#B4C7E7')return 5; return 0;
+  }
+  // ----- styles.xml -----
+  var colorFills=['548235','FFC000','FF0000','DBDBDB','B4C7E7','2F5496'];
+  var fillsXml='<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>';
+  colorFills.forEach(function(c){ fillsXml+='<fill><patternFill patternType="solid"><fgColor rgb="FF'+c+'"/><bgColor indexed="64"/></patternFill></fill>'; });
+  var fontsXml='<font><sz val="11"/><name val="Calibri"/></font>'
+    +'<font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font>'
+    +'<font><b/><color rgb="FF000000"/><sz val="11"/><name val="Calibri"/></font>';
+  // cellXfs indexes:
+  // 0 plain-center, 1 done, 2 amber, 3 red, 4 grey, 5 blue, 6 header, 7 plain-left, 8 bold-left, 9 title
+  var xfs=[
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>',
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
+    '<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
+    '<xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
+    '<xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
+    '<xf numFmtId="0" fontId="0" fillId="6" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
+    '<xf numFmtId="0" fontId="1" fillId="7" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>',
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>',
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>',
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+  ];
+  var styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +'<fonts count="3">'+fontsXml+'</fonts>'
+    +'<fills count="'+(2+colorFills.length)+'">'+fillsXml+'</fills>'
+    +'<borders count="2"><border/><border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom></border></borders>'
+    +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    +'<cellXfs count="'+xfs.length+'">'+xfs.join('')+'</cellXfs></styleSheet>';
+
+  // ----- sheet1.xml -----
+  var colName=function(n){var s='';n++;while(n>0){var m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;};
+  function cellXml(rowNum,colIdx,val,style){
+    return '<c r="'+colName(colIdx)+rowNum+'" t="inlineStr" s="'+style+'"><is><t xml:space="preserve">'+esc(val)+'</t></is></c>';
+  }
+  var sd='';
+  // row1 title
+  sd+='<row r="1">'+cellXml(1,0,'Physical Assessment Summary',9)+'</row>';
+  // row2 empty
+  sd+='<row r="2"></row>';
+  // row3 header top
+  var top=['F.','Suppliers proposed for participation','PQD','','Scope','Location','Physical Assessment','','','','','','','Remarks'];
+  var r3='<row r="3">'; top.forEach(function(v,ci){ r3+=cellXml(3,ci,v,6); }); r3+='</row>'; sd+=r3;
+  // row4 header sub
+  var sub=['','','Status','Ref Document No','','','Assessment Performed','Technical Assessor','Technical report','QMS Assessor','QMS Report','Status','Ref Document No',''];
+  var r4='<row r="4">'; sub.forEach(function(v,ci){ r4+=cellXml(4,ci,v,6); }); r4+='</row>'; sd+=r4;
+  // data rows from row5
+  rows.forEach(function(r,i){
+    var rn=5+i; var rr='<row r="'+rn+'">';
+    rr+=cellXml(rn,0,i+1,0);
+    rr+=cellXml(rn,1,r.supplier,8);
+    rr+=cellXml(rn,2,r.pqdStatus,0);
+    rr+=cellXml(rn,3,r.pqdRef,7);
+    rr+=cellXml(rn,4,r.scope,7);
+    rr+=cellXml(rn,5,r.location,0);
+    rr+=cellXml(rn,6,r.assessment,sIdx('assess',r.assessment));
+    rr+=cellXml(rn,7,r.techAssessor,0);
+    rr+=cellXml(rn,8,r.techReport,sIdx('report',r.techReport));
+    rr+=cellXml(rn,9,r.qmsAssessor,0);
+    rr+=cellXml(rn,10,r.qmsReport,sIdx('report',r.qmsReport));
+    rr+=cellXml(rn,11,r.paStatus,sIdx('pastatus',r.paStatus));
+    rr+=cellXml(rn,12,r.paRef,7);
+    rr+=cellXml(rn,13,r.remarks,7);
+    rr+='</row>'; sd+=rr;
+  });
+  var lastRow=4+rows.length;
+  var merges='<mergeCells count="8">'
+    +'<mergeCell ref="A1:N1"/><mergeCell ref="C3:D3"/><mergeCell ref="G3:M3"/>'
+    +'<mergeCell ref="A3:A4"/><mergeCell ref="B3:B4"/><mergeCell ref="E3:E4"/><mergeCell ref="F3:F4"/><mergeCell ref="N3:N4"/></mergeCells>';
+  var cols='<cols>'
+    +'<col min="1" max="1" width="5"/><col min="2" max="2" width="26"/><col min="3" max="3" width="18"/><col min="4" max="4" width="30"/>'
+    +'<col min="5" max="5" width="22"/><col min="6" max="6" width="14"/><col min="7" max="7" width="16"/><col min="8" max="8" width="16"/>'
+    +'<col min="9" max="9" width="15"/><col min="10" max="10" width="16"/><col min="11" max="11" width="15"/><col min="12" max="12" width="12"/>'
+    +'<col min="13" max="13" width="30"/><col min="14" max="14" width="22"/></cols>';
+  var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +cols+'<sheetData>'+sd+'</sheetData>'+merges+'</worksheet>';
+
+  // ----- package parts -----
+  var ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    +'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    +'<Default Extension="xml" ContentType="application/xml"/>'
+    +'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+    +'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+    +'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
+  var rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  var wbxml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="PA Summary" sheetId="1" r:id="rId1"/></sheets></workbook>';
+  var wbrels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+
+  var enc=function(s){return fflate.strToU8(s);};
+  var files={
+    '[Content_Types].xml':enc(ct),
+    '_rels/.rels':enc(rels),
+    'xl/workbook.xml':enc(wbxml),
+    'xl/_rels/workbook.xml.rels':enc(wbrels),
+    'xl/styles.xml':enc(styles),
+    'xl/worksheets/sheet1.xml':enc(sheet)
+  };
+  var zipped=fflate.zipSync(files,{level:6});
+  var blob=new Blob([zipped],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url; a.download='PA_Summary_'+stamp+'.xlsx';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},1000);
+}
+
+// ---- Fallback: SpreadsheetML .xls ----
+function exportPA_xls(rows, stamp){
   var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
   var styles=''
     +'<Style ss:ID="hdr"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#2F5496" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
     +'<Style ss:ID="cell"><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
-    +'<Style ss:ID="done"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#548235" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
-    +'<Style ss:ID="amber"><Font ss:Bold="1" ss:Color="#000000"/><Interior ss:Color="#FFC000" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
-    +'<Style ss:ID="red"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#FF0000" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
-    +'<Style ss:ID="grey"><Font ss:Color="#000000"/><Interior ss:Color="#DBDBDB" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
-    +'<Style ss:ID="blue"><Font ss:Color="#000000"/><Interior ss:Color="#B4C7E7" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>'
+    +'<Style ss:ID="done"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#548235" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/></Style>'
+    +'<Style ss:ID="amber"><Font ss:Bold="1" ss:Color="#000000"/><Interior ss:Color="#FFC000" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/></Style>'
+    +'<Style ss:ID="red"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#FF0000" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/></Style>'
+    +'<Style ss:ID="grey"><Font ss:Color="#000000"/><Interior ss:Color="#DBDBDB" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/></Style>'
+    +'<Style ss:ID="blue"><Font ss:Color="#000000"/><Interior ss:Color="#B4C7E7" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/></Style>'
     +'<Style ss:ID="title"><Font ss:Bold="1" ss:Size="14"/></Style>';
-  // pick the Excel style id for a value within a given column type
   var styFor=function(v,col){var c=paCellColor(col,v);if(!c)return 'cell';
-    if(c.bg==='#548235')return 'done';
-    if(c.bg==='#FFC000')return 'amber';
-    if(c.bg==='#FF0000')return 'red';
-    if(c.bg==='#DBDBDB')return 'grey';
-    if(c.bg==='#B4C7E7')return 'blue';
-    return 'cell';};
+    if(c.bg==='#548235')return 'done'; if(c.bg==='#FFC000')return 'amber';
+    if(c.bg==='#FF0000')return 'red'; if(c.bg==='#DBDBDB')return 'grey';
+    if(c.bg==='#B4C7E7')return 'blue'; return 'cell';};
   var cell=function(v,style){return '<Cell ss:StyleID="'+(style||'cell')+'"><Data ss:Type="String">'+esc(v)+'</Data></Cell>';};
   var x='<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?>'
     +'<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'
-    +'<Styles>'+styles+'</Styles>'
-    +'<Worksheet ss:Name="PA Summary"><Table>';
-  // column widths
+    +'<Styles>'+styles+'</Styles><Worksheet ss:Name="PA Summary"><Table>';
   var widths=[30,180,120,210,150,90,90,110,110,110,110,90,210,140];
   widths.forEach(function(w){x+='<Column ss:Width="'+w+'"/>';});
-  // title row
   x+='<Row><Cell ss:StyleID="title"><Data ss:Type="String">Physical Assessment Summary</Data></Cell></Row><Row></Row>';
-  // header row 1 (top)
   x+='<Row>'+cell('F.','hdr')+cell('Suppliers proposed for participation','hdr')+cell('PQD Status','hdr')+cell('PQD Ref Document No','hdr')+cell('Scope','hdr')+cell('Location','hdr')+cell('Assessment Performed','hdr')+cell('Technical Assessor','hdr')+cell('Technical report','hdr')+cell('QMS Assessor','hdr')+cell('QMS Report','hdr')+cell('PA Status','hdr')+cell('PA Ref Document No','hdr')+cell('Remarks','hdr')+'</Row>';
   rows.forEach(function(r,i){
     x+='<Row>'+cell(i+1)+cell(r.supplier)+cell(r.pqdStatus)+cell(r.pqdRef)+cell(r.scope)+cell(r.location)
@@ -2819,12 +2954,10 @@ window.exportPASummaryXLSX=function(){
   var blob=new Blob([x],{type:'application/vnd.ms-excel'});
   var url=URL.createObjectURL(blob);
   var a=document.createElement('a');
-  var d=new Date(); var stamp=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
   a.href=url; a.download='PA_Summary_'+stamp+'.xls';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(function(){URL.revokeObjectURL(url);},1000);
-  toast('Exported','✓');
-};
+}
 
 // ── COMPONENTS DATA (from SEVEN Procedure 0DMQL00-DLVR-00-SEV-QM-PRO-00015) ─
 var COMP_DATA=[];/* loaded from Supabase at runtime */
