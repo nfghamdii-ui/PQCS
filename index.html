@@ -2242,8 +2242,13 @@ window.closeMIR=function(){
   var ck=document.getElementById('irn-attached');if(ck)ck.checked=false;
   var ml=document.getElementById('mir-mat-list');if(ml)ml.style.display='none';
   var mh=document.getElementById('mir-mat');if(mh)mh.value='';
+  var idd=document.getElementById('irn-details');if(idd)idd.style.display='none';
   loadMIRItems('',null);
   document.getElementById('mir-eid').value='';
+};
+window.toggleIRNDetails=function(){
+  var d=document.getElementById('irn-details');
+  if(d)d.style.display=(d.style.display==='none'||!d.style.display)?'':'none';
 };
 document.addEventListener('DOMContentLoaded',function(){var o=document.getElementById('ov-mir');if(o)o.addEventListener('click',function(e){if(e.target===this)closeMIR();});});
 window.saveMIR=function(){
@@ -2274,6 +2279,8 @@ window.editMIR=function(id){
   sv('mir-co',m.company);sv('mir-leed',m.leed||'N/A');sv('mir-saso',m.saso||'N/A');
   sv('mir-st',m.status||'Pending');
   sv('irn-num',m.irnNum);sv('irn-date',m.irnDate);sv('irn-st',m.irnStatus||'N/A');
+  var idd=document.getElementById('irn-details');
+  if(idd) idd.style.display=(m.irnNum||m.irnDate||(m.irnStatus&&m.irnStatus!=='N/A'))?'':'none';
   loadMATRef(m.matRef||'');document.getElementById('irn-attached').checked=!!m.irnAttached;
   loadMIRItems(m.matRef||'',m.recvItems||[]);
   sv('mir-notes',m.notes);
@@ -2725,12 +2732,10 @@ window.fComp=function(type,v){
     </div>
   </div>
 
-  <span class="m-sec">MTS Status</span>
+  <span class="m-sec">Notes</span>
   <div class="fg">
-    <div><label class="fl">MTS Status</label>
-      <select class="fs" id="m-mts"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Rejected</option></select>
-    </div>
-    <div><label class="fl">Notes</label><input class="fi" id="m-notes" placeholder="Remarks..." wfd-id="id33"></div>
+    <div class="fg-f"><label class="fl">Notes</label><input class="fi" id="m-notes" placeholder="Remarks..." wfd-id="id33"></div>
+    <select class="fs" id="m-mts" style="display:none"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Rejected</option></select>
   </div>
 
   <div class="m-foot">
@@ -2749,7 +2754,7 @@ window.fComp=function(type,v){
   <span class="m-sec">Material Information</span>
   <div class="fg">
     <div class="fg-f"><label class="fl">Material Name *</label><input class="fi" id="mir-name" placeholder="e.g. Chiller, HV Switchgear..." wfd-id="id35"></div>
-    <div><label class="fl">MIR Number</label><input class="fi" id="mir-num" placeholder="MIR-001" wfd-id="id36"></div>
+    <input type="hidden" id="mir-num" value="">
     <div><label class="fl">Aconex Reference</label><input class="fi" id="mir-aconex" placeholder="MBL-P4M-QC-MIR-00001" wfd-id="id37"></div>
     <div><label class="fl">Date</label><input class="fi" type="date" id="mir-date" wfd-id="id38"></div>
     <div><label class="fl">Category</label>
@@ -2790,23 +2795,25 @@ window.fComp=function(type,v){
     </div>
   </div>
 
-  <span class="m-sec">MIR Status</span>
-  <div class="fg">
-    <div><label class="fl">MIR Status</label>
-      <select class="fs" id="mir-st"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Rejected</option></select>
-    </div>
-  </div>
+  <select class="fs" id="mir-st" style="display:none"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Rejected</option></select>
 
   <span class="m-sec">IRN — Inspection Release Note</span>
   <div class="fg">
-    <div><label class="fl">IRN Number</label><input class="fi" id="irn-num" placeholder="IRN-001" wfd-id="id41"></div>
-    <div><label class="fl">IRN Date</label><input class="fi" type="date" id="irn-date" wfd-id="id42"></div>
-    <div><label class="fl">IRN Status</label>
-      <select class="fs" id="irn-st"><option>N/A</option><option>Pending</option><option>Issued</option><option>Rejected</option></select>
+    <div style="display:flex;align-items:center;gap:8px">
+      <input type="checkbox" id="irn-attached" style="width:18px;height:18px;accent-color:var(--blue);cursor:pointer" wfd-id="id43">
+      <label for="irn-attached" style="font-size:13px;color:var(--text);cursor:pointer;user-select:none">IRN is attached</label>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;padding-top:22px">
-      <input type="checkbox" id="irn-attached" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer" wfd-id="id43">
-      <label for="irn-attached" style="font-size:12px;color:var(--text);cursor:pointer;user-select:none">IRN is attached</label>
+    <div style="display:flex;align-items:center">
+      <button type="button" class="btn btn-s" style="font-size:11px;padding:5px 11px" onclick="toggleIRNDetails()">⊕ IRN details (No., Date, Status)</button>
+    </div>
+    <div id="irn-details" class="fg-f" style="display:none">
+      <div class="fg">
+        <div><label class="fl">IRN Number</label><input class="fi" id="irn-num" placeholder="IRN-001" wfd-id="id41"></div>
+        <div><label class="fl">IRN Date</label><input class="fi" type="date" id="irn-date" wfd-id="id42"></div>
+        <div><label class="fl">IRN Status</label>
+          <select class="fs" id="irn-st"><option>N/A</option><option>Pending</option><option>Issued</option><option>Rejected</option></select>
+        </div>
+      </div>
     </div>
     <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="mir-notes" rows="2"></textarea></div>
   </div>
