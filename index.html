@@ -818,7 +818,7 @@ ELECTRICAL</option><option>PO - Pools, Spas &amp; Water Features</option><option
     </div>
     <div><label class="fl">PQD Status</label>
       <select class="fs" id="f-pqd">
-        <option>Pending</option><option>Submitted</option><option>Approved</option><option>Code C</option><option>Rejected</option>
+        <option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved - A</option><option>Approved - B</option><option>Code C</option><option>Rejected</option>
       </select>
     </div>
   </div>
@@ -1485,7 +1485,7 @@ window.del=function(id, rowid){
 // ── RENDER TABLE ──────────────────────────────────────────────────────────────
 function sc(v){
   if(!v)return '<span class="st3">—</span>';
-  var g=['Approved','Done','Issued','Valid','In AVL'];
+  var g=['Approved','Approved - A','Approved - B','Approved with Comments','Done','Issued','Valid','In AVL'];
   var r=['Rejected','Expired','Failed','Not in AVL'];
   var o=['Waived','Different Scope','Code C'];
   var b=['Submitted','Scheduled'];
@@ -1497,7 +1497,7 @@ function cB(v){var m={C0:'bc0',C1:'bc1',C2:'bc2',C3:'bc3'};return v?'<span class
 function isExp(d){return d&&new Date(d)<new Date();}
 
 var PQD_FILTER_OPTS={
-  pqd:['Pending','Submitted','Approved','Code C','Rejected'],
+  pqd:['Pending','Submitted','Approved','Approved - A','Approved - B','Code C','Rejected'],
   avl:['In AVL','Not in AVL'],
   srvReq:['Required','Done','Waived','N/A'],
   qms:['Pending','Submitted','Approved','N/A'],
