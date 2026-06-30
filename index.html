@@ -272,6 +272,7 @@ tbody tr:hover td{background:var(--acc-soft)}
       <div class="ni" onclick="goTo(&#39;pqd&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>Pre-qualification<span class="ni-badge" id="nb-pqd">56</span></div>
       <div class="ni" onclick="goTo(&#39;mat&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></div>Material Submittal<span class="ni-badge" id="nb-mat">0</span></div>
       <div class="ni" onclick="goTo(&#39;mir&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3M8 11h6M11 8v6"/></svg></div>Material Inspection<span class="ni-badge" id="nb-mir">2</span></div>
+      <div class="ni" onclick="goTo(&#39;fat&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/><rect x="3" y="3" width="7" height="7" rx="1"/></svg></div>FAT Tracker<span class="ni-badge" id="nb-fat">0</span></div>
       <div class="ni" onclick="goTo(&#39;rpt&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>Reports</div>
       <div class="ni" onclick="goTo(&#39;comp&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.7l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.7l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></svg></div>Components<span class="ni-badge" id="nb-comp" style="background:rgba(63,207,142,.15);color:var(--grn)">849</span></div>
       <div class="ni" onclick="goTo(&#39;avl&#39;,this)"><div class="ni-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></div>AVL — Vendor List<span class="ni-badge" id="nb-avl">3547</span></div>
@@ -420,6 +421,25 @@ tbody tr:hover td{background:var(--acc-soft)}
         <tbody id="tb-mir"></tbody>
       </table></div></div>
       </div><!-- end pg-mir -->
+
+      <div id="pg-fat" style="display: none;">
+      <div class="toolbar">
+        <input class="ts" placeholder="⊙ Search FAT..." oninput="rFAT(this.value)">
+        <select class="tsel" onchange="rFAT(&#39;&#39;,this.value)"><option value="">All Status</option><option>FAT done</option><option>Final inspection done</option><option>Re-FAT is required</option><option>Pending</option></select>
+        <button class="btn btn-p" onclick="openFAT()">+ Add FAT Item</button>
+        <button class="btn btn-s" onclick="exportFATXLSX()">⬇ Export FAT (Excel)</button>
+      </div>
+      <div class="card"><div class="tw"><table>
+        <thead><tr>
+          <th>S#</th><th>Material</th><th>Manufacturer</th><th>Cat</th><th>Location</th>
+          <th>TPIA</th><th>Inspector</th><th>TPIA Approval</th>
+          <th>Pre-fab Date</th><th>Fab Date</th><th>FAT Date</th><th>Delivery Date</th>
+          <th>Remark</th><th>Act</th>
+        </tr></thead>
+        <tbody id="tb-fat"></tbody>
+      </table></div></div>
+      </div><!-- end pg-fat -->
+
 
       <!-- REPORTS PAGE -->
       <div id="pg-rpt" style="display: none;">
@@ -915,7 +935,7 @@ var sb = null; // initialized in sbBoot() after DOM + CDN ready
 var CUR_PROJECT=null;
 var CUR_USER=null;
 window.AVL_DATA=[];
-var SB_TABLES=['pqd','mat','mir','events'];
+var SB_TABLES=['pqd','mat','mir','events','fat'];
 
 var CUR_PROFILE=null;
 
@@ -1263,7 +1283,7 @@ window.adminDeleteProject=async function(pid){
 
 
 async function sbLoadAll(){
-  DB={pqd:[],mat:[],mir:[],events:[]};
+  DB={pqd:[],mat:[],mir:[],events:[],fat:[]};
   for(var i=0;i<SB_TABLES.length;i++){
     var t=SB_TABLES[i];
     var r = await sb.from(t).select('id,data').eq('project_id',CUR_PROJECT);
@@ -1592,6 +1612,7 @@ async function bootApp(){
   document.getElementById('nb-pqd').textContent=(DB.pqd||[]).length;
   document.getElementById('nb-mat').textContent=(DB.mat||[]).length;
   document.getElementById('nb-mir').textContent=(DB.mir||[]).length;
+  var nbf=document.getElementById('nb-fat'); if(nbf) nbf.textContent=(DB.fat||[]).length;
   var nbc=document.getElementById('nb-comp'); if(nbc) nbc.textContent=(COMP_DATA||[]).length;
   var nba=document.getElementById('nb-avl'); if(nba) nba.textContent=(window.AVL_DATA||[]).length;
   if(typeof rComp==='function'){ try{ rComp(); }catch(e){} }
@@ -1622,18 +1643,19 @@ window.addEventListener('DOMContentLoaded',function(){ sbWaitForLib(0); });
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────────
 window.goTo=function(page,el){
-  ['dash','pqd','mat','mir','rpt','comp','avl','proc','dlog','chk','cal','admin'].forEach(function(p){
+  ['dash','pqd','mat','mir','fat','rpt','comp','avl','proc','dlog','chk','cal','admin'].forEach(function(p){
     var e=document.getElementById('pg-'+p);if(e)e.style.display='none';
   });
   var pg=document.getElementById('pg-'+page);if(pg)pg.style.display='';
   if(page==='admin'){ adminRender(); }
   document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('on');});
   if(el)el.classList.add('on');
-  var tt={dash:'Dashboard',pqd:'Pre-qualification (PQD)',mat:'Material Submittal',mir:'Material Inspection',rpt:'Reports',comp:'Components & Category',avl:'AVL — SEVEN Vendor List',proc:'Procedure — QA/QC Requirements',dlog:'Material Delivery Log',chk:'PQD Checklist',cal:'Calendar',admin:'Admin — Users & Projects'};
+  var tt={dash:'Dashboard',pqd:'Pre-qualification (PQD)',mat:'Material Submittal',mir:'Material Inspection',fat:'FAT Schedule Tracker',rpt:'Reports',comp:'Components & Category',avl:'AVL — SEVEN Vendor List',proc:'Procedure — QA/QC Requirements',dlog:'Material Delivery Log',chk:'PQD Checklist',cal:'Calendar',admin:'Admin — Users & Projects'};
   var t=document.getElementById('pg-title');if(t)t.textContent=tt[page]||'';
   if(page==='dash')renderDash();
   if(page==='mat')rMAT();
   if(page==='mir')rMIR();
+  if(page==='fat')rFAT();
   if(page==='rpt')renderRptHist();
   if(page==='avl')rAVL();
   if(page==='dlog')rDLOG();
@@ -2379,6 +2401,91 @@ window.delMIR=function(id, rowid){
   rMIR();toast('Deleted','🗑');
   document.getElementById('nb-mir').textContent=DB.mir.length;
 };
+
+// ── FAT Schedule Tracker ──────────────────────────────────────────────────────
+function fatRemarkColor(v){
+  var s=String(v||'').toLowerCase().trim();
+  if(s.indexOf('re-fat')>-1||s.indexOf('required')>-1) return {bg:'#F6C6AD',fg:'#000000'};
+  if(s.indexOf('done')>-1) return {bg:'#A3C4A7',fg:'#000000'};
+  return null;
+}
+window.openFAT=function(){
+  document.getElementById('fat-eid').value='';
+  document.getElementById('fat-title').textContent='FAT Schedule Item';
+  document.getElementById('ov-fat').classList.add('on');
+};
+window.closeFAT=function(){
+  document.getElementById('ov-fat').classList.remove('on');
+  document.querySelectorAll('#ov-fat .fi,#ov-fat .ft').forEach(function(e){e.value='';});
+  document.querySelectorAll('#ov-fat .fs').forEach(function(e){e.selectedIndex=0;});
+  document.getElementById('fat-eid').value='';
+};
+document.addEventListener('DOMContentLoaded',function(){var o=document.getElementById('ov-fat');if(o)o.addEventListener('click',function(e){if(e.target===this)closeFAT();});});
+window.saveFAT=function(){
+  var n=document.getElementById('fat-material').value.trim();
+  if(!n)return alert('Enter material name');
+  var eid=document.getElementById('fat-eid').value;
+  var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
+  var m={id:eid?+eid:Date.now(),material:n,
+    mfr:g('fat-mfr'),cat:g('fat-cat'),loc:g('fat-loc'),addr:g('fat-addr'),
+    tpia:g('fat-tpia'),inspector:g('fat-inspector'),approval:g('fat-approval'),
+    prefab:g('fat-prefab'),fab:g('fat-fab'),fatDate:g('fat-fatdate'),delivery:g('fat-delivery'),
+    remark:g('fat-remark'),attSeven:g('fat-att-seven'),attSapl:g('fat-att-sapl'),attDah:g('fat-att-dah')
+  };
+  if(eid){var i=DB.fat.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.fat[i]._rowid)m._rowid=DB.fat[i]._rowid;DB.fat[i]=m;}}
+  else DB.fat.push(m);
+  var btn=document.getElementById('fat-save-btn');if(btn)btn.disabled=true;
+  persist('fat',m).then(function(){if(btn)btn.disabled=false;});
+  closeFAT();rFAT();toast('Saved','✓');
+  document.getElementById('nb-fat').textContent=DB.fat.length;
+};
+window.editFAT=function(id){
+  var m=(DB.fat||[]).find(function(x){return x.id===id;});if(!m)return;
+  var sv=function(fid,val){var e=document.getElementById(fid);if(e)e.value=val||'';};
+  sv('fat-eid',id);sv('fat-material',m.material);sv('fat-mfr',m.mfr);sv('fat-cat',m.cat);
+  sv('fat-loc',m.loc);sv('fat-addr',m.addr);sv('fat-tpia',m.tpia);sv('fat-inspector',m.inspector);
+  sv('fat-approval',m.approval||'Approved');
+  sv('fat-prefab',m.prefab);sv('fat-fab',m.fab);sv('fat-fatdate',m.fatDate);sv('fat-delivery',m.delivery);
+  sv('fat-remark',m.remark||'FAT done');sv('fat-att-seven',m.attSeven);sv('fat-att-sapl',m.attSapl);sv('fat-att-dah',m.attDah);
+  document.getElementById('fat-title').textContent='Edit FAT Item';
+  document.getElementById('ov-fat').classList.add('on');
+};
+window.delFAT=function(id, rowid){
+  if(!confirm('Delete this FAT item?'))return;
+  var rec;
+  if(rowid!==undefined && rowid!==null && rowid!==''){ rec=DB.fat.find(function(x){return String(x._rowid)===String(rowid);}); }
+  if(!rec) rec=DB.fat.find(function(x){return x.id===id;});
+  if(rec&&rec._rowid){
+    sbDelete('fat',rec._rowid);
+    DB.fat=DB.fat.filter(function(x){return String(x._rowid)!==String(rec._rowid);});
+  } else { var idx=DB.fat.indexOf(rec); if(idx>-1) DB.fat.splice(idx,1); }
+  rFAT();toast('Deleted','🗑');
+  document.getElementById('nb-fat').textContent=DB.fat.length;
+};
+window.rFAT=function(sr,sf){
+  sr=(sr||'').toLowerCase();sf=sf||'';
+  var items=DB.fat||[];
+  var tb=document.getElementById('tb-fat');if(!tb)return;
+  var fd=function(d){return d?d:'';};
+  var rows=items.filter(function(m){
+    if(sf && (m.remark||'')!==sf) return false;
+    if(sr){ var hay=((m.material||'')+' '+(m.mfr||'')+' '+(m.loc||'')+' '+(m.tpia||'')+' '+(m.inspector||'')).toLowerCase(); if(hay.indexOf(sr)<0) return false; }
+    return true;
+  });
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="14" style="text-align:center;color:var(--t3);padding:20px">No FAT items yet. Click "+ Add FAT Item" to start.</td></tr>'; return; }
+  var html='';
+  rows.forEach(function(m,i){
+    var rc=fatRemarkColor(m.remark);
+    var rcell=rc?'<td style="background:'+rc.bg+';color:'+rc.fg+';font-weight:700">'+(m.remark||'')+'</td>':'<td>'+(m.remark||'')+'</td>';
+    html+='<tr>'
+      +'<td>'+(i+1)+'</td><td style="font-weight:600">'+(m.material||'')+'</td><td>'+(m.mfr||'')+'</td><td>'+(m.cat||'')+'</td><td>'+(m.loc||'')+'</td>'
+      +'<td>'+(m.tpia||'')+'</td><td>'+(m.inspector||'')+'</td><td>'+(m.approval||'')+'</td>'
+      +'<td>'+fd(m.prefab)+'</td><td>'+fd(m.fab)+'</td><td>'+fd(m.fatDate)+'</td><td>'+fd(m.delivery)+'</td>'
+      +rcell
+      +'<td style="white-space:nowrap"><button class="ab e" onclick="editFAT('+m.id+')">✏️</button> <button class="ab d" onclick="delFAT('+m.id+(m._rowid!==undefined&&m._rowid!==null?",\'"+m._rowid+"\'":"")+')">🗑️</button></td></tr>';
+  });
+  tb.innerHTML=html;
+};
 window.rMIR=function(sr,sf){
   sr=sr||'';sf=sf||'';
   var items=DB.mir||[];
@@ -2967,7 +3074,67 @@ function exportPA_xls(rows, stamp){
   setTimeout(function(){URL.revokeObjectURL(url);},1000);
 }
 
-// ── COMPONENTS DATA (from SEVEN Procedure 0DMQL00-DLVR-00-SEV-QM-PRO-00015) ─
+// ── FAT export: real .xlsx with colours matching the original tracker ──
+window.exportFATXLSX=function(){
+  var rows=(DB.fat||[]).slice();
+  if(!rows.length){alert('No FAT items to export.');return;}
+  var d=new Date(); var stamp=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+  if(!(window.fflate && fflate.zipSync)){ alert('Export library still loading — please try again in a moment.'); return; }
+  var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+  // styles: fills 2 header(teal #156082), 3 green(#A3C4A7), 4 orange(#F6C6AD)
+  var fillsXml='<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+    +'<fill><patternFill patternType="solid"><fgColor rgb="FF156082"/><bgColor indexed="64"/></patternFill></fill>'
+    +'<fill><patternFill patternType="solid"><fgColor rgb="FFA3C4A7"/><bgColor indexed="64"/></patternFill></fill>'
+    +'<fill><patternFill patternType="solid"><fgColor rgb="FFF6C6AD"/><bgColor indexed="64"/></patternFill></fill>';
+  var fontsXml='<font><sz val="11"/><name val="Calibri"/></font>'
+    +'<font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font>'
+    +'<font><b/><color rgb="FF000000"/><sz val="11"/><name val="Calibri"/></font>'
+    +'<font><sz val="16"/><b/><name val="Calibri"/></font>';
+  var xfs=[
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>',     /*0 plain center*/
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>', /*1 header*/
+    '<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>', /*2 green*/
+    '<xf numFmtId="0" fontId="2" fillId="4" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>', /*3 orange*/
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>',          /*4 left*/
+    '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>'                          /*5 title*/
+  ];
+  var styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +'<fonts count="4">'+fontsXml+'</fonts><fills count="5">'+fillsXml+'</fills>'
+    +'<borders count="2"><border/><border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom></border></borders>'
+    +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    +'<cellXfs count="'+xfs.length+'">'+xfs.join('')+'</cellXfs></styleSheet>';
+  var colName=function(n){var s='';n++;while(n>0){var m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;};
+  function cx(rn,ci,v,s){return '<c r="'+colName(ci)+rn+'" t="inlineStr" s="'+s+'"><is><t xml:space="preserve">'+esc(v)+'</t></is></c>';}
+  function remStyle(v){var c=fatRemarkColor(v);if(!c)return 0;return c.bg==='#A3C4A7'?2:3;}
+  var hdr=['S#','Material','Manufacturer / Supplier','Material Category','Country / Location','TPIA Agency','Inspector','TPIA Approval','Pre-fabrication Date','Fabrication Date','FAT Date','First Delivery Date','Remark / Comments'];
+  var sd='';
+  sd+='<row r="1" ht="24" customHeight="1">'+cx(1,0,'Final Inspection / FAT Schedule Tracker — Makkah',5)+'</row>';
+  sd+='<row r="2"></row>';
+  var hr='<row r="3" ht="30" customHeight="1">'; hdr.forEach(function(v,ci){ hr+=cx(3,ci,v,1); }); hr+='</row>'; sd+=hr;
+  rows.forEach(function(m,i){
+    var rn=4+i; var rr='<row r="'+rn+'" ht="22" customHeight="1">';
+    rr+=cx(rn,0,i+1,0)+cx(rn,1,m.material,4)+cx(rn,2,m.mfr,4)+cx(rn,3,m.cat,0)+cx(rn,4,m.loc,0)
+      +cx(rn,5,m.tpia,0)+cx(rn,6,m.inspector,0)+cx(rn,7,m.approval,0)
+      +cx(rn,8,m.prefab,0)+cx(rn,9,m.fab,0)+cx(rn,10,m.fatDate,0)+cx(rn,11,m.delivery,0)
+      +cx(rn,12,m.remark,remStyle(m.remark));
+    rr+='</row>'; sd+=rr;
+  });
+  var cols='<cols><col min="1" max="1" width="5"/><col min="2" max="2" width="26"/><col min="3" max="3" width="22"/><col min="4" max="4" width="14"/><col min="5" max="5" width="20"/><col min="6" max="6" width="22"/><col min="7" max="7" width="18"/><col min="8" max="8" width="14"/><col min="9" max="9" width="18"/><col min="10" max="10" width="16"/><col min="11" max="11" width="14"/><col min="12" max="12" width="16"/><col min="13" max="13" width="24"/></cols>';
+  var merges='<mergeCells count="1"><mergeCell ref="A1:M1"/></mergeCells>';
+  var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+cols+'<sheetData>'+sd+'</sheetData>'+merges+'</worksheet>';
+  var ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
+  var rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  var wbxml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="FAT Tracker" sheetId="1" r:id="rId1"/></sheets></workbook>';
+  var wbrels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+  var enc=function(s){return fflate.strToU8(s);};
+  var zipped=fflate.zipSync({'[Content_Types].xml':enc(ct),'_rels/.rels':enc(rels),'xl/workbook.xml':enc(wbxml),'xl/_rels/workbook.xml.rels':enc(wbrels),'xl/styles.xml':enc(styles),'xl/worksheets/sheet1.xml':enc(sheet)},{level:6});
+  var blob=new Blob([zipped],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=url; a.download='FAT_Tracker_'+stamp+'.xlsx';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},1000);
+  toast('Exported','✓');
+};
 var COMP_DATA=[];/* loaded from Supabase at runtime */
 
 var compSr='',compCat='',compTrade='';
@@ -3168,6 +3335,57 @@ window.fComp=function(type,v){
   <div class="m-foot">
     <button class="btn btn-s" onclick="closeMIR()">Cancel</button>
     <button class="btn btn-p" id="mir-save-btn" onclick="saveMIR()">Save MIR</button>
+  </div>
+</div>
+</div>
+
+<!-- FAT MODAL -->
+<div class="ov" id="ov-fat">
+<div class="modal">
+  <div class="m-head"><h2 id="fat-title">FAT Schedule Item</h2></div>
+  <input type="hidden" id="fat-eid">
+
+  <span class="m-sec">Material Information</span>
+  <div class="fg">
+    <div><label class="fl">Material *</label><input class="fi" id="fat-material" placeholder="e.g. Chillers, Fire Pumps..."></div>
+    <div><label class="fl">Manufacturer / Supplier Name</label><input class="fi" id="fat-mfr" placeholder="e.g. Daikin"></div>
+    <div><label class="fl">Material Category</label>
+      <select class="fs" id="fat-cat"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select>
+    </div>
+    <div><label class="fl">Country / Location</label><input class="fi" id="fat-loc" placeholder="e.g. Italy/ROMA"></div>
+    <div class="fg-f"><label class="fl">Manufacturer / Supplier Address</label><input class="fi" id="fat-addr" placeholder="Supplier / fabrication address"></div>
+  </div>
+
+  <span class="m-sec">Third Party Inspection</span>
+  <div class="fg">
+    <div><label class="fl">TPIA (Agency)</label><input class="fi" id="fat-tpia" placeholder="e.g. TUV-SUD"></div>
+    <div><label class="fl">Inspector Name</label><input class="fi" id="fat-inspector" placeholder="Inspector name"></div>
+    <div><label class="fl">TPIA Approval</label>
+      <select class="fs" id="fat-approval"><option>Approved</option><option>Pending</option><option>Rejected</option><option>N/A</option></select>
+    </div>
+  </div>
+
+  <span class="m-sec">Schedule Dates</span>
+  <div class="fg">
+    <div><label class="fl">Pre-fabrication (Kick-off)</label><input class="fi" type="date" id="fat-prefab"></div>
+    <div><label class="fl">Fabrication (Start)</label><input class="fi" type="date" id="fat-fab"></div>
+    <div><label class="fl">Factory Acceptance Test (FAT)</label><input class="fi" type="date" id="fat-fatdate"></div>
+    <div><label class="fl">First Delivery Date</label><input class="fi" type="date" id="fat-delivery"></div>
+  </div>
+
+  <span class="m-sec">Status &amp; Attendees</span>
+  <div class="fg">
+    <div><label class="fl">Remark / Status</label>
+      <select class="fs" id="fat-remark"><option>FAT done</option><option>Final inspection done</option><option>Re-FAT is required</option><option>Pending</option><option>In progress</option></select>
+    </div>
+    <div><label class="fl">Attendee — SEVEN</label><input class="fi" id="fat-att-seven" placeholder="Y / N / name"></div>
+    <div><label class="fl">Attendee — SAPL</label><input class="fi" id="fat-att-sapl" placeholder="Y / N / name"></div>
+    <div><label class="fl">Attendee — DAH</label><input class="fi" id="fat-att-dah" placeholder="Y / N / name"></div>
+  </div>
+
+  <div class="m-foot">
+    <button class="btn btn-s" onclick="closeFAT()">Cancel</button>
+    <button class="btn btn-p" id="fat-save-btn" onclick="saveFAT()">Save FAT Item</button>
   </div>
 </div>
 </div>
