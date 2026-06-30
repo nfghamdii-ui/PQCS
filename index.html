@@ -829,6 +829,21 @@ ELECTRICAL</option><option>PO - Pools, Spas &amp; Water Features</option><option
     <div><label class="fl">PA Ref Document No</label><input class="fi" id="f-pa-ref" placeholder="4MAKA08-...-QM-TRN-00001"></div>
   </div>
 
+  <span class="m-sec">PA Summary Report Details <span style="color:var(--t3);font-weight:400;font-size:10px">— used in Physical Assessment Summary report</span></span>
+  <div class="fg">
+    <div><label class="fl">Technical Assessor</label><input class="fi" id="f-pa-tech-assessor" placeholder="Assessor name"></div>
+    <div><label class="fl">QMS Assessor</label><input class="fi" id="f-pa-qms-assessor" placeholder="Assessor name"></div>
+    <div><label class="fl">Technical Report Result</label>
+      <select class="fs" id="f-pa-tech-result"><option value="">—</option><option>Pass</option><option>Failed</option><option>Under process</option></select>
+    </div>
+    <div><label class="fl">QMS Report Result</label>
+      <select class="fs" id="f-pa-qms-result"><option value="">—</option><option>Pass</option><option>Failed</option><option>Under process</option></select>
+    </div>
+    <div><label class="fl">PA Status (Pass/Fail)</label>
+      <select class="fs" id="f-pa-result"><option value="">—</option><option>Pass</option><option>Failed</option><option>Under process</option></select>
+    </div>
+  </div>
+
   <span class="m-sec">ISO Certification</span>
   <div class="fg">
     <div><label class="fl">ISO Status</label>
@@ -1327,6 +1342,8 @@ function save(){
     engage:g('f-engage')||'Active', engageReason:g('f-engage-reason'),
     srvReq:g('f-srv-req'), qms:g('f-qms'), tech:g('f-tech'),
     pa:g('f-pa'), paDate:g('f-pa-date'), paQms:g('f-pa-qms'), paTech:g('f-pa-tech'), paRef:g('f-pa-ref'),
+    paTechAssessor:g('f-pa-tech-assessor'), paQmsAssessor:g('f-pa-qms-assessor'),
+    paTechResult:g('f-pa-tech-result'), paQmsResult:g('f-pa-qms-result'), paResult:g('f-pa-result'),
     iso:g('f-iso'), isoDate:g('f-iso-date'),
     pid:g('f-pid'), pidDate:g('f-pid-date'),
     pim:g('f-pim'), pimDate:g('f-pim-date'), mom:g('f-mom'),
@@ -1391,6 +1408,8 @@ window.edit=function(id){
   sv('f-srv-req',m.srvReq||'Required'); sv('f-qms',m.qms||'Pending'); sv('f-tech',m.tech||'Pending');
   sv('f-pa',m.pa||'Pending'); sv('f-pa-date',m.paDate);
   sv('f-pa-qms',m.paQms||'Pending'); sv('f-pa-tech',m.paTech||'Pending'); sv('f-pa-ref',m.paRef);
+  sv('f-pa-tech-assessor',m.paTechAssessor); sv('f-pa-qms-assessor',m.paQmsAssessor);
+  sv('f-pa-tech-result',m.paTechResult); sv('f-pa-qms-result',m.paQmsResult); sv('f-pa-result',m.paResult);
   sv('f-iso',m.iso||'Valid'); sv('f-iso-date',m.isoDate);
   sv('f-pid',m.pid||'N/A'); sv('f-pid-date',m.pidDate);
   sv('f-pim',m.pim||'N/A'); sv('f-pim-date',m.pimDate); sv('f-mom',m.mom||'N/A');
@@ -2679,22 +2698,22 @@ function paSummaryRows(){
       scope:m.scope||'',
       location:m.loc||'',
       assessment:m.pa||'',
-      techAssessor:m.paTech||'',
-      techReport:m.tech||'',
-      qmsAssessor:m.paQms||'',
-      qmsReport:m.qms||'',
-      paStatus:m.pa||'',
+      techAssessor:m.paTechAssessor||'',
+      techReport:m.paTechResult||'',
+      qmsAssessor:m.paQmsAssessor||'',
+      qmsReport:m.paQmsResult||'',
+      paStatus:m.paResult||'',
       paRef:m.paRef||'',
       remarks:m.notes||''
     };
   });
 }
-// Colour rule for status-like cells: green pass, red fail, amber in-progress/pending.
+// Colour rule matching the original report: Pass=green, Failed/Rejected=red, Under process/Under Review/Ongoing=amber.
 function paStatusColor(v){
-  var s=String(v||'').toLowerCase();
-  if(s.indexOf('pass')>-1||s==='approved'||s==='done') return {bg:'#C6EFCE',fg:'#006100'};
-  if(s.indexOf('fail')>-1||s==='rejected') return {bg:'#FFC7CE',fg:'#9C0006'};
-  if(s.indexOf('process')>-1||s.indexOf('pending')>-1||s.indexOf('ongoing')>-1||s.indexOf('under')>-1) return {bg:'#FFEB9C',fg:'#9C6500'};
+  var s=String(v||'').toLowerCase().trim();
+  if(s==='pass'||s==='approved'||s==='done') return {bg:'#C6EFCE',fg:'#006100'};
+  if(s==='failed'||s==='fail'||s==='rejected') return {bg:'#FFC7CE',fg:'#9C0006'};
+  if(s.indexOf('process')>-1||s.indexOf('review')>-1||s.indexOf('ongoing')>-1||s.indexOf('pending')>-1) return {bg:'#FFEB9C',fg:'#9C6500'};
   return null;
 }
 window.genPASummary=function(){
@@ -2718,14 +2737,15 @@ window.genPASummary=function(){
     +'<th style="border:1px solid var(--brd);padding:5px">Technical report</th>'
     +'<th style="border:1px solid var(--brd);padding:5px">QMS Assessor</th>'
     +'<th style="border:1px solid var(--brd);padding:5px">QMS Report</th>'
+    +'<th style="border:1px solid var(--brd);padding:5px">Status</th>'
     +'<th style="border:1px solid var(--brd);padding:5px">Ref Document No</th></tr></thead><tbody>';
   if(!rows.length){
-    t+='<tr><td colspan="13" style="border:1px solid var(--brd);text-align:center;padding:20px;color:var(--t3)">No suppliers with a completed Physical Assessment (PA = Done)</td></tr>';
+    t+='<tr><td colspan="14" style="border:1px solid var(--brd);text-align:center;padding:20px;color:var(--t3)">No suppliers with a completed Physical Assessment (PA = Done)</td></tr>';
   } else {
     rows.forEach(function(r,i){
       t+='<tr>'+td(i+1)+'<td style="border:1px solid var(--brd);padding:5px 7px;font-size:10px;font-weight:700">'+r.supplier+'</td>'
-        +td(r.pqdStatus)+td(r.pqdRef)+td(r.scope)+td(r.location)
-        +td(r.assessment)+td(r.techAssessor)+cT(r.techReport)+td(r.qmsAssessor)+cT(r.qmsReport)+td(r.paRef)+td(r.remarks)+'</tr>';
+        +cT(r.pqdStatus)+td(r.pqdRef)+td(r.scope)+td(r.location)
+        +td(r.assessment)+td(r.techAssessor)+cT(r.techReport)+td(r.qmsAssessor)+cT(r.qmsReport)+cT(r.paStatus)+td(r.paRef)+td(r.remarks)+'</tr>';
     });
   }
   t+='</tbody></table>';
@@ -2753,15 +2773,15 @@ window.exportPASummaryXLSX=function(){
     +'<Styles>'+styles+'</Styles>'
     +'<Worksheet ss:Name="PA Summary"><Table>';
   // column widths
-  var widths=[30,180,120,210,150,90,90,110,110,110,110,210,140];
+  var widths=[30,180,120,210,150,90,90,110,110,110,110,90,210,140];
   widths.forEach(function(w){x+='<Column ss:Width="'+w+'"/>';});
   // title row
   x+='<Row><Cell ss:StyleID="title"><Data ss:Type="String">Physical Assessment Summary</Data></Cell></Row><Row></Row>';
   // header row 1 (top)
-  x+='<Row>'+cell('F.','hdr')+cell('Suppliers proposed for participation','hdr')+cell('PQD Status','hdr')+cell('PQD Ref Document No','hdr')+cell('Scope','hdr')+cell('Location','hdr')+cell('Assessment Performed','hdr')+cell('Technical Assessor','hdr')+cell('Technical report','hdr')+cell('QMS Assessor','hdr')+cell('QMS Report','hdr')+cell('PA Ref Document No','hdr')+cell('Remarks','hdr')+'</Row>';
+  x+='<Row>'+cell('F.','hdr')+cell('Suppliers proposed for participation','hdr')+cell('PQD Status','hdr')+cell('PQD Ref Document No','hdr')+cell('Scope','hdr')+cell('Location','hdr')+cell('Assessment Performed','hdr')+cell('Technical Assessor','hdr')+cell('Technical report','hdr')+cell('QMS Assessor','hdr')+cell('QMS Report','hdr')+cell('PA Status','hdr')+cell('PA Ref Document No','hdr')+cell('Remarks','hdr')+'</Row>';
   rows.forEach(function(r,i){
-    x+='<Row>'+cell(i+1)+cell(r.supplier)+cell(r.pqdStatus)+cell(r.pqdRef)+cell(r.scope)+cell(r.location)
-      +cell(r.assessment)+cell(r.techAssessor)+cell(r.techReport,styFor(r.techReport))+cell(r.qmsAssessor)+cell(r.qmsReport,styFor(r.qmsReport))+cell(r.paRef)+cell(r.remarks)+'</Row>';
+    x+='<Row>'+cell(i+1)+cell(r.supplier)+cell(r.pqdStatus,styFor(r.pqdStatus))+cell(r.pqdRef)+cell(r.scope)+cell(r.location)
+      +cell(r.assessment)+cell(r.techAssessor)+cell(r.techReport,styFor(r.techReport))+cell(r.qmsAssessor)+cell(r.qmsReport,styFor(r.qmsReport))+cell(r.paStatus,styFor(r.paStatus))+cell(r.paRef)+cell(r.remarks)+'</Row>';
   });
   x+='</Table></Worksheet></Workbook>';
   var blob=new Blob([x],{type:'application/vnd.ms-excel'});
