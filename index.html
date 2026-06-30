@@ -871,7 +871,7 @@ ELECTRICAL</option><option>PO - Pools, Spas &amp; Water Features</option><option
 
   <div class="m-foot">
     <button class="btn btn-s" onclick="closeM()">Cancel</button>
-    <button class="btn btn-p" onclick="save()">Save PQD</button>
+    <button class="btn btn-p" id="pqd-save-btn" onclick="save()">Save PQD</button>
   </div>
 </div>
 </div>
@@ -1287,9 +1287,14 @@ var DB = {pqd:[], mat:[], mir:[], events:[]};
 var T = null;
 
 // ── STORAGE ──────────────────────────────────────────────────────────────────
-function persist(){
-  // push every in-memory record to its Supabase table (fire and forget, ordered)
-  (async function(){
+function persist(table, obj){
+  // If a specific record is given, save ONLY that record (and wait for its _rowid).
+  // This prevents re-uploading every row on each save — the root cause of duplicates.
+  if(table && obj){
+    return saveOne(table, obj);
+  }
+  // Fallback: full sync (used by import only). Still ordered/awaited internally.
+  return (async function(){
     try{
       for(var i=0;i<SB_TABLES.length;i++){
         var t=SB_TABLES[i];
@@ -1298,6 +1303,12 @@ function persist(){
       }
     }catch(e){ console.error('persist',e); }
   })();
+}
+// Save a SINGLE record and wait for it, so _rowid is assigned before any next save.
+// This prevents the same record being re-inserted (duplicate rows) on Supabase.
+async function saveOne(table, obj){
+  try{ await sbUpsert(table, obj); }
+  catch(e){ console.error('saveOne',table,e); }
 }
 function save(){
   var n=document.getElementById('f-name').value.trim();
@@ -1319,9 +1330,11 @@ function save(){
     post:g('f-post'), postDate:g('f-post-date'), qualDate:g('f-qual-date'),
     notes:g('f-notes')
   };
-  if(eid){var i=DB.pqd.findIndex(function(x){return x.id===+eid;});if(i>-1)DB.pqd[i]=m;}
+  if(eid){var i=DB.pqd.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.pqd[i]._rowid)m._rowid=DB.pqd[i]._rowid;DB.pqd[i]=m;}}
   else DB.pqd.push(m);
-  persist();closeM();render();toast('Saved','✓');
+  var btn=document.getElementById('pqd-save-btn');if(btn)btn.disabled=true;
+  persist('pqd',m).then(function(){if(btn)btn.disabled=false;});
+  closeM();render();toast('Saved','✓');
   document.getElementById('nb-pqd').textContent=DB.pqd.length;
   renderDash();renderRptHist();
   document.getElementById('nb-mat').textContent=DB.mat.length;
@@ -1388,7 +1401,7 @@ window.del=function(id){
   var rec=DB.pqd.find(function(x){return x.id===id;});
   if(rec&&rec._rowid) sbDelete('pqd',rec._rowid);
   DB.pqd=DB.pqd.filter(function(x){return x.id!==id;});
-  persist();render();toast('Deleted','🗑');
+  render();toast('Deleted','🗑');
   document.getElementById('nb-pqd').textContent=DB.pqd.length;
 };
 
@@ -1864,9 +1877,9 @@ window.saveCalEvent=function(){
   var eid=document.getElementById('cal-eid').value;
   DB.events=DB.events||[];
   var obj={id:eid?+eid:Date.now(),title:title,date:date,type:document.getElementById('cal-ev-type').value,notes:document.getElementById('cal-ev-notes').value.trim()};
-  if(eid){var i=DB.events.findIndex(function(x){return x.id===+eid;});if(i>-1)DB.events[i]=obj;}
+  if(eid){var i=DB.events.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.events[i]._rowid)obj._rowid=DB.events[i]._rowid;DB.events[i]=obj;}}
   else DB.events.push(obj);
-  if(persist()===false){if(!eid)DB.events.pop();return;}
+  persist('events',obj);
   closeCalEvent();rCAL();toast('Event saved','✓');
 };
 window.deleteCalEvent=function(){
@@ -1874,7 +1887,7 @@ window.deleteCalEvent=function(){
   var rec=(DB.events||[]).find(function(x){return x.id===+eid;});
   if(rec&&rec._rowid) sbDelete('events',rec._rowid);
   DB.events=(DB.events||[]).filter(function(x){return x.id!==+eid;});
-  persist();closeCalEvent();rCAL();toast('Event deleted','🗑');
+  closeCalEvent();rCAL();toast('Event deleted','🗑');
 };
 
 window.pTab=function(id,el){
@@ -2071,9 +2084,11 @@ window.saveMAT=function(){
     leed:g('m-leed'), saso:g('m-saso'), mts:g('m-mts'), notes:g('m-notes'),
     items:getMItems()
   };
-  if(eid){var i=DB.mat.findIndex(function(x){return x.id===+eid;});if(i>-1)DB.mat[i]=m;}
+  if(eid){var i=DB.mat.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.mat[i]._rowid)m._rowid=DB.mat[i]._rowid;DB.mat[i]=m;}}
   else DB.mat.push(m);
-  persist();closeMAT();rMAT();toast('Saved','✓');
+  var btn=document.getElementById('mat-save-btn');if(btn)btn.disabled=true;
+  persist('mat',m).then(function(){if(btn)btn.disabled=false;});
+  closeMAT();rMAT();toast('Saved','✓');
   document.getElementById('nb-mat').textContent=DB.mat.length;
 };
 window.editMAT=function(id){
@@ -2096,7 +2111,7 @@ window.delMAT=function(id){
   var rec=DB.mat.find(function(x){return x.id===id;});
   if(rec&&rec._rowid) sbDelete('mat',rec._rowid);
   DB.mat=DB.mat.filter(function(x){return x.id!==id;});
-  persist();rMAT();toast('Deleted','🗑');
+  rMAT();toast('Deleted','🗑');
   document.getElementById('nb-mat').textContent=DB.mat.length;
 };
 window.rMAT=function(sr,sf){
@@ -2265,9 +2280,11 @@ window.saveMIR=function(){
     recvItems:getMIRItems(),
     notes:g('mir-notes')
   };
-  if(eid){var i=DB.mir.findIndex(function(x){return x.id===+eid;});if(i>-1)DB.mir[i]=m;}
+  if(eid){var i=DB.mir.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.mir[i]._rowid)m._rowid=DB.mir[i]._rowid;DB.mir[i]=m;}}
   else DB.mir.push(m);
-  persist();closeMIR();rMIR();toast('Saved','✓');
+  var btn=document.getElementById('mir-save-btn');if(btn)btn.disabled=true;
+  persist('mir',m).then(function(){if(btn)btn.disabled=false;});
+  closeMIR();rMIR();toast('Saved','✓');
   document.getElementById('nb-mir').textContent=DB.mir.length;
 };
 window.editMIR=function(id){
@@ -2291,7 +2308,7 @@ window.delMIR=function(id){
   var rec=DB.mir.find(function(x){return x.id===id;});
   if(rec&&rec._rowid) sbDelete('mir',rec._rowid);
   DB.mir=DB.mir.filter(function(x){return x.id!==id;});
-  persist();rMIR();toast('Deleted','🗑');
+  rMIR();toast('Deleted','🗑');
   document.getElementById('nb-mir').textContent=DB.mir.length;
 };
 window.rMIR=function(sr,sf){
@@ -2740,7 +2757,7 @@ window.fComp=function(type,v){
 
   <div class="m-foot">
     <button class="btn btn-s" onclick="closeMAT()">Cancel</button>
-    <button class="btn btn-p" onclick="saveMAT()">Save Material</button>
+    <button class="btn btn-p" id="mat-save-btn" onclick="saveMAT()">Save Material</button>
   </div>
 </div>
 </div>
@@ -2820,7 +2837,7 @@ window.fComp=function(type,v){
 
   <div class="m-foot">
     <button class="btn btn-s" onclick="closeMIR()">Cancel</button>
-    <button class="btn btn-p" onclick="saveMIR()">Save MIR</button>
+    <button class="btn btn-p" id="mir-save-btn" onclick="saveMIR()">Save MIR</button>
   </div>
 </div>
 </div>
