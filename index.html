@@ -1396,11 +1396,21 @@ window.edit=function(id){
   toggleSub();
   document.getElementById('ov').classList.add('on');
 };
-window.del=function(id){
+window.del=function(id, rowid){
   if(!confirm('Delete this record?'))return;
-  var rec=DB.pqd.find(function(x){return x.id===id;});
-  if(rec&&rec._rowid) sbDelete('pqd',rec._rowid);
-  DB.pqd=DB.pqd.filter(function(x){return x.id!==id;});
+  var rec;
+  if(rowid!==undefined && rowid!==null && rowid!==''){
+    rec=DB.pqd.find(function(x){return String(x._rowid)===String(rowid);});
+  }
+  if(!rec) rec=DB.pqd.find(function(x){return x.id===id;});
+  if(rec&&rec._rowid){
+    sbDelete('pqd',rec._rowid);
+    DB.pqd=DB.pqd.filter(function(x){return String(x._rowid)!==String(rec._rowid);});
+  } else {
+    // record never saved to server yet — remove a single in-memory match
+    var idx=DB.pqd.indexOf(rec);
+    if(idx>-1) DB.pqd.splice(idx,1);
+  }
   render();toast('Deleted','🗑');
   document.getElementById('nb-pqd').textContent=DB.pqd.length;
 };
@@ -1493,7 +1503,7 @@ window.rPQD=function(sr,fcol,fval,sort){
       '<td>'+sc(m.pim||'N/A')+'</td>'+
       '<td>'+sc(m.mom||'N/A')+'</td>'+
       '<td>'+sc(m.post||'N/A')+'</td>'+
-      '<td style="white-space:nowrap"><button class="ab e" onclick="edit('+m.id+')">✏️</button> <button class="ab d" onclick="del('+m.id+')">🗑️</button></td>'
+      '<td style="white-space:nowrap"><button class="ab e" onclick="edit('+m.id+')">✏️</button> <button class="ab d" onclick="del('+m.id+(m._rowid!==undefined&&m._rowid!==null?",\'"+m._rowid+"\'":"")+')">🗑️</button></td>'
       +'</tr>';
   }).join('');
 };
@@ -2106,11 +2116,20 @@ window.editMAT=function(id){
   if(m.company)showCoInfo(m.company);
   document.getElementById('ov-mat').classList.add('on');
 };
-window.delMAT=function(id){
+window.delMAT=function(id, rowid){
   if(!confirm('Delete this record?'))return;
-  var rec=DB.mat.find(function(x){return x.id===id;});
-  if(rec&&rec._rowid) sbDelete('mat',rec._rowid);
-  DB.mat=DB.mat.filter(function(x){return x.id!==id;});
+  var rec;
+  if(rowid!==undefined && rowid!==null && rowid!==''){
+    rec=DB.mat.find(function(x){return String(x._rowid)===String(rowid);});
+  }
+  if(!rec) rec=DB.mat.find(function(x){return x.id===id;});
+  if(rec&&rec._rowid){
+    sbDelete('mat',rec._rowid);
+    DB.mat=DB.mat.filter(function(x){return String(x._rowid)!==String(rec._rowid);});
+  } else {
+    var idx=DB.mat.indexOf(rec);
+    if(idx>-1) DB.mat.splice(idx,1);
+  }
   rMAT();toast('Deleted','🗑');
   document.getElementById('nb-mat').textContent=DB.mat.length;
 };
@@ -2140,7 +2159,7 @@ window.rMAT=function(sr,sf){
       '<td style="color:'+lC(m.saso)+';font-size:11px;font-weight:600">'+(m.saso||'N/A')+'</td>'+
       '<td>'+sc(m.mts||'Pending')+'</td>'+
       '<td style="color:var(--t2);font-size:10px;max-width:90px">'+(m.notes||'—')+'</td>'+
-      '<td style="white-space:nowrap"><button class="ab e" onclick="editMAT('+m.id+')">✏️</button> <button class="ab d" onclick="delMAT('+m.id+')">🗑️</button></td></tr>';
+      '<td style="white-space:nowrap"><button class="ab e" onclick="editMAT('+m.id+')">✏️</button> <button class="ab d" onclick="delMAT('+m.id+(m._rowid!==undefined&&m._rowid!==null?",\'"+m._rowid+"\'":"")+')">🗑️</button></td></tr>';
   }).join('');
 };
 
@@ -2303,11 +2322,20 @@ window.editMIR=function(id){
   sv('mir-notes',m.notes);
   document.getElementById('ov-mir').classList.add('on');
 };
-window.delMIR=function(id){
+window.delMIR=function(id, rowid){
   if(!confirm('Delete?'))return;
-  var rec=DB.mir.find(function(x){return x.id===id;});
-  if(rec&&rec._rowid) sbDelete('mir',rec._rowid);
-  DB.mir=DB.mir.filter(function(x){return x.id!==id;});
+  var rec;
+  if(rowid!==undefined && rowid!==null && rowid!==''){
+    rec=DB.mir.find(function(x){return String(x._rowid)===String(rowid);});
+  }
+  if(!rec) rec=DB.mir.find(function(x){return x.id===id;});
+  if(rec&&rec._rowid){
+    sbDelete('mir',rec._rowid);
+    DB.mir=DB.mir.filter(function(x){return String(x._rowid)!==String(rec._rowid);});
+  } else {
+    var idx=DB.mir.indexOf(rec);
+    if(idx>-1) DB.mir.splice(idx,1);
+  }
   rMIR();toast('Deleted','🗑');
   document.getElementById('nb-mir').textContent=DB.mir.length;
 };
@@ -2335,7 +2363,7 @@ window.rMIR=function(sr,sf){
       '<td style="color:var(--t2);white-space:nowrap">'+(m.irnDate||'—')+'</td>'+
       '<td>'+sv(m.irnStatus||'N/A')+'</td>'+
       '<td style="color:var(--t2);font-size:10px;max-width:90px">'+(m.notes||'—')+'</td>'+
-      '<td style="white-space:nowrap"><button class="ab e" onclick="editMIR('+m.id+')">✏️</button> <button class="ab d" onclick="delMIR('+m.id+')">🗑️</button></td></tr>';
+      '<td style="white-space:nowrap"><button class="ab e" onclick="editMIR('+m.id+')">✏️</button> <button class="ab d" onclick="delMIR('+m.id+(m._rowid!==undefined&&m._rowid!==null?",\'"+m._rowid+"\'":"")+')">🗑️</button></td></tr>';
   }).join('');
 };
 
