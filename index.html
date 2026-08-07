@@ -165,6 +165,26 @@ tr.detail td{background:var(--sf-0);padding:0;border-bottom:1px solid var(--line
 .colopt.on .box{background:var(--t-1);border-color:var(--t-1)}
 .colopt.on .box::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid var(--bg);border-width:0 2px 2px 0;transform:rotate(42deg)}
 
+/* header filter — click a column heading to pick values, as in a spreadsheet */
+th.thf{cursor:pointer;user-select:none}
+th.thf:hover{color:var(--t-2)}
+th.thf .fcar{display:inline-block;margin-left:5px;opacity:.45;vertical-align:-1px}
+th.thf:hover .fcar{opacity:.85}
+th.thf.act{color:var(--t-1)}
+th.thf.act .fcar{opacity:1;color:var(--act-t)}
+.fmenu{display:none;position:fixed;z-index:300;background:var(--sf-2);border:1px solid var(--line-2);border-radius:var(--r-lg);width:216px;box-shadow:0 16px 40px rgba(0,0,0,.6);overflow:hidden}
+.fmenu.on{display:block}
+.fmenu-h{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--t-4);padding:10px 12px 8px;border-bottom:1px solid var(--line)}
+.fmenu-l{max-height:264px;overflow-y:auto;padding:5px}
+.fopt{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:5px;font-size:12.5px;color:var(--t-2);cursor:pointer}
+.fopt:hover{background:var(--sf-3);color:var(--t-1)}
+.fopt.on{color:var(--t-1)}
+.fopt.on .box{background:var(--t-1);border-color:var(--t-1)}
+.fopt.on .box::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid var(--bg);border-width:0 2px 2px 0;transform:rotate(42deg)}
+.fn{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--t-4)}
+.fmenu-f{display:flex;gap:7px;padding:9px 10px;border-top:1px solid var(--line)}
+.fmenu-f button{flex:1}
+
 /* ---------------- modal ---------------- */
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:flex-start;justify-content:center;z-index:200;padding:24px 16px;overflow-y:auto}
 .ov.on{display:flex}
@@ -349,6 +369,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 
 <div class="ls" id="ls" style="display:none"><div class="spin"></div><div style="font-family:var(--mono);font-size:11px;color:var(--t-3)">PQCS</div></div>
 <div class="toast" id="toast"><span id="tm">Saved</span></div>
+<div class="fmenu" id="fmenu" onclick="event.stopPropagation()"></div>
 
 <!-- ===================== APP ===================== -->
 <div class="app" id="app" style="display:none">
@@ -1205,7 +1226,7 @@ window.goTo=function(page,el){
   buildTools(page);
   var scroll=document.getElementById('content-scroll');if(scroll)scroll.scrollTop=0;
   if(page==='dash')renderDash();
-  if(page==='pqd'){buildPQDHead();rPQD();}
+  if(page==='pqd'){buildPQDHead();rPQD();}else{var fm=document.getElementById('fmenu');if(fm)fm.classList.remove('on');}
   if(page==='mat')rMAT();
   if(page==='mir')rMIR();
   if(page==='fat')rFAT();
@@ -1405,12 +1426,26 @@ function shortRef(v){
   return (REF_PREFIX&&v.indexOf(REF_PREFIX)===0)?v.slice(REF_PREFIX.length):v;
 }
 var pqdFilterVal='all', pqdOpen=null;
+var colFilters={};
+function pqdVal(m,k){
+  if(k==='prepa')return preNorm(m);
+  if(k==='iso')return (m.isoDate&&isExp(m.isoDate))?'Expired':(m.iso||'N/A');
+  if(k==='cat')return m.cat||'—';
+  if(k==='dis')return m.dis||'—';
+  return m[k]||((k==='pqd'||k==='pa')?'Pending':'N/A');
+}
+function anyColFilter(){return Object.keys(colFilters).some(function(k){return (colFilters[k]||[]).length;});}
 
 function buildPQDHead(){
   computeRefPrefix();
-  var h='<th class="pin1 pin-edge" style="min-width:300px">VENDOR</th><th>CAT</th><th>DISC</th>';
-  PQD_STATUS.forEach(function(c){h+='<th class="ctr">'+c[1]+'</th>';});
-  PQD_EXTRA.forEach(function(c){if(pqdShown[c[0]])h+='<th class="ctr">'+c[1]+'</th>';});
+  var fh=function(k,label,ctr){
+    var act=(colFilters[k]||[]).length?' act':'';
+    return '<th class="thf'+(ctr?' ctr':'')+act+'" onclick="openColFilter(\''+k+'\',event)">'+label
+      +'<svg class="fcar" width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 4l3 3 3-3"/></svg></th>';
+  };
+  var h='<th class="pin1 pin-edge" style="min-width:300px">VENDOR</th>'+fh('cat','CAT')+fh('dis','DISC');
+  PQD_STATUS.forEach(function(c){h+=fh(c[0],c[1],1);});
+  PQD_EXTRA.forEach(function(c){if(pqdShown[c[0]])h+=fh(c[0],c[1],1);});
   PQD_DETAIL.forEach(function(c){if(pqdShown[c[0]])h+='<th>'+c[1]+'</th>';});
   document.getElementById('pqd-thead').innerHTML=h;
 }
@@ -1434,12 +1469,19 @@ window.rPQD=function(){
       var blob=[r.name,r.aconex,r.scope,r.loc,r.subco,r.cat,r.dis].join(' ').toLowerCase();
       if(blob.indexOf(q)<0)return false;
     }
+    for(var k in colFilters){
+      var sel=colFilters[k]||[];
+      if(sel.length&&sel.indexOf(pqdVal(r,k))<0)return false;
+    }
     return true;
   });
   list.sort(function(a,b){var d=urgency(b)-urgency(a);return d?d:(b.date||'').localeCompare(a.date||'');});
   pqdCounts();
   var cnt=document.getElementById('pqd-count');
-  if(cnt)cnt.textContent=list.length+' record'+(list.length===1?'':'s')+' · sorted by urgency';
+  if(cnt){
+    cnt.innerHTML=list.length+' record'+(list.length===1?'':'s')+' · sorted by urgency'
+      +(anyColFilter()?' · <span class="link" onclick="clearAllColFilters()">clear column filters</span>':'');
+  }
   var cols=3+PQD_STATUS.length+PQD_EXTRA.filter(function(c){return pqdShown[c[0]];}).length+PQD_DETAIL.filter(function(c){return pqdShown[c[0]];}).length;
   var tb=document.getElementById('tb');
   document.getElementById('pqd-empty').style.display=list.length?'none':'block';
@@ -1489,6 +1531,69 @@ function df(l,v,m){return '<div><div class="dlbl">'+l+'</div><div class="dval'+(
 function dfS(l,v){return '<div><div class="dlbl">'+l+'</div><div>'+stamp(v)+'</div></div>';}
 window.pqdToggle=function(id){pqdOpen=(pqdOpen===id?null:id);rPQD();};
 function render(){rPQD();}
+
+/* ---------- column filter menu ----------
+   Values are drawn from the records the other filters already allow,
+   so a column never offers a value that would return nothing. */
+var COL_LABEL={cat:'CATEGORY',dis:'DISCIPLINE',pqd:'PQD',pa:'PA',iso:'ISO',prepa:'PRE-PA',pid:'DOSSIER',pim:'MEETING',mom:'MINUTES',post:'POST-INSPECTION'};
+function pqdBase(exceptKey){
+  var qEl=document.getElementById('pqd-q'), q=qEl?qEl.value.toLowerCase().trim():'';
+  return (DB.pqd||[]).filter(function(r){
+    var b=bucket(r);
+    if(pqdFilterVal==='all'&&b==='stopped')return false;
+    if(pqdFilterVal!=='all'&&b!==pqdFilterVal)return false;
+    if(q&&[r.name,r.aconex,r.scope,r.loc,r.subco,r.cat,r.dis].join(' ').toLowerCase().indexOf(q)<0)return false;
+    for(var k in colFilters){
+      if(k===exceptKey)continue;
+      var sel=colFilters[k]||[];
+      if(sel.length&&sel.indexOf(pqdVal(r,k))<0)return false;
+    }
+    return true;
+  });
+}
+window.openColFilter=function(k,ev){
+  ev.stopPropagation();
+  var menu=document.getElementById('fmenu');
+  if(menu.classList.contains('on')&&menu.dataset.k===k){menu.classList.remove('on');return;}
+  menu.dataset.k=k;
+  var counts={};
+  pqdBase(k).forEach(function(r){var v=pqdVal(r,k);counts[v]=(counts[v]||0)+1;});
+  var vals=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];});
+  var sel=colFilters[k]||[];
+  var h='<div class="fmenu-h">'+(COL_LABEL[k]||k)+'</div><div class="fmenu-l">';
+  if(!vals.length)h+='<div style="padding:14px 10px;font-size:12px;color:var(--t-3)">No values</div>';
+  vals.forEach(function(v){
+    var on=sel.indexOf(v)>=0;
+    var label=(k==='cat'||k==='dis')?v:(STAMP_MAP[v]?STAMP_MAP[v][0]:v);
+    h+='<div class="fopt'+(on?' on':'')+'" onclick="toggleColVal(\''+k+'\',\''+String(v).replace(/'/g,"\\'")+'\')">'
+      +'<span class="box"></span>'+label+'<span class="fn">'+counts[v]+'</span></div>';
+  });
+  h+='</div><div class="fmenu-f"><button class="btn btn-sm" onclick="selectAllColVals(\''+k+'\')">All</button>'
+    +'<button class="btn btn-sm" onclick="clearColFilter(\''+k+'\')">Clear</button></div>';
+  menu.innerHTML=h;
+  menu.classList.add('on');
+  var r=ev.currentTarget.getBoundingClientRect();
+  var left=Math.min(r.left,window.innerWidth-228);
+  menu.style.left=Math.max(8,left)+'px';
+  menu.style.top=(r.bottom+4)+'px';
+};
+window.toggleColVal=function(k,v){
+  var sel=colFilters[k]||[];
+  var i=sel.indexOf(v);
+  if(i>=0)sel.splice(i,1);else sel.push(v);
+  colFilters[k]=sel;
+  pqdOpen=null;buildPQDHead();rPQD();
+  var th=document.querySelector('#pqd-thead th.thf[onclick*="\''+k+'\'"]');
+  if(th)openColFilterAt(k,th);
+};
+function openColFilterAt(k,el){
+  var menu=document.getElementById('fmenu');menu.classList.remove('on');menu.dataset.k='';
+  openColFilter(k,{stopPropagation:function(){},currentTarget:el});
+}
+window.selectAllColVals=function(k){delete colFilters[k];pqdOpen=null;buildPQDHead();rPQD();document.getElementById('fmenu').classList.remove('on');};
+window.clearColFilter=function(k){delete colFilters[k];pqdOpen=null;buildPQDHead();rPQD();document.getElementById('fmenu').classList.remove('on');};
+window.clearAllColFilters=function(){colFilters={};pqdOpen=null;buildPQDHead();rPQD();};
+document.addEventListener('click',function(){var m=document.getElementById('fmenu');if(m)m.classList.remove('on');});
 
 /* ---------- PQD modal ---------- */
 function openM(){fillSubco();toggleSub();toggleEngage();document.getElementById('ov').classList.add('on');}
