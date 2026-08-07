@@ -502,7 +502,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
           <thead><tr>
             <th class="pin1" style="min-width:200px">MATERIAL</th><th class="pin2" style="min-width:120px">REFERENCE</th>
             <th>SUBMITTED</th><th>CAT SUB</th><th>CAT CORRECT</th><th style="min-width:150px">SUBMITTED BY</th><th style="min-width:150px">MANUFACTURER</th>
-            <th class="ctr">LEED</th><th class="ctr">SASO</th><th class="ctr">MTS</th><th>NOTES</th><th></th>
+            <th class="ctr">INSPECTION</th><th class="ctr">TPIA</th><th class="ctr">LEED</th><th class="ctr">SASO</th><th class="ctr">MTS</th><th>NOTES</th><th></th>
           </tr></thead>
           <tbody id="tb-mat"></tbody>
         </table></div>
@@ -735,8 +735,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div class="fg-f"><label class="fl">Description</label><textarea class="ft" id="m-desc" rows="2"></textarea></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="m-aconex" placeholder="MBL-P4M-QC-MTS-00001"></div>
      <div><label class="fl">Submission date</label><input class="fi" type="date" id="m-date"></div>
-     <div><label class="fl">Category submitted</label><select class="fs" id="m-cat-sub"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
-     <div><label class="fl">Correct category</label><select class="fs" id="m-cat-cor"><option value="">Same as submitted</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
+     <div><label class="fl">Category submitted</label><select class="fs" id="m-cat-sub" onchange="applyInspDefault()"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
+     <div><label class="fl">Correct category</label><select class="fs" id="m-cat-cor" onchange="applyInspDefault()"><option value="">Same as submitted</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
      <div class="fg-f pick"><label class="fl">Submitted by — company on record</label>
        <input class="fi" id="m-co-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('m-co')" onfocus="pickOpen('m-co')">
        <input type="hidden" id="m-co">
@@ -747,6 +747,13 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <div class="pick-list" id="m-mfr-list"></div></div>
      <div><label class="fl">Country of manufacture</label><input class="fi" id="m-mfr-country" placeholder="Origin of the goods"></div>
      <div class="fg-f"><div class="hint" id="m-mfr-hint" style="display:none"></div></div>
+     <div><label class="fl">Inspection requirement</label>
+       <select class="fs" id="m-insp" onchange="markInspEdited()">
+         <option>None</option><option>Inspection on delivery</option><option>Final inspection</option><option>FAT</option><option>FAT and final inspection</option>
+       </select></div>
+     <div><label class="fl">Third-party inspection</label>
+       <select class="fs" id="m-tpia"><option>N/A</option><option>Required</option><option>Not required</option></select></div>
+     <div class="fg-f"><div class="hint" id="m-insp-hint" style="display:none"></div></div>
      <div><label class="fl">LEED certificate</label><select class="fs" id="m-leed"><option>N/A</option><option>Attached</option><option>Pending</option><option>Will Submit with MIR</option></select></div>
      <div><label class="fl">SASO certificate</label><select class="fs" id="m-saso"><option>N/A</option><option>Attached</option><option>Pending</option><option>Will Submit with MIR</option></select></div>
    </div>
@@ -1367,6 +1374,7 @@ function buildTools(page){
     if(SUB_TYPE==='mat'){
       h+=searchBox('mat-q','Material or company…','rMAT()');
       h+='<select class="sel" id="mat-st" onchange="rMAT()">'+statusOpts+'</select>';
+    h+='<select class="sel" id="mat-insp" onchange="rMAT()"><option value="">All inspection types</option><option>None</option><option>Inspection on delivery</option><option>Final inspection</option><option>FAT</option><option>FAT and final inspection</option></select>';
       h+='<div class="spacer"></div><span class="count" id="mat-count"></span>';
     }else if(SUB_TYPE==='mir'){
       h+=searchBox('mir-q','Material or MIR number…','rMIR()');
@@ -1536,7 +1544,7 @@ function findAll(q){
   });
 
   matRecords().forEach(function(m){
-    var hay=findHay([m.name,m.aconex,m.desc,m.company,m.mfr,m.mfrCountry,m.catSub,m.catCor,m.notes].concat((m.items||[]).map(function(i){return i.name;})));
+    var hay=findHay([m.name,m.aconex,m.desc,m.company,m.mfr,m.mfrCountry,m.insp,m.tpia,m.catSub,m.catCor,m.notes].concat((m.items||[]).map(function(i){return i.name;})));
     if(!findMatches(hay,terms))return;
     out.push({group:'Material submittals',title:m.name,ref:m.aconex,
       meta:[m.catCor||m.catSub,m.company,m.mfr?('made by '+m.mfr):'',m.date].filter(Boolean).join(' · '),
@@ -2083,6 +2091,34 @@ var CAT_RULES={
   'C2':{prepa:'Pending',pa:'Pending',pid:'Pending',pim:'N/A',mom:'N/A',post:'Pending'},
   'C3':{prepa:'Pending',pa:'Pending',pid:'Pending',pim:'Not Scheduled',mom:'Pending',post:'Pending'}
 };
+/* The category suggests an inspection requirement, but it does not
+   decide it: a C1 material can still carry a factory acceptance test,
+   so the field is independent and any choice you make is kept. */
+var INSP_BY_CAT={'C0':'Inspection on delivery','C1':'Inspection on delivery','C2':'Final inspection','C3':'FAT'};
+var inspEdited=false;
+window.markInspEdited=function(){inspEdited=true;renderInspHint();};
+function applyInspDefault(){
+  var cat=document.getElementById('m-cat-sub'), sel=document.getElementById('m-insp');
+  if(!cat||!sel)return;
+  var c=(document.getElementById('m-cat-cor').value||cat.value);
+  if(!inspEdited&&INSP_BY_CAT[c])sel.value=INSP_BY_CAT[c];
+  renderInspHint();
+}
+function renderInspHint(){
+  var box=document.getElementById('m-insp-hint'), sel=document.getElementById('m-insp');
+  if(!box||!sel)return;
+  var c=(document.getElementById('m-cat-cor').value||document.getElementById('m-cat-sub').value);
+  var suggested=INSP_BY_CAT[c];
+  if(!suggested){box.style.display='none';return;}
+  box.style.display='';
+  if(sel.value===suggested){
+    box.innerHTML='<span class="dim">Usual requirement for '+c+'.</span>';
+  }else{
+    box.innerHTML='<span style="color:var(--t-2)">Set to '+sel.value+'</span> <span class="dim">— '+c+' would normally be '+suggested
+      +'. <span class="link" onclick="resetInsp()">use '+suggested+'</span></span>';
+  }
+}
+window.resetInsp=function(){inspEdited=false;applyInspDefault();};
 var STAGE_LABEL={prepa:'Pre-PA',pa:'Assessment',pid:'Dossier',pim:'Meeting',mom:'Minutes',post:'Post-inspection'};
 var stageEdited={};
 window.markStageEdited=function(k){stageEdited[k]=true;renderCatHint();};
@@ -2265,13 +2301,14 @@ function getMItems(){
   return out;
 }
 function setMItems(items){var tb=document.getElementById('m-items');if(tb)tb.innerHTML='';(items||[]).forEach(function(it){addMItem(it.name,it.qty,it.unit);});}
-window.openMAT=function(){fillCo();buildMfrList();document.getElementById('co-info').style.display='none';setMItems([]);addMItem();document.getElementById('ov-mat').classList.add('on');};
+window.openMAT=function(){fillCo();buildMfrList();inspEdited=false;document.getElementById('co-info').style.display='none';setMItems([]);addMItem();document.getElementById('ov-mat').classList.add('on');};
 window.closeMAT=function(){
   document.getElementById('ov-mat').classList.remove('on');
   document.querySelectorAll('#ov-mat .fi,#ov-mat .ft').forEach(function(e){e.value='';});
   document.querySelectorAll('#ov-mat .fs').forEach(function(e){e.selectedIndex=0;});
   document.getElementById('m-eid').value='';document.getElementById('m-items').innerHTML='';
-  pickClear('m-co');pickClear('m-mfr');
+  pickClear('m-co');pickClear('m-mfr');inspEdited=false;
+  var ih=document.getElementById('m-insp-hint');if(ih)ih.style.display='none';
   var mh=document.getElementById('m-mfr-hint');if(mh)mh.style.display='none';
   document.getElementById('co-info').style.display='none';
 };
@@ -2282,7 +2319,7 @@ window.saveMAT=function(){
   var eid=document.getElementById('m-eid').value, g=function(id){var e=document.getElementById(id);return e?e.value:'';};
   var catSub=g('m-cat-sub');
   var m={id:eid?+eid:Date.now(),name:n,desc:g('m-desc'),aconex:g('m-aconex'),date:g('m-date'),
-    catSub:catSub,catCor:g('m-cat-cor')||catSub,company:g('m-co'),mfr:g('m-mfr'),mfrCountry:g('m-mfr-country'),
+    catSub:catSub,catCor:g('m-cat-cor')||catSub,company:g('m-co'),mfr:g('m-mfr'),mfrCountry:g('m-mfr-country'),insp:g('m-insp'),tpia:g('m-tpia'),
     leed:g('m-leed'),saso:g('m-saso'),mts:g('m-mts'),notes:g('m-notes'),items:getMItems()};
   if(eid){var i=DB.mat.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.mat[i]._rowid)m._rowid=DB.mat[i]._rowid;DB.mat[i]=m;}}
   else DB.mat.push(m);
@@ -2297,7 +2334,8 @@ window.editMAT=function(id){
   var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
   sv('m-eid',id);sv('m-name',m.name);sv('m-desc',m.desc);sv('m-aconex',m.aconex);sv('m-date',m.date);
   sv('m-cat-sub',m.catSub);sv('m-cat-cor',(m.catCor&&m.catCor!==m.catSub)?m.catCor:'');
-  pickSet('m-co',m.company);pickSet('m-mfr',m.mfr);sv('m-mfr-country',m.mfrCountry);checkMfr('m');sv('m-leed',m.leed||'N/A');sv('m-saso',m.saso||'N/A');sv('m-mts',m.mts||'Pending');sv('m-notes',m.notes);
+  pickSet('m-co',m.company);pickSet('m-mfr',m.mfr);sv('m-mfr-country',m.mfrCountry);checkMfr('m');
+  sv('m-insp',m.insp||'None');sv('m-tpia',m.tpia||'N/A');inspEdited=true;renderInspHint();sv('m-leed',m.leed||'N/A');sv('m-saso',m.saso||'N/A');sv('m-mts',m.mts||'Pending');sv('m-notes',m.notes);
   setMItems(m.items&&m.items.length?m.items:[]);if(!m.items||!m.items.length)addMItem();
   if(m.company)showCoInfo(m.company);else document.getElementById('co-info').style.display='none';
   document.getElementById('ov-mat').classList.add('on');
@@ -2312,17 +2350,25 @@ window.delMAT=function(id,rowid){
   rMAT();toast('Submittal deleted');
   refreshCounts();
 };
+function inspStamp(v){
+  v=v||'None';
+  if(v==='None')return '<span class="stamp s-na">None</span>';
+  var t=(v.indexOf('FAT')>=0)?'act':(v==='Final inspection')?'run':'ok';
+  return '<span class="stamp s-'+t+'" title="'+v+'">'+v+'</span>';
+}
 window.rMAT=function(){
   var qe=document.getElementById('mat-q'),se=document.getElementById('mat-st');
   var q=qe?qe.value.toLowerCase().trim():'', st=se?se.value:'';
+  var ie=document.getElementById('mat-insp'), fi=ie?ie.value:'';
   var items=matRecords().filter(function(m){
     if(st&&m.mts!==st)return false;
+    if(fi&&(m.insp||'None')!==fi)return false;
     if(q&&[m.name,m.company,m.mfr,m.mfrCountry,m.aconex,m.desc].join(' ').toLowerCase().indexOf(q)<0)return false;
     return true;
   });
   var c=document.getElementById('mat-count');if(c)c.textContent=items.length+' submittal'+(items.length===1?'':'s');
   var tb=document.getElementById('tb-mat');if(!tb)return;
-  if(!items.length){tb.innerHTML='<tr><td colspan="12" class="empty">No submittals yet.</td></tr>';return;}
+  if(!items.length){tb.innerHTML='<tr><td colspan="14" class="empty">No submittals yet.</td></tr>';return;}
   tb.innerHTML=items.map(function(m){
     var sub=m.catSub||'', cor=m.catCor||sub, diff=(m.catCor&&cor!==sub);
     return '<tr class="hov" onclick="editMAT('+m.id+')">'
@@ -2332,6 +2378,8 @@ window.rMAT=function(){
       +'<td>'+cB(sub)+'</td><td>'+cB(cor)+(diff?' <span style="color:var(--act-t);font-size:11px">changed</span>':'')+'</td>'
       +'<td><span class="nm" style="max-width:170px">'+(m.company||'—')+'</span></td>'
       +'<td><span class="nm" style="max-width:170px">'+(m.mfr||'—')+(m.mfrCountry?' <span class="dim">'+m.mfrCountry+'</span>':'')+'</span></td>'
+      +'<td class="ctr">'+inspStamp(m.insp)+'</td>'
+      +'<td class="ctr">'+stamp(m.tpia||'N/A')+'</td>'
       +'<td class="ctr">'+stamp(m.leed||'N/A')+'</td><td class="ctr">'+stamp(m.saso||'N/A')+'</td>'
       +'<td class="ctr">'+stamp(m.mts||'Pending')+'</td>'
       +'<td><span class="dim">'+(m.notes||'—')+'</span></td>'
@@ -2584,6 +2632,8 @@ function mirPreview(){
         +f('SUBMITTED',m.date)
         +fs('LEED',m.leed||'N/A')
         +fs('SASO',m.saso||'N/A')
+        +f('INSPECTION',m.insp||'None')
+        +f('THIRD PARTY',m.tpia||'N/A')
         +f('LINE ITEMS',items?String(items):'none')
       +'</div>'
       +(m.desc||m.notes?'<div style="padding:0 12px 11px"><div class="dlbl">'+(m.desc?'DESCRIPTION':'NOTES')+'</div><div class="dval" style="font-size:12px">'+(m.desc||m.notes)+'</div></div>':'')
