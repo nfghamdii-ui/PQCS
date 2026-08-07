@@ -617,7 +617,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div><label class="fl">Submitted date</label><input class="fi" type="date" id="f-date"></div>
      <div class="fg-f"><label class="fl">Scope of work</label><input class="fi" id="f-scope" placeholder="Chillers, HV switchgear…"></div>
      <div><label class="fl">Entity type</label><select class="fs" id="f-type" onchange="toggleSub()"><option value="">—</option><option>Manufacturer</option><option>Subcontractor</option><option>Vendor</option></select></div>
-     <div><label class="fl">Country or location</label><input class="fi" id="f-loc"></div>
+     <div><label class="fl">Country or location</label><input class="fi" id="f-loc" oninput="suggestOrigin()"></div>
+     <div><label class="fl">Origin</label><select class="fs" id="f-origin"><option value="">Infer from location</option><option>Local</option><option>Foreign</option></select></div>
      <div id="sub-row"><label class="fl">Brought by</label><select class="fs" id="f-subco"><option value="">—</option></select></div>
      <div><label class="fl">Material category</label><select class="fs" id="f-cat"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
      <div><label class="fl">Discipline</label><select class="fs" id="f-dis"><option value="">—</option><option>Architectural</option><option>Mechanical</option><option>Electrical</option><option>Civil</option><option>Structural</option><option>MEP</option></select></div>
@@ -1126,29 +1127,45 @@ function preNorm(m){
 }
 function preC(m){return stamp(preNorm(m));}
 
-/* urgency drives every default sort: what blocks you comes first,
-   recency is only the tie-breaker */
+/* Sorting and filtering follow one question: who owes the next move?
+     action    waiting on you — a survey to arrange, a dossier to chase
+     motion    waiting on the contractor or the reviewer
+     rejected  closed until the vendor completes their papers
+     cleared   nothing outstanding
+   Rejected records are not work in progress. They sit in their own
+   filter so the action list reflects what you can actually move today. */
+var ACTION_STAGES=['prepa','pa','pid','pim','mom','post'];
+function isRejected(r){var p=r.pqd||'Pending';return p==='Rejected'||p==='Code C';}
+function isoExpired(r){return r.iso==='Expired'||isExp(r.isoDate);}
+function stageNeedsMe(r){
+  return ACTION_STAGES.some(function(k){
+    var v=(k==='prepa')?preNorm(r):(r[k]||'N/A');
+    return tone(v)==='act';
+  });
+}
 function urgency(r){
   if(r.engage==='Discontinued')return -1;
   var s=0;
-  if(tone(r.pqd||'Pending')==='bad')s+=100;
-  if(r.iso==='Expired'||isExp(r.isoDate))s+=80;
-  if(r.pqd==='Code C')s+=70;
-  ['pa','pid','pim','mom','post'].forEach(function(k){if(tone(r[k]||'N/A')==='act')s+=10;});
-  if(tone(preNorm(r))==='act')s+=10;
-  if(tone(r.pqd||'Pending')==='act')s+=25;
-  if(tone(r.pqd||'Pending')==='run')s+=5;
+  if(isoExpired(r))s+=80;
+  if(isRejected(r))s+=50;
+  ACTION_STAGES.forEach(function(k){
+    var v=(k==='prepa')?preNorm(r):(r[k]||'N/A');
+    if(tone(v)==='act')s+=12;
+  });
+  var p=r.pqd||'Pending';
+  if(p==='Pending')s+=15;
+  else if(p==='Submitted')s+=5;
   return s;
 }
 function bucket(r){
   if(r.engage==='Discontinued')return 'stopped';
-  if(urgency(r)>=25)return 'action';
-  var keys=['pqd','pa','pid','pim','mom','post'];
-  if(keys.some(function(k){return tone(r[k]||'N/A')==='act';}))return 'action';
-  if(keys.some(function(k){return tone(r[k]||'N/A')==='run';}))return 'motion';
+  if(isRejected(r))return 'rejected';
+  if(isoExpired(r)||stageNeedsMe(r))return 'action';
+  var p=r.pqd||'Pending';
+  if(p==='Pending'||p==='Submitted')return 'motion';
   return 'cleared';
 }
-function flagFor(u){return u>=80?'<span class="flag f-bad"></span>':(u>=25?'<span class="flag f-act"></span>':'<span class="flag"></span>');}
+function flagFor(u){return u>=80?'<span class="flag f-bad"></span>':(u>=24?'<span class="flag f-act"></span>':'<span class="flag"></span>');}
 
 /* ================================================================
    3. NAVIGATION AND PER-PAGE TOOLBARS
@@ -1178,6 +1195,7 @@ function buildTools(page){
     h+='<button class="chip on" data-f="all" onclick="pqdFilter(this)">All<span class="chip-n" id="n-all">0</span></button>';
     h+='<button class="chip" data-f="action" onclick="pqdFilter(this)">Needs action<span class="chip-n" id="n-action">0</span></button>';
     h+='<button class="chip" data-f="motion" onclick="pqdFilter(this)">In motion<span class="chip-n" id="n-motion">0</span></button>';
+    h+='<button class="chip" data-f="rejected" onclick="pqdFilter(this)">Rejected<span class="chip-n" id="n-rejected">0</span></button>';
     h+='<button class="chip" data-f="cleared" onclick="pqdFilter(this)">Cleared<span class="chip-n" id="n-cleared">0</span></button>';
     h+='<button class="chip" data-f="stopped" onclick="pqdFilter(this)">Discontinued<span class="chip-n" id="n-stopped">0</span></button>';
     h+='<div class="spacer"></div><span class="count" id="pqd-count"></span>';
@@ -1326,10 +1344,12 @@ function alertsFor(){
   (DB.pqd||[]).forEach(function(m){
     if(m.engage==='Discontinued')return;
     var pq=m.pqd||'Pending';
-    if(pq==='Rejected'){out.push({p:100,t:'bad',s:'Rejected',n:m.name,d:'Resubmit after addressing comments',c:m,date:m.date});return;}
-    if(pq==='Code C'){out.push({p:70,t:'act',s:'Code C',n:m.name,d:'Address comments and resubmit',c:m,date:m.date});return;}
+    if(pq==='Rejected'||pq==='Code C'){
+      if(m.isoDate&&isExp(m.isoDate))out.push({p:80,t:'act',s:'ISO expired',n:m.name,d:'Expired '+m.isoDate,c:m,date:m.isoDate});
+      return;
+    }
     if(m.isoDate&&isExp(m.isoDate)){out.push({p:80,t:'act',s:'ISO expired',n:m.name,d:'Expired '+m.isoDate,c:m,date:m.isoDate});return;}
-    if(pq==='Pending'){out.push({p:40,t:'act',s:'Not submitted',n:m.name,d:'Submit the pre-qualification dossier',c:m,date:m.date});return;}
+    if(pq==='Pending'){out.push({p:15,t:'run',s:'Not submitted',n:m.name,d:'Waiting on the contractor to submit',c:m,date:m.date});return;}
     if(pq==='Submitted'){out.push({p:20,t:'run',s:'Submitted',n:m.name,d:'Awaiting review',c:m,date:m.date});return;}
     var pre=preNorm(m);
     if(pre==='Pending'&&m.pa!=='Done'&&m.pa!=='Waived'){out.push({p:45,t:'act',s:'Pre-PA pending',n:m.name,d:'Survey and reports needed before assessment',c:m,date:m.paDate});return;}
@@ -1349,14 +1369,14 @@ function renderDash(){
   var live=pqd.filter(function(m){return m.engage!=='Discontinued';});
   var appr=live.filter(function(m){return (m.pqd||'').indexOf('Approved')===0;}).length;
   var al=alertsFor();
-  var act=al.filter(function(a){return a.t!=='run';}).length;
+  var act=(DB.pqd||[]).filter(function(m){return bucket(m)==='action';}).length;
   var rate=live.length?Math.round(appr/live.length*100):0;
   var stats=[
     {v:live.length,l:'Manufacturers',go:'pqd'},
     {v:appr,l:'Qualified',go:'pqd'},
     {v:matRecords().length,l:'Submittals',go:'mat'},
     {v:mir.length,l:'Inspections',go:'mir'},
-    {v:act,l:'Need action',go:'pqd',c:'var(--act-t)'},
+    {v:act,l:'Need action',go:'pqd',c:act?'var(--act-t)':''},
     {v:rate+'%',l:'Approval rate',go:'pqd'}
   ];
   document.getElementById('dash-stats').innerHTML=stats.map(function(s){
@@ -1497,7 +1517,19 @@ function shortRef(v){
 }
 var pqdFilterVal='all', pqdOpen=null;
 var colFilters={};
+/* Origin was never captured, but 378 records already carry a location.
+   Read it rather than ask for it again: an explicit value wins, and
+   anything else is inferred from the text and can be corrected. */
+var KSA_HINTS=['ksa','k.s.a','saudi','saudia','السعود','riyadh','jeddah','jedda','dammam','makkah','mecca','madinah','medina','khobar','jubail','yanbu','tabuk','abha','buraydah','buraidah','qassim','hail','najran','jazan','jizan','taif','ahsa','hofuf','dhahran','rabigh','khamis','sakaka','arar','unaizah'];
+function vendorOrigin(m){
+  if(m.origin)return m.origin;
+  var l=String(m.loc||'').toLowerCase().trim();
+  if(!l)return 'Unknown';
+  for(var i=0;i<KSA_HINTS.length;i++)if(l.indexOf(KSA_HINTS[i])>=0)return 'Local';
+  return 'Foreign';
+}
 function pqdVal(m,k){
+  if(k==='origin')return vendorOrigin(m);
   if(k==='prepa')return preNorm(m);
   if(k==='iso')return (m.isoDate&&isExp(m.isoDate))?'Expired':(m.iso||'N/A');
   if(k==='cat')return m.cat||'—';
@@ -1513,7 +1545,7 @@ function buildPQDHead(){
     return '<th class="thf'+(ctr?' ctr':'')+act+'" onclick="openColFilter(\''+k+'\',event)">'+label
       +'<svg class="fcar" width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 4l3 3 3-3"/></svg></th>';
   };
-  var h='<th class="pin1 pin-edge" style="min-width:300px">VENDOR</th>'+fh('cat','CAT')+fh('dis','DISC');
+  var h='<th class="pin1 pin-edge" style="min-width:300px">VENDOR</th>'+fh('cat','CAT')+fh('dis','DISC')+fh('origin','ORIGIN');
   PQD_STATUS.forEach(function(c){h+=fh(c[0],c[1],1);});
   PQD_EXTRA.forEach(function(c){if(pqdShown[c[0]])h+=fh(c[0],c[1],1);});
   PQD_DETAIL.forEach(function(c){if(pqdShown[c[0]])h+='<th>'+c[1]+'</th>';});
@@ -1525,7 +1557,7 @@ window.pqdFilter=function(el){
   el.classList.add('on');pqdFilterVal=el.dataset.f;pqdOpen=null;rPQD();
 };
 function pqdCounts(){
-  var c={all:0,action:0,motion:0,cleared:0,stopped:0};
+  var c={all:0,action:0,motion:0,rejected:0,cleared:0,stopped:0};
   (DB.pqd||[]).forEach(function(r){var b=bucket(r);c[b]=(c[b]||0)+1;if(b!=='stopped')c.all++;});
   Object.keys(c).forEach(function(k){var e=document.getElementById('n-'+k);if(e)e.textContent=c[k];});
 }
@@ -1552,7 +1584,7 @@ window.rPQD=function(){
     cnt.innerHTML=list.length+' record'+(list.length===1?'':'s')+' · sorted by urgency'
       +(anyColFilter()?' · <span class="link" onclick="clearAllColFilters()">clear column filters</span>':'');
   }
-  var cols=3+PQD_STATUS.length+PQD_EXTRA.filter(function(c){return pqdShown[c[0]];}).length+PQD_DETAIL.filter(function(c){return pqdShown[c[0]];}).length;
+  var cols=4+PQD_STATUS.length+PQD_EXTRA.filter(function(c){return pqdShown[c[0]];}).length+PQD_DETAIL.filter(function(c){return pqdShown[c[0]];}).length;
   var tb=document.getElementById('tb');
   document.getElementById('pqd-empty').style.display=list.length?'none':'block';
   var h='';
@@ -1560,7 +1592,7 @@ window.rPQD=function(){
     var u=urgency(m);
     h+='<tr class="hov" onclick="pqdToggle('+m.id+')"'+(m.engage==='Discontinued'?' style="opacity:.55"':'')+'>';
     h+='<td class="pin1 pin-edge">'+flagFor(u)+'<span class="nm" style="max-width:280px" title="'+String(m.name||'').replace(/"/g,'&quot;')+'">'+m.name+'</span></td>';
-    h+='<td>'+cB(m.cat)+'</td><td>'+cB(m.dis?m.dis.slice(0,4):'')+'</td>';
+    h+='<td>'+cB(m.cat)+'</td><td>'+cB(m.dis?m.dis.slice(0,4):'')+'</td>'+originCell(m);
     var stv=function(k){
       if(k==='prepa')return preNorm(m);
       if(k==='iso')return (m.isoDate&&isExp(m.isoDate))?'Expired':(m.iso||'N/A');
@@ -1586,7 +1618,7 @@ window.rPQD=function(){
         +dfS('VENDOR LIST',avlNorm(m.avl)||'N/A')
         +'</div><div class="dwrap">'
         +df('FULL REFERENCE',m.aconex,1)+df('SCOPE OF WORK',m.scope)+df('ENTITY TYPE',m.type)
-        +df('SUBMITTED',m.date,1)+df('LOCATION',m.loc)+df('BROUGHT BY',m.subco)
+        +df('SUBMITTED',m.date,1)+df('LOCATION',m.loc)+df('ORIGIN',vendorOrigin(m)+(m.origin?'':' (inferred)'))+df('BROUGHT BY',m.subco)
         +df('PA REFERENCE',m.paRef,1)+df('SURVEY DATE',m.paDate,1)+df('ISO EXPIRY',m.isoDate,1)+df('QUALIFIED ON',m.qualDate,1)
         +(m.engage==='Discontinued'?df('DISCONTINUED BECAUSE',m.engageReason):'')
         +df('NOTES',m.notes)
@@ -1597,6 +1629,12 @@ window.rPQD=function(){
   });
   tb.innerHTML=h;
 };
+function originCell(m){
+  var v=vendorOrigin(m);
+  if(v==='Unknown')return '<td><span class="dim">—</span></td>';
+  var inferred=!m.origin;
+  return '<td><span class="dim"'+(inferred?' title="Inferred from the location field"':'')+' style="'+(inferred?'':'color:var(--t-2)')+'">'+v+(inferred?' *':'')+'</span></td>';
+}
 function df(l,v,m){return '<div><div class="dlbl">'+l+'</div><div class="dval'+(m?' m':'')+'">'+(v||'—')+'</div></div>';}
 function dfS(l,v){return '<div><div class="dlbl">'+l+'</div><div>'+stamp(v)+'</div></div>';}
 window.pqdToggle=function(id){pqdOpen=(pqdOpen===id?null:id);rPQD();};
@@ -1605,7 +1643,7 @@ function render(){rPQD();}
 /* ---------- column filter menu ----------
    Values are drawn from the records the other filters already allow,
    so a column never offers a value that would return nothing. */
-var COL_LABEL={cat:'CATEGORY',dis:'DISCIPLINE',pqd:'PQD',pa:'PA',iso:'ISO',prepa:'PRE-PA',pid:'DOSSIER',pim:'MEETING',mom:'MINUTES',post:'POST-INSPECTION'};
+var COL_LABEL={cat:'CATEGORY',dis:'DISCIPLINE',origin:'ORIGIN',pqd:'PQD',pa:'PA',iso:'ISO',prepa:'PRE-PA',pid:'DOSSIER',pim:'MEETING',mom:'MINUTES',post:'POST-INSPECTION'};
 function pqdBase(exceptKey){
   var qEl=document.getElementById('pqd-q'), q=qEl?qEl.value.toLowerCase().trim():'';
   return (DB.pqd||[]).filter(function(r){
@@ -1677,6 +1715,12 @@ function closeM(){
   window._avlMatch=null;
 }
 document.getElementById('ov').addEventListener('click',function(e){if(e.target===this)closeM();});
+window.suggestOrigin=function(){
+  var sel=document.getElementById('f-origin');if(!sel)return;
+  if(sel.value)return;
+  var guess=vendorOrigin({loc:document.getElementById('f-loc').value});
+  sel.options[0].textContent=(guess==='Unknown')?'Infer from location':'Infer from location — '+guess;
+};
 function toggleSub(){var t=document.getElementById('f-type').value;document.getElementById('sub-row').style.display=(t&&t!=='Subcontractor')?'':'none';}
 function toggleEngage(){document.getElementById('engage-reason-wrap').style.display=(document.getElementById('f-engage').value==='Discontinued')?'':'none';}
 function fillSubco(){
@@ -1693,7 +1737,7 @@ function save(){
   var eid=document.getElementById('eid').value;
   var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
   var m={id:eid?+eid:Date.now(),name:n,aconex:g('f-aconex'),date:g('f-date'),scope:g('f-scope'),
-    type:g('f-type'),loc:g('f-loc'),subco:g('f-subco'),cat:g('f-cat'),dis:g('f-dis'),
+    type:g('f-type'),loc:g('f-loc'),origin:g('f-origin'),subco:g('f-subco'),cat:g('f-cat'),dis:g('f-dis'),
     avl:g('f-avl'),pqd:g('f-pqd'),engage:g('f-engage')||'Active',engageReason:g('f-engage-reason'),
     prepa:g('f-prepa'),pa:g('f-pa'),paDate:g('f-pa-date'),paQms:g('f-pa-qms'),paTech:g('f-pa-tech'),paRef:g('f-pa-ref'),
     paTechAssessor:g('f-pa-tech-assessor'),paQmsAssessor:g('f-pa-qms-assessor'),
@@ -1713,7 +1757,7 @@ window.edit=function(id){
   fillSubco();
   var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
   sv('eid',id);sv('f-name',m.name);sv('f-aconex',m.aconex);sv('f-date',m.date);sv('f-scope',m.scope);
-  sv('f-type',m.type);sv('f-loc',m.loc);sv('f-subco',m.subco);sv('f-cat',m.cat);sv('f-dis',m.dis);
+  sv('f-type',m.type);sv('f-loc',m.loc);sv('f-origin',m.origin);sv('f-subco',m.subco);suggestOrigin();sv('f-cat',m.cat);sv('f-dis',m.dis);
   sv('f-avl',avlNorm(m.avl));sv('f-pqd',m.pqd||'Pending');
   sv('f-engage',m.engage||'Active');sv('f-engage-reason',m.engageReason);toggleEngage();
   sv('f-prepa',preNorm(m));sv('f-pa',m.pa||'Pending');sv('f-pa-date',m.paDate);
