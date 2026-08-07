@@ -373,6 +373,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 <div class="ls" id="ls" style="display:none"><div class="spin"></div><div style="font-family:var(--mono);font-size:11px;color:var(--t-3)">PQCS</div></div>
 <div class="toast" id="toast"><span id="tm">Saved</span></div>
 <div class="fmenu" id="fmenu" onclick="event.stopPropagation()"></div>
+<datalist id="mfr-list"></datalist>
 
 <!-- ===================== APP ===================== -->
 <div class="app" id="app" style="display:none">
@@ -491,7 +492,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
         <div class="tw"><table>
           <thead><tr>
             <th class="pin1" style="min-width:200px">MATERIAL</th><th class="pin2" style="min-width:120px">REFERENCE</th>
-            <th>SUBMITTED</th><th>CAT SUB</th><th>CAT CORRECT</th><th style="min-width:150px">COMPANY</th>
+            <th>SUBMITTED</th><th>CAT SUB</th><th>CAT CORRECT</th><th style="min-width:150px">SUBMITTED BY</th><th style="min-width:150px">MANUFACTURER</th>
             <th class="ctr">LEED</th><th class="ctr">SASO</th><th class="ctr">MTS</th><th>NOTES</th><th></th>
           </tr></thead>
           <tbody id="tb-mat"></tbody>
@@ -516,7 +517,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
         <div class="tw"><table>
           <thead><tr>
             <th class="pin1 pin-edge" style="min-width:260px">MATERIAL / SAMPLE</th>
-            <th>SUBMITTED</th><th style="min-width:150px">COMPANY</th><th>CAT</th>
+            <th>SUBMITTED</th><th style="min-width:150px">SUBMITTED BY</th><th style="min-width:150px">MANUFACTURER</th><th>CAT</th>
             <th>QTY</th><th style="min-width:140px">HELD AT</th>
             <th class="ctr">STATUS</th><th>NOTES</th><th></th>
           </tr></thead>
@@ -727,7 +728,10 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div><label class="fl">Submission date</label><input class="fi" type="date" id="m-date"></div>
      <div><label class="fl">Category submitted</label><select class="fs" id="m-cat-sub"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
      <div><label class="fl">Correct category</label><select class="fs" id="m-cat-cor"><option value="">Same as submitted</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
-     <div class="fg-f"><label class="fl">Company</label><select class="fs" id="m-co" onchange="showCoInfo(this.value)"><option value="">—</option></select><div class="hint" id="co-info" style="display:none"><span id="co-info-txt"></span></div></div>
+     <div class="fg-f"><label class="fl">Submitted by — company on record</label><select class="fs" id="m-co" onchange="showCoInfo(this.value)"><option value="">—</option></select><div class="hint" id="co-info" style="display:none"><span id="co-info-txt"></span></div></div>
+     <div><label class="fl">Manufacturer of the material</label><input class="fi" id="m-mfr" list="mfr-list" placeholder="Who actually made it" oninput="checkMfr('m')" autocomplete="off"></div>
+     <div><label class="fl">Country of manufacture</label><input class="fi" id="m-mfr-country" placeholder="Origin of the goods"></div>
+     <div class="fg-f"><div class="hint" id="m-mfr-hint" style="display:none"></div></div>
      <div><label class="fl">LEED certificate</label><select class="fs" id="m-leed"><option>N/A</option><option>Attached</option><option>Pending</option><option>Will Submit with MIR</option></select></div>
      <div><label class="fl">SASO certificate</label><select class="fs" id="m-saso"><option>N/A</option><option>Attached</option><option>Pending</option><option>Will Submit with MIR</option></select></div>
    </div>
@@ -875,7 +879,10 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div><label class="fl">Submission date</label><input class="fi" type="date" id="s-date"></div>
      <div><label class="fl">Material category</label><select class="fs" id="s-cat"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
      <div><label class="fl">Quantity submitted</label><input class="fi" id="s-qty" placeholder="3 pieces, 2 boards…"></div>
-     <div class="fg-f"><label class="fl">Company</label><select class="fs" id="s-co"><option value="">—</option></select></div>
+     <div class="fg-f"><label class="fl">Submitted by — company on record</label><select class="fs" id="s-co"><option value="">—</option></select></div>
+     <div><label class="fl">Manufacturer of the material</label><input class="fi" id="s-mfr" list="mfr-list" placeholder="Who actually made it" oninput="checkMfr('s')" autocomplete="off"></div>
+     <div><label class="fl">Country of manufacture</label><input class="fi" id="s-mfr-country" placeholder="Origin of the goods"></div>
+     <div class="fg-f"><div class="hint" id="s-mfr-hint" style="display:none"></div></div>
      <div class="fg-f"><label class="fl">Sample held at</label><input class="fi" id="s-loc" placeholder="Site sample room, consultant office…"></div>
    </div>
    <span class="m-sec">STATUS</span>
@@ -1506,16 +1513,16 @@ function findAll(q){
   });
 
   matRecords().forEach(function(m){
-    var hay=findHay([m.name,m.aconex,m.desc,m.company,m.catSub,m.catCor,m.notes].concat((m.items||[]).map(function(i){return i.name;})));
+    var hay=findHay([m.name,m.aconex,m.desc,m.company,m.mfr,m.mfrCountry,m.catSub,m.catCor,m.notes].concat((m.items||[]).map(function(i){return i.name;})));
     if(!findMatches(hay,terms))return;
     out.push({group:'Material submittals',title:m.name,ref:m.aconex,
-      meta:[m.catCor||m.catSub,m.company,m.date].filter(Boolean).join(' · '),
+      meta:[m.catCor||m.catSub,m.company,m.mfr?('made by '+m.mfr):'',m.date].filter(Boolean).join(' · '),
       sub:m.desc,stamps:[m.mts||'Pending'],
       go:"goTo('mat');setTimeout(function(){editMAT("+m.id+")},120)"});
   });
 
   smpRecords().forEach(function(m){
-    var hay=findHay([m.name,m.aconex,m.desc,m.company,m.heldAt,m.qty,m.notes]);
+    var hay=findHay([m.name,m.aconex,m.desc,m.company,m.mfr,m.mfrCountry,m.heldAt,m.qty,m.notes]);
     if(!findMatches(hay,terms))return;
     out.push({group:'MES',title:m.name,ref:m.aconex,
       meta:[m.catSub,m.company,m.date,m.heldAt].filter(Boolean).join(' · '),
@@ -2244,12 +2251,13 @@ function getMItems(){
   return out;
 }
 function setMItems(items){var tb=document.getElementById('m-items');if(tb)tb.innerHTML='';(items||[]).forEach(function(it){addMItem(it.name,it.qty,it.unit);});}
-window.openMAT=function(){fillCo();document.getElementById('co-info').style.display='none';setMItems([]);addMItem();document.getElementById('ov-mat').classList.add('on');};
+window.openMAT=function(){fillCo();buildMfrList();document.getElementById('co-info').style.display='none';setMItems([]);addMItem();document.getElementById('ov-mat').classList.add('on');};
 window.closeMAT=function(){
   document.getElementById('ov-mat').classList.remove('on');
   document.querySelectorAll('#ov-mat .fi,#ov-mat .ft').forEach(function(e){e.value='';});
   document.querySelectorAll('#ov-mat .fs').forEach(function(e){e.selectedIndex=0;});
   document.getElementById('m-eid').value='';document.getElementById('m-items').innerHTML='';
+  var mh=document.getElementById('m-mfr-hint');if(mh)mh.style.display='none';
   document.getElementById('co-info').style.display='none';
 };
 document.getElementById('ov-mat').addEventListener('click',function(e){if(e.target===this)closeMAT();});
@@ -2259,7 +2267,7 @@ window.saveMAT=function(){
   var eid=document.getElementById('m-eid').value, g=function(id){var e=document.getElementById(id);return e?e.value:'';};
   var catSub=g('m-cat-sub');
   var m={id:eid?+eid:Date.now(),name:n,desc:g('m-desc'),aconex:g('m-aconex'),date:g('m-date'),
-    catSub:catSub,catCor:g('m-cat-cor')||catSub,company:g('m-co'),
+    catSub:catSub,catCor:g('m-cat-cor')||catSub,company:g('m-co'),mfr:g('m-mfr'),mfrCountry:g('m-mfr-country'),
     leed:g('m-leed'),saso:g('m-saso'),mts:g('m-mts'),notes:g('m-notes'),items:getMItems()};
   if(eid){var i=DB.mat.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.mat[i]._rowid)m._rowid=DB.mat[i]._rowid;DB.mat[i]=m;}}
   else DB.mat.push(m);
@@ -2270,11 +2278,11 @@ window.saveMAT=function(){
 };
 window.editMAT=function(id){
   var m=DB.mat.find(function(x){return x.id===id;});if(!m)return;
-  fillCo();
+  fillCo();buildMfrList();
   var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
   sv('m-eid',id);sv('m-name',m.name);sv('m-desc',m.desc);sv('m-aconex',m.aconex);sv('m-date',m.date);
   sv('m-cat-sub',m.catSub);sv('m-cat-cor',(m.catCor&&m.catCor!==m.catSub)?m.catCor:'');
-  sv('m-co',m.company);sv('m-leed',m.leed||'N/A');sv('m-saso',m.saso||'N/A');sv('m-mts',m.mts||'Pending');sv('m-notes',m.notes);
+  sv('m-co',m.company);sv('m-mfr',m.mfr);sv('m-mfr-country',m.mfrCountry);checkMfr('m');sv('m-leed',m.leed||'N/A');sv('m-saso',m.saso||'N/A');sv('m-mts',m.mts||'Pending');sv('m-notes',m.notes);
   setMItems(m.items&&m.items.length?m.items:[]);if(!m.items||!m.items.length)addMItem();
   if(m.company)showCoInfo(m.company);else document.getElementById('co-info').style.display='none';
   document.getElementById('ov-mat').classList.add('on');
@@ -2294,12 +2302,12 @@ window.rMAT=function(){
   var q=qe?qe.value.toLowerCase().trim():'', st=se?se.value:'';
   var items=matRecords().filter(function(m){
     if(st&&m.mts!==st)return false;
-    if(q&&[m.name,m.company,m.aconex,m.desc].join(' ').toLowerCase().indexOf(q)<0)return false;
+    if(q&&[m.name,m.company,m.mfr,m.mfrCountry,m.aconex,m.desc].join(' ').toLowerCase().indexOf(q)<0)return false;
     return true;
   });
   var c=document.getElementById('mat-count');if(c)c.textContent=items.length+' submittal'+(items.length===1?'':'s');
   var tb=document.getElementById('tb-mat');if(!tb)return;
-  if(!items.length){tb.innerHTML='<tr><td colspan="11" class="empty">No submittals yet.</td></tr>';return;}
+  if(!items.length){tb.innerHTML='<tr><td colspan="12" class="empty">No submittals yet.</td></tr>';return;}
   tb.innerHTML=items.map(function(m){
     var sub=m.catSub||'', cor=m.catCor||sub, diff=(m.catCor&&cor!==sub);
     return '<tr class="hov" onclick="editMAT('+m.id+')">'
@@ -2308,11 +2316,43 @@ window.rMAT=function(){
       +'<td><span class="ref">'+(m.date||'—')+'</span></td>'
       +'<td>'+cB(sub)+'</td><td>'+cB(cor)+(diff?' <span style="color:var(--act-t);font-size:11px">changed</span>':'')+'</td>'
       +'<td><span class="nm" style="max-width:170px">'+(m.company||'—')+'</span></td>'
+      +'<td><span class="nm" style="max-width:170px">'+(m.mfr||'—')+(m.mfrCountry?' <span class="dim">'+m.mfrCountry+'</span>':'')+'</span></td>'
       +'<td class="ctr">'+stamp(m.leed||'N/A')+'</td><td class="ctr">'+stamp(m.saso||'N/A')+'</td>'
       +'<td class="ctr">'+stamp(m.mts||'Pending')+'</td>'
       +'<td><span class="dim">'+(m.notes||'—')+'</span></td>'
       +ibs('editMAT','delMAT',m.id,m._rowid)+'</tr>';
   }).join('');
+};
+
+/* The company that submits a material is not always the company that
+   made it. The manufacturer is recorded on the submittal itself, since
+   test certificates and origin follow the factory, not the supplier. */
+function buildMfrList(){
+  var dl=document.getElementById('mfr-list');if(!dl)return;
+  var seen={},names=[];
+  (DB.pqd||[]).forEach(function(v){var n=(v.name||'').trim();if(n&&!seen[n.toLowerCase()]){seen[n.toLowerCase()]=1;names.push(n);}});
+  (window.AVL_DATA||[]).forEach(function(r){var n=(r.mfr||'').trim();if(n&&!seen[n.toLowerCase()]){seen[n.toLowerCase()]=1;names.push(n);}});
+  names.sort(function(a,b){return a.localeCompare(b);});
+  dl.innerHTML=names.slice(0,1200).map(function(n){return '<option value="'+n.replace(/"/g,'&quot;')+'">';}).join('');
+}
+window.checkMfr=function(prefix){
+  var inp=document.getElementById(prefix+'-mfr'), hint=document.getElementById(prefix+'-mfr-hint');
+  if(!inp||!hint)return;
+  var name=inp.value.trim();
+  if(name.length<3){hint.style.display='none';return;}
+  var low=name.toLowerCase();
+  var vendor=(DB.pqd||[]).find(function(v){return (v.name||'').toLowerCase().trim()===low;});
+  var listed=avlLookup(name);
+  hint.style.display='';
+  if(vendor){
+    hint.innerHTML='<span style="color:var(--t-2)">On record as a vendor</span> '+stamp(vendor.pqd||'Pending')
+      +' <span class="dim">'+[vendor.cat,vendor.loc].filter(Boolean).join(' · ')+'</span>';
+  }else if(listed){
+    hint.innerHTML='<span style="color:var(--ok-t)">On the approved vendor list — list '+listed.list+'</span> <span class="dim">'
+      +[listed.disc,listed.cat,listed.country].filter(Boolean).join(' · ')+'</span>';
+  }else{
+    hint.innerHTML='<span style="color:var(--act-t)">Not a recorded vendor and not on the approved list</span>';
+  }
 };
 
 /* ---------- MES · material and equipment samples ----------
@@ -2329,12 +2369,13 @@ function fillSmpCo(){
   });
   if(cur)sel.value=cur;
 }
-window.openSMP=function(){fillSmpCo();document.getElementById('smp-title').textContent='Material and equipment sample (MES)';document.getElementById('ov-smp').classList.add('on');};
+window.openSMP=function(){fillSmpCo();buildMfrList();document.getElementById('smp-title').textContent='Material and equipment sample (MES)';document.getElementById('ov-smp').classList.add('on');};
 window.closeSMP=function(){
   document.getElementById('ov-smp').classList.remove('on');
   document.querySelectorAll('#ov-smp .fi,#ov-smp .ft').forEach(function(e){e.value='';});
   document.querySelectorAll('#ov-smp .fs').forEach(function(e){e.selectedIndex=0;});
   document.getElementById('s-eid').value='';
+  var sh=document.getElementById('s-mfr-hint');if(sh)sh.style.display='none';
 };
 document.getElementById('ov-smp').addEventListener('click',function(e){if(e.target===this)closeSMP();});
 window.saveSMP=function(){
@@ -2342,7 +2383,7 @@ window.saveSMP=function(){
   if(!n)return alert('Enter the material or sample name');
   var eid=document.getElementById('s-eid').value, g=function(id){var e=document.getElementById(id);return e?e.value:'';};
   var m={id:eid?+eid:Date.now(),kind:'sample',name:n,desc:g('s-desc'),aconex:g('s-aconex'),date:g('s-date'),
-    catSub:g('s-cat'),qty:g('s-qty'),company:g('s-co'),heldAt:g('s-loc'),
+    catSub:g('s-cat'),qty:g('s-qty'),company:g('s-co'),mfr:g('s-mfr'),mfrCountry:g('s-mfr-country'),heldAt:g('s-loc'),
     mts:g('s-st'),decDate:g('s-decdate'),notes:g('s-notes')};
   if(eid){var i=DB.mat.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.mat[i]._rowid)m._rowid=DB.mat[i]._rowid;DB.mat[i]=m;}}
   else DB.mat.push(m);
@@ -2352,10 +2393,10 @@ window.saveSMP=function(){
 };
 window.editSMP=function(id){
   var m=(DB.mat||[]).find(function(x){return x.id===id;});if(!m)return;
-  fillSmpCo();
+  fillSmpCo();buildMfrList();
   var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
   sv('s-eid',id);sv('s-name',m.name);sv('s-desc',m.desc);sv('s-aconex',m.aconex);sv('s-date',m.date);
-  sv('s-cat',m.catSub);sv('s-qty',m.qty);sv('s-co',m.company);sv('s-loc',m.heldAt);
+  sv('s-cat',m.catSub);sv('s-qty',m.qty);sv('s-co',m.company);sv('s-mfr',m.mfr);sv('s-mfr-country',m.mfrCountry);checkMfr('s');sv('s-loc',m.heldAt);
   sv('s-st',m.mts||'Pending');sv('s-decdate',m.decDate);sv('s-notes',m.notes);
   document.getElementById('smp-title').textContent='Edit MES';
   document.getElementById('ov-smp').classList.add('on');
@@ -2374,18 +2415,19 @@ window.rSMP=function(){
   var q=qe?qe.value.toLowerCase().trim():'', st=se?se.value:'';
   var items=smpRecords().filter(function(m){
     if(st&&m.mts!==st)return false;
-    if(q&&[m.name,m.company,m.aconex,m.desc,m.heldAt].join(' ').toLowerCase().indexOf(q)<0)return false;
+    if(q&&[m.name,m.company,m.mfr,m.mfrCountry,m.aconex,m.desc,m.heldAt].join(' ').toLowerCase().indexOf(q)<0)return false;
     return true;
   }).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
   var c=document.getElementById('smp-count');if(c)c.textContent=items.length+' MES record'+(items.length===1?'':'s');
   var tb=document.getElementById('tb-smp');if(!tb)return;
-  if(!items.length){tb.innerHTML='<tr><td colspan="9" class="empty">No MES records yet.</td></tr>';return;}
+  if(!items.length){tb.innerHTML='<tr><td colspan="10" class="empty">No MES records yet.</td></tr>';return;}
   tb.innerHTML=items.map(function(m){
     return '<tr class="hov" onclick="editSMP('+m.id+')">'
       +'<td class="pin1 pin-edge"><span class="nm" style="max-width:250px" title="'+String(m.name||'').replace(/"/g,'&quot;')+'">'+m.name+'</span>'
       +(m.desc?'<div class="dim" style="font-size:11px;margin-top:2px;max-width:250px;overflow:hidden;text-overflow:ellipsis">'+m.desc+'</div>':'')+'</td>'
       +'<td><span class="ref">'+(m.date||'—')+'</span></td>'
       +'<td><span class="nm" style="max-width:170px">'+(m.company||'—')+'</span></td>'
+      +'<td><span class="nm" style="max-width:170px">'+(m.mfr||'—')+(m.mfrCountry?' <span class="dim">'+m.mfrCountry+'</span>':'')+'</span></td>'
       +'<td>'+cB(m.catSub)+'</td>'
       +'<td><span class="dim">'+(m.qty||'—')+'</span></td>'
       +'<td><span class="dim">'+(m.heldAt||'—')+'</span></td>'
@@ -2463,7 +2505,8 @@ function mirPreview(){
         +(m.aconex?'<span class="ref">'+m.aconex+'</span>':'')
         +'<span style="margin-left:auto">'+stamp(m.mts||'Pending')+'</span></div>'
       +'<div style="padding:11px 12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:11px 16px">'
-        +f('COMPANY',m.company)
+        +f('SUBMITTED BY',m.company)
+        +f('MANUFACTURER',m.mfr?(m.mfr+(m.mfrCountry?' · '+m.mfrCountry:'')):'')
         +(co?fs('VENDOR PQD',co.pqd||'Pending'):'<div><div class="dlbl">VENDOR PQD</div><div class="dval" style="font-size:12px;color:var(--act-t)">not on record</div></div>')
         +f('CATEGORY',(m.catCor||m.catSub))
         +f('SUBMITTED',m.date)
