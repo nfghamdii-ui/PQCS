@@ -363,7 +363,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
     <div class="grp">
       <div class="grp-lbl">WORKFLOW</div>
       <div class="ni" data-p="dash" onclick="goTo('dash',this)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span>Dashboard</span></div>
-      <div class="ni" data-p="pqd" onclick="goTo('pqd',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="6"/><path d="M9 14.5L8 22l4-2 4 2-1-7.5"/></svg><span>Pre-qualification</span><span class="ni-n" id="nb-pqd">0</span></div>
+      <div class="ni" data-p="pqd" onclick="goTo('pqd',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="6"/><path d="M9 14.5L8 22l4-2 4 2-1-7.5"/></svg><span>Vendors</span><span class="ni-n" id="nb-pqd">0</span></div>
       <div class="ni" data-p="mat" onclick="goTo('mat',this)"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></svg><span>Submittals</span><span class="ni-n" id="nb-mat">0</span></div>
       <div class="ni" data-p="mir" onclick="goTo('mir',this)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3M8 11h6M11 8v6"/></svg><span>Inspection</span><span class="ni-n" id="nb-mir">0</span></div>
       <div class="ni" data-p="fat" onclick="goTo('fat',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L21 5"/><path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h10"/></svg><span>FAT tracker</span><span class="ni-n" id="nb-fat">0</span></div>
@@ -427,7 +427,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 
           <div class="sec-h"><span class="sec-t">Recent activity</span></div>
           <div class="panel"><div class="tw"><table>
-            <thead><tr><th style="min-width:180px">MANUFACTURER</th><th>REFERENCE</th><th>CAT</th><th class="ctr">PQD</th><th class="ctr">PA</th><th class="ctr">ISO</th></tr></thead>
+            <thead><tr><th style="min-width:180px">VENDOR</th><th>REFERENCE</th><th>CAT</th><th class="ctr">PQD</th><th class="ctr">PA</th><th class="ctr">ISO</th></tr></thead>
             <tbody id="dash-pqd"></tbody>
           </table></div></div>
 
@@ -456,7 +456,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
       <!-- ============ PRE-QUALIFICATION ============ -->
       <div id="pg-pqd" style="display:none">
         <div class="tw"><table><thead><tr id="pqd-thead"></tr></thead><tbody id="tb"></tbody></table></div>
-        <div class="empty" id="pqd-empty" style="display:none">No manufacturers match these filters.</div>
+        <div class="empty" id="pqd-empty" style="display:none">No vendors match these filters.</div>
       </div>
 
       <!-- ============ SUBMITTALS ============ -->
@@ -574,7 +574,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 <!-- ===================== PQD MODAL ===================== -->
 <div class="ov" id="ov">
  <div class="modal">
-  <div class="m-head"><h2>Pre-qualification record</h2><button class="ib" onclick="closeM()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="m-head"><h2>Vendor record</h2><button class="ib" onclick="closeM()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
   <div class="m-body">
    <input type="hidden" id="eid">
    <span class="m-sec">BASIC INFORMATION</span>
@@ -1093,8 +1093,8 @@ function flagFor(u){return u>=80?'<span class="flag f-bad"></span>':(u>=25?'<spa
    3. NAVIGATION AND PER-PAGE TOOLBARS
    ================================================================ */
 var PAGES=['dash','pqd','mat','mir','fat','pasum','rpt','comp','avl','proc','dlog','chk','cal','admin'];
-var TITLES={dash:'Dashboard',pqd:'Pre-qualification',mat:'Material submittals',mir:'Material inspection',fat:'FAT schedule tracker',pasum:'Physical assessment summary',rpt:'Reports',comp:'Components and category',avl:'Approved vendor list',proc:'Procedure',dlog:'Material delivery log',chk:'PQD checklist',cal:'Calendar',admin:'Admin'};
-var ADD_LABEL={pqd:'New PQD',mat:'New submittal',mir:'New inspection',fat:'New FAT item',cal:'New event'};
+var TITLES={dash:'Dashboard',pqd:'Vendors',mat:'Material submittals',mir:'Material inspection',fat:'FAT schedule tracker',pasum:'Physical assessment summary',rpt:'Reports',comp:'Components and category',avl:'Approved vendor list',proc:'Procedure',dlog:'Material delivery log',chk:'PQD checklist',cal:'Calendar',admin:'Admin'};
+var ADD_LABEL={pqd:'New vendor',mat:'New submittal',mir:'New inspection',fat:'New FAT item',cal:'New event'};
 var CUR_PAGE='dash';
 
 function searchBox(id,ph,fn){
@@ -1104,7 +1104,7 @@ function searchBox(id,ph,fn){
 function buildTools(page){
   var t=document.getElementById('tools'), h='';
   if(page==='pqd'){
-    h+=searchBox('pqd-q','Manufacturer, reference, scope…','rPQD()');
+    h+=searchBox('pqd-q','Vendor, reference, scope…','rPQD()');
     h+='<button class="chip on" data-f="all" onclick="pqdFilter(this)">All<span class="chip-n" id="n-all">0</span></button>';
     h+='<button class="chip" data-f="action" onclick="pqdFilter(this)">Needs action<span class="chip-n" id="n-action">0</span></button>';
     h+='<button class="chip" data-f="motion" onclick="pqdFilter(this)">In motion<span class="chip-n" id="n-motion">0</span></button>';
@@ -1377,10 +1377,9 @@ var pqdShown={date:false,loc:false,subco:false,avl:false,paQms:false,paTech:fals
 var pqdFilterVal='all', pqdOpen=null;
 
 function buildPQDHead(){
-  var h='<th class="pin1" style="min-width:210px">MANUFACTURER</th><th class="pin2" style="min-width:120px">REFERENCE</th><th>CAT</th><th>DISC</th>';
+  var h='<th class="pin1" style="min-width:210px">VENDOR</th><th class="pin2" style="min-width:120px">REFERENCE</th><th>CAT</th><th>DISC</th>';
   PQD_STATUS.forEach(function(c){h+='<th class="ctr">'+c[1]+'</th>';});
   PQD_DETAIL.forEach(function(c){if(pqdShown[c[0]])h+='<th>'+c[1]+'</th>';});
-  h+='<th></th>';
   document.getElementById('pqd-thead').innerHTML=h;
 }
 window.togCol=function(el){var k=el.dataset.c;pqdShown[k]=!pqdShown[k];el.classList.toggle('on',pqdShown[k]);buildPQDHead();rPQD();};
@@ -1409,7 +1408,7 @@ window.rPQD=function(){
   pqdCounts();
   var cnt=document.getElementById('pqd-count');
   if(cnt)cnt.textContent=list.length+' record'+(list.length===1?'':'s')+' · sorted by urgency';
-  var cols=5+PQD_STATUS.length+PQD_DETAIL.filter(function(c){return pqdShown[c[0]];}).length;
+  var cols=4+PQD_STATUS.length+PQD_DETAIL.filter(function(c){return pqdShown[c[0]];}).length;
   var tb=document.getElementById('tb');
   document.getElementById('pqd-empty').style.display=list.length?'none':'block';
   var h='';
@@ -1431,9 +1430,6 @@ window.rPQD=function(){
       else if(k==='paQms'||k==='paTech')h+='<td>'+stamp(m[k]||'Pending')+'</td>';
       else h+='<td><span class="ref">'+(m[k]||'—')+'</span></td>';
     });
-    h+='<td class="ctr" onclick="event.stopPropagation()">'
-      +'<button class="ib" onclick="edit('+m.id+')" aria-label="Edit"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg></button>'
-      +'<button class="ib d" onclick="del('+m.id+(m._rowid!=null?",'"+m._rowid+"'":"")+')" aria-label="Delete"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button></td>';
     h+='</tr>';
     if(pqdOpen===m.id){
       h+='<tr class="detail"><td colspan="'+cols+'"><div class="dwrap">'
@@ -1444,7 +1440,8 @@ window.rPQD=function(){
         +(m.engage==='Discontinued'?df('DISCONTINUED BECAUSE',m.engageReason):'')
         +df('NOTES',m.notes)
         +'</div><div class="dacts"><button class="btn btn-sm" onclick="event.stopPropagation();edit('+m.id+')">Edit record</button>'
-        +'<button class="btn btn-sm" onclick="event.stopPropagation();goTo(\'chk\')">Open checklist</button></div></td></tr>';
+        +'<button class="btn btn-sm" onclick="event.stopPropagation();goTo(\'chk\')">Open checklist</button>'
+        +'<button class="btn btn-sm btn-d" style="margin-left:auto" onclick="event.stopPropagation();del('+m.id+(m._rowid!=null?",'"+m._rowid+"'":"")+')">Delete</button></div></td></tr>';
     }
   });
   tb.innerHTML=h;
