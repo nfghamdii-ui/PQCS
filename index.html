@@ -499,7 +499,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
         <div class="tw"><table>
           <thead><tr>
             <th class="pin1" style="min-width:200px">MATERIAL</th><th class="pin2" style="min-width:120px">MIR NO.</th>
-            <th>DATE</th><th>CAT</th><th style="min-width:150px">COMPANY</th>
+            <th>DATE</th><th>CAT</th><th style="min-width:150px">COMPANY</th><th style="min-width:170px">SUBMITTALS</th>
             <th class="ctr">LEED</th><th class="ctr">SASO</th><th class="ctr">MIR</th>
             <th>IRN NO.</th><th>IRN DATE</th><th class="ctr">IRN</th><th>NOTES</th><th></th>
           </tr></thead>
@@ -766,10 +766,11 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 
    <span class="m-sec">LINKED SUBMITTAL AND RECEIVED QUANTITIES</span>
    <div class="fg"><div class="fg-f" style="position:relative">
-     <label class="fl">Submittal reference</label>
+     <label class="fl">Linked submittals — add as many as the shipment covers</label>
      <input type="hidden" id="mir-mat">
-     <input class="fi" id="mir-mat-search" placeholder="Type material name or reference…" oninput="filterMATRef()" onfocus="filterMATRef()" autocomplete="off">
+     <input class="fi" id="mir-mat-search" placeholder="Type material name or reference, then pick…" oninput="filterMATRef()" onfocus="filterMATRef()" autocomplete="off">
      <div id="mir-mat-list" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:50;background:var(--sf-2);border:1px solid var(--line-2);border-radius:var(--r);margin-top:4px;max-height:210px;overflow-y:auto;box-shadow:0 12px 32px rgba(0,0,0,.5)"></div>
+     <div id="mir-mat-chips" style="margin-top:9px"></div>
    </div></div>
    <div class="mbox" style="margin-top:9px"><table class="mini">
      <thead><tr><th>ITEM</th><th style="width:96px">ORDERED</th><th style="width:104px">RECEIVED</th><th style="width:106px">STATUS</th></tr></thead>
@@ -2278,10 +2279,9 @@ window.filterMATRef=function(){
   list.querySelectorAll('.matref-opt').forEach(function(el){
     el.addEventListener('mousedown',function(ev){
       ev.preventDefault();
-      var ref=el.getAttribute('data-ref');
-      document.getElementById('mir-mat').value=ref;
-      document.getElementById('mir-mat-search').value=el.getAttribute('data-disp');
-      list.style.display='none';loadMIRItems(ref,null);
+      addMirRef(el.getAttribute('data-ref'));
+      document.getElementById('mir-mat-search').value='';
+      list.style.display='none';
     });
   });
 };
@@ -2289,19 +2289,64 @@ document.addEventListener('click',function(e){
   var box=document.getElementById('mir-mat-list'),inp=document.getElementById('mir-mat-search');
   if(box&&inp&&e.target!==inp&&!box.contains(e.target))box.style.display='none';
 });
-function findMatByRef(refVal){return matRecords().find(function(m){var x=matRefLabel(m);return (x.ref||x.name)===refVal;})||null;}
-window.loadMIRItems=function(refVal,received){
-  var tb=document.getElementById('mir-items');if(!tb)return;
-  var mat=findMatByRef(refVal), items=(mat&&mat.items&&mat.items.length)?mat.items:[];
-  if(!items.length){tb.innerHTML='<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--t-3);font-size:11.5px">'+(mat?'This submittal has no line items':'Select a submittal reference to load its items')+'</td></tr>';return;}
-  var rec={};(received||[]).forEach(function(r){rec[r.name]=r.received;});
-  tb.innerHTML=items.map(function(it){
-    var rv=rec[it.name];rv=(rv===0||rv)?rv:'';
-    return '<tr data-name="'+String(it.name).replace(/"/g,'&quot;')+'" data-total="'+it.qty+'" data-unit="'+(it.unit||'')+'">'
-      +'<td style="font-size:11.5px">'+it.name+'</td><td class="dim">'+it.qty+(it.unit?' '+it.unit:'')+'</td>'
-      +'<td><input class="mir-rec" type="number" min="0" value="'+rv+'" oninput="updMIRStatus(this)"></td>'
-      +'<td class="mir-stcell" style="font-size:11px"></td></tr>';
+/* A shipment can cover several approved submittals, so an inspection
+   request holds a list of references. Records made before this change
+   carried a single value in matRef; it is read as a one-item list. */
+var MIR_REFS=[];
+function mirRefsOf(m){
+  if(m&&m.matRefs&&m.matRefs.length)return m.matRefs.slice();
+  return (m&&m.matRef)?[m.matRef]:[];
+}
+function refLabelFor(ref){
+  var mm=matRecords().find(function(x){var l=matRefLabel(x);return (l.ref||l.name)===ref;});
+  return mm?matRefLabel(mm):{name:ref,ref:'',display:ref};
+}
+window.renderMirChips=function(){
+  var box=document.getElementById('mir-mat-chips');if(!box)return;
+  if(!MIR_REFS.length){box.innerHTML='<span class="dim" style="font-size:11.5px">No submittal linked yet.</span>';return;}
+  box.innerHTML=MIR_REFS.map(function(r,i){
+    var l=refLabelFor(r);
+    return '<span class="utag" style="max-width:100%"><span style="overflow:hidden;text-overflow:ellipsis">'+l.name
+      +(l.ref?' <span class="dim">'+shortRef(l.ref)+'</span>':'')+'</span>'
+      +'<span class="x" onclick="removeMirRef('+i+')">×</span></span>';
   }).join('');
+};
+window.addMirRef=function(ref){
+  if(!ref)return;
+  if(MIR_REFS.indexOf(ref)>=0){toast('Already linked');return;}
+  MIR_REFS.push(ref);
+  renderMirChips();
+  loadMIRItems(MIR_REFS,null);
+};
+window.removeMirRef=function(i){
+  MIR_REFS.splice(i,1);
+  renderMirChips();
+  loadMIRItems(MIR_REFS,null);
+};
+function findMatByRef(refVal){return matRecords().find(function(m){var x=matRefLabel(m);return (x.ref||x.name)===refVal;})||null;}
+window.loadMIRItems=function(refs,received){
+  var tb=document.getElementById('mir-items');if(!tb)return;
+  if(typeof refs==='string')refs=refs?[refs]:[];
+  refs=refs||[];
+  var rec={};(received||[]).forEach(function(r){rec[(r.ref||'')+'::'+r.name]=r.received;});
+  var html='', any=false;
+  refs.forEach(function(ref){
+    var mat=findMatByRef(ref), l=refLabelFor(ref);
+    var items=(mat&&mat.items&&mat.items.length)?mat.items:[];
+    html+='<tr><td colspan="4" style="background:var(--sf-0);padding:7px 10px"><span style="font-size:11.5px">'+l.name+'</span>'
+      +(l.ref?' <span class="ref">'+shortRef(l.ref)+'</span>':'')
+      +(items.length?'':' <span class="dim">· no line items</span>')+'</td></tr>';
+    items.forEach(function(it){
+      any=true;
+      var key=ref+'::'+it.name, rv=rec[key];rv=(rv===0||rv)?rv:'';
+      html+='<tr data-ref="'+String(ref).replace(/"/g,'&quot;')+'" data-name="'+String(it.name).replace(/"/g,'&quot;')+'" data-total="'+it.qty+'" data-unit="'+(it.unit||'')+'">'
+        +'<td style="font-size:11.5px;padding-left:18px">'+it.name+'</td><td class="dim">'+it.qty+(it.unit?' '+it.unit:'')+'</td>'
+        +'<td><input class="mir-rec" type="number" min="0" value="'+rv+'" oninput="updMIRStatus(this)"></td>'
+        +'<td class="mir-stcell" style="font-size:11px"></td></tr>';
+    });
+  });
+  if(!refs.length)html='<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--t-3);font-size:11.5px">Link a submittal to load its items</td></tr>';
+  tb.innerHTML=html;
   tb.querySelectorAll('.mir-rec').forEach(function(i){updMIRStatus(i);});
 };
 window.updMIRStatus=function(inp){
@@ -2315,18 +2360,15 @@ function getMIRItems(){
   var out=[];
   document.querySelectorAll('#mir-items tr[data-name]').forEach(function(tr){
     var r=parseFloat(tr.querySelector('.mir-rec').value);
-    out.push({name:tr.getAttribute('data-name'),total:parseFloat(tr.getAttribute('data-total'))||0,unit:tr.getAttribute('data-unit')||'',received:isNaN(r)?0:r});
+    out.push({ref:tr.getAttribute('data-ref')||'',name:tr.getAttribute('data-name'),total:parseFloat(tr.getAttribute('data-total'))||0,unit:tr.getAttribute('data-unit')||'',received:isNaN(r)?0:r});
   });
   return out;
 }
-function loadMATRef(refVal){
-  document.getElementById('mir-mat').value=refVal||'';
-  var disp='';matRecords().forEach(function(m){var x=matRefLabel(m);if((x.ref||x.name)===refVal)disp=x.display;});
-  document.getElementById('mir-mat-search').value=disp||refVal||'';
-}
 window.openMIR=function(){
-  fillMIRCo();document.getElementById('mir-mat').value='';document.getElementById('mir-mat-search').value='';
-  document.getElementById('mir-mat-list').style.display='none';loadMIRItems('',null);
+  fillMIRCo();MIR_REFS=[];
+  document.getElementById('mir-mat').value='';document.getElementById('mir-mat-search').value='';
+  document.getElementById('mir-mat-list').style.display='none';
+  renderMirChips();loadMIRItems([],null);
   document.getElementById('ov-mir').classList.add('on');
 };
 window.closeMIR=function(){
@@ -2336,7 +2378,7 @@ window.closeMIR=function(){
   document.getElementById('irn-attached').checked=false;
   document.getElementById('irn-details').style.display='none';
   document.getElementById('mir-mat-list').style.display='none';
-  document.getElementById('mir-mat').value='';loadMIRItems('',null);
+  document.getElementById('mir-mat').value='';MIR_REFS=[];renderMirChips();loadMIRItems([],null);
   document.getElementById('mir-eid').value='';
 };
 document.getElementById('ov-mir').addEventListener('click',function(e){if(e.target===this)closeMIR();});
@@ -2347,8 +2389,8 @@ window.saveMIR=function(){
   var eid=document.getElementById('mir-eid').value, g=function(id){var e=document.getElementById(id);return e?e.value:'';};
   var m={id:eid?+eid:Date.now(),name:n,num:g('mir-num'),aconex:g('mir-aconex'),date:g('mir-date'),
     cat:g('mir-cat'),company:g('mir-co'),leed:g('mir-leed'),saso:g('mir-saso'),status:g('mir-st'),
-    irnNum:g('irn-num'),irnDate:g('irn-date'),irnStatus:g('irn-st'),matRef:g('mir-mat'),
-    irnAttached:document.getElementById('irn-attached').checked,recvItems:getMIRItems(),notes:g('mir-notes')};
+    irnNum:g('irn-num'),irnDate:g('irn-date'),irnStatus:g('irn-st'),matRef:(MIR_REFS[0]||''),
+    irnAttached:document.getElementById('irn-attached').checked,matRefs:MIR_REFS.slice(),recvItems:getMIRItems(),notes:g('mir-notes')};
   if(eid){var i=DB.mir.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.mir[i]._rowid)m._rowid=DB.mir[i]._rowid;DB.mir[i]=m;}}
   else DB.mir.push(m);
   var btn=document.getElementById('mir-save-btn');btn.disabled=true;
@@ -2365,7 +2407,10 @@ window.editMIR=function(id){
   sv('mir-st',m.status||'Pending');sv('irn-num',m.irnNum);sv('irn-date',m.irnDate);sv('irn-st',m.irnStatus||'N/A');
   document.getElementById('irn-attached').checked=!!m.irnAttached;
   document.getElementById('irn-details').style.display=m.irnAttached?'':'none';
-  loadMATRef(m.matRef||'');loadMIRItems(m.matRef||'',m.recvItems||[]);
+  MIR_REFS=mirRefsOf(m);
+  document.getElementById('mir-mat').value=MIR_REFS[0]||'';
+  document.getElementById('mir-mat-search').value='';
+  renderMirChips();loadMIRItems(MIR_REFS,m.recvItems||[]);
   sv('mir-notes',m.notes);
   document.getElementById('ov-mir').classList.add('on');
 };
@@ -2379,23 +2424,32 @@ window.delMIR=function(id,rowid){
   rMIR();toast('Inspection deleted');
   refreshCounts();
 };
+function mirRefCell(m){
+  var refs=mirRefsOf(m);
+  if(!refs.length)return '<span class="dim">—</span>';
+  var first=refLabelFor(refs[0]);
+  var txt=shortRef(first.ref)||first.name;
+  var extra=refs.length>1?' <span class="dim">+'+(refs.length-1)+'</span>':'';
+  return '<span class="ref" title="'+refs.map(function(r){return refLabelFor(r).display;}).join(' | ').replace(/"/g,'&quot;')+'">'+txt+'</span>'+extra;
+}
 window.rMIR=function(){
   var qe=document.getElementById('mir-q'),se=document.getElementById('mir-stf');
   var q=qe?qe.value.toLowerCase().trim():'', st=se?se.value:'';
   var items=(DB.mir||[]).filter(function(m){
     if(st&&m.status!==st)return false;
-    if(q&&[m.name,m.num,m.aconex,m.company].join(' ').toLowerCase().indexOf(q)<0)return false;
+    if(q&&[m.name,m.num,m.aconex,m.company].concat(mirRefsOf(m)).join(' ').toLowerCase().indexOf(q)<0)return false;
     return true;
   });
   var c=document.getElementById('mir-count');if(c)c.textContent=items.length+' inspection'+(items.length===1?'':'s');
   var tb=document.getElementById('tb-mir');if(!tb)return;
-  if(!items.length){tb.innerHTML='<tr><td colspan="13" class="empty">No inspection records yet.</td></tr>';return;}
+  if(!items.length){tb.innerHTML='<tr><td colspan="14" class="empty">No inspection records yet.</td></tr>';return;}
   tb.innerHTML=items.map(function(m){
     return '<tr class="hov" onclick="editMIR('+m.id+')">'
       +'<td class="pin1"><span class="nm">'+m.name+'</span></td>'
       +'<td class="pin2"><span class="ref">'+(m.num||'—')+'</span></td>'
       +'<td><span class="ref">'+(m.date||'—')+'</span></td><td>'+cB(m.cat)+'</td>'
       +'<td><span class="nm" style="max-width:170px">'+(m.company||'—')+'</span></td>'
+      +'<td>'+mirRefCell(m)+'</td>'
       +'<td class="ctr">'+stamp(m.leed||'N/A')+'</td><td class="ctr">'+stamp(m.saso||'N/A')+'</td>'
       +'<td class="ctr">'+stamp(m.status||'Pending')+'</td>'
       +'<td><span class="ref">'+(m.irnNum||'—')+'</span></td><td><span class="ref">'+(m.irnDate||'—')+'</span></td>'
@@ -2555,8 +2609,9 @@ window.rDLOG=function(){
   var fst=(document.getElementById('dlog-st')||{value:''}).value;
   var recv={};
   (DB.mir||[]).forEach(function(mir){
+    var fallback=(mirRefsOf(mir)[0]||'');
     (mir.recvItems||[]).forEach(function(it){
-      var key=(mir.matRef||'')+'::'+it.name;
+      var key=(it.ref||fallback)+'::'+it.name;
       recv[key]=(recv[key]||0)+(parseFloat(it.received)||0);
     });
   });
@@ -3010,7 +3065,7 @@ window.genLookAhead=function(){
     var inWin=m.date&&days.some(function(d){return fmt(d)===m.date;});
     if(!inWin&&!m.irnAttached)return;
     var cells=days.map(function(d){return (m.date&&fmt(d)===m.date)?'x':'';});
-    var sub='Inspection '+(m.status||'Pending').toLowerCase()+(m.matRef?' · '+m.matRef:'');
+    var rf=mirRefsOf(m);var sub='Inspection '+(m.status||'Pending').toLowerCase()+(rf.length?' · '+rf.join(', '):'');
     if(m.irnAttached)sub+=' · release note attached'+(m.irnNum?' ('+m.irnNum+')':'');
     mirR.push({name:m.name,disc:'',sub:sub,cells:cells});
   });
