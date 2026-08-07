@@ -185,6 +185,16 @@ th.thf.act .fcar{opacity:1;color:var(--act-t)}
 .fopt.on .box{background:var(--t-1);border-color:var(--t-1)}
 .fopt.on .box::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid var(--bg);border-width:0 2px 2px 0;transform:rotate(42deg)}
 .fn{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--t-4)}
+/* searchable picker — replaces the browser's own list, which cannot be styled */
+.pick{position:relative}
+.pick-list{display:none;position:absolute;left:0;right:0;top:100%;z-index:80;margin-top:4px;background:var(--sf-2);border:1px solid var(--line-2);border-radius:var(--r);max-height:250px;overflow-y:auto;box-shadow:0 14px 36px rgba(0,0,0,.55)}
+.pick-list.on{display:block}
+.pick-opt{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--line)}
+.pick-opt:last-child{border-bottom:none}
+.pick-opt:hover,.pick-opt.on{background:var(--sf-3)}
+.pick-t{font-size:12.5px;color:var(--t-1)}
+.pick-s{font-size:11px;color:var(--t-3);margin-top:2px}
+.pick-none{padding:12px;font-size:11.5px;color:var(--t-3);text-align:center}
 .fmenu-f{display:flex;gap:7px;padding:9px 10px;border-top:1px solid var(--line)}
 .fmenu-f button{flex:1}
 
@@ -373,7 +383,6 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 <div class="ls" id="ls" style="display:none"><div class="spin"></div><div style="font-family:var(--mono);font-size:11px;color:var(--t-3)">PQCS</div></div>
 <div class="toast" id="toast"><span id="tm">Saved</span></div>
 <div class="fmenu" id="fmenu" onclick="event.stopPropagation()"></div>
-<datalist id="mfr-list"></datalist>
 
 <!-- ===================== APP ===================== -->
 <div class="app" id="app" style="display:none">
@@ -728,8 +737,14 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div><label class="fl">Submission date</label><input class="fi" type="date" id="m-date"></div>
      <div><label class="fl">Category submitted</label><select class="fs" id="m-cat-sub"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
      <div><label class="fl">Correct category</label><select class="fs" id="m-cat-cor"><option value="">Same as submitted</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
-     <div class="fg-f"><label class="fl">Submitted by — company on record</label><select class="fs" id="m-co" onchange="showCoInfo(this.value)"><option value="">—</option></select><div class="hint" id="co-info" style="display:none"><span id="co-info-txt"></span></div></div>
-     <div><label class="fl">Manufacturer of the material</label><input class="fi" id="m-mfr" list="mfr-list" placeholder="Who actually made it" oninput="checkMfr('m')" autocomplete="off"></div>
+     <div class="fg-f pick"><label class="fl">Submitted by — company on record</label>
+       <input class="fi" id="m-co-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('m-co')" onfocus="pickOpen('m-co')">
+       <input type="hidden" id="m-co">
+       <div class="pick-list" id="m-co-list"></div>
+       <div class="hint" id="co-info" style="display:none"><span id="co-info-txt"></span></div></div>
+     <div class="pick"><label class="fl">Manufacturer of the material</label>
+       <input class="fi" id="m-mfr" placeholder="Search or type a manufacturer…" autocomplete="off" oninput="pickOpen('m-mfr');checkMfr('m')" onfocus="pickOpen('m-mfr')">
+       <div class="pick-list" id="m-mfr-list"></div></div>
      <div><label class="fl">Country of manufacture</label><input class="fi" id="m-mfr-country" placeholder="Origin of the goods"></div>
      <div class="fg-f"><div class="hint" id="m-mfr-hint" style="display:none"></div></div>
      <div><label class="fl">LEED certificate</label><select class="fs" id="m-leed"><option>N/A</option><option>Attached</option><option>Pending</option><option>Will Submit with MIR</option></select></div>
@@ -769,7 +784,10 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div><label class="fl">Aconex reference</label><input class="fi" id="mir-aconex"></div>
      <div><label class="fl">Inspection date</label><input class="fi" type="date" id="mir-date"></div>
      <div><label class="fl">Material category</label><select class="fs" id="mir-cat"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
-     <div class="fg-f"><label class="fl">Company</label><select class="fs" id="mir-co"><option value="">—</option></select></div>
+     <div class="fg-f pick"><label class="fl">Company</label>
+       <input class="fi" id="mir-co-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('mir-co')" onfocus="pickOpen('mir-co')">
+       <input type="hidden" id="mir-co">
+       <div class="pick-list" id="mir-co-list"></div></div>
    </div>
 
    <span class="m-sec">LINKED SUBMITTAL AND RECEIVED QUANTITIES</span>
@@ -879,8 +897,13 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div><label class="fl">Submission date</label><input class="fi" type="date" id="s-date"></div>
      <div><label class="fl">Material category</label><select class="fs" id="s-cat"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
      <div><label class="fl">Quantity submitted</label><input class="fi" id="s-qty" placeholder="3 pieces, 2 boards…"></div>
-     <div class="fg-f"><label class="fl">Submitted by — company on record</label><select class="fs" id="s-co"><option value="">—</option></select></div>
-     <div><label class="fl">Manufacturer of the material</label><input class="fi" id="s-mfr" list="mfr-list" placeholder="Who actually made it" oninput="checkMfr('s')" autocomplete="off"></div>
+     <div class="fg-f pick"><label class="fl">Submitted by — company on record</label>
+       <input class="fi" id="s-co-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('s-co')" onfocus="pickOpen('s-co')">
+       <input type="hidden" id="s-co">
+       <div class="pick-list" id="s-co-list"></div></div>
+     <div class="pick"><label class="fl">Manufacturer of the material</label>
+       <input class="fi" id="s-mfr" placeholder="Search or type a manufacturer…" autocomplete="off" oninput="pickOpen('s-mfr');checkMfr('s')" onfocus="pickOpen('s-mfr')">
+       <div class="pick-list" id="s-mfr-list"></div></div>
      <div><label class="fl">Country of manufacture</label><input class="fi" id="s-mfr-country" placeholder="Origin of the goods"></div>
      <div class="fg-f"><div class="hint" id="s-mfr-hint" style="display:none"></div></div>
      <div class="fg-f"><label class="fl">Sample held at</label><input class="fi" id="s-loc" placeholder="Site sample room, consultant office…"></div>
@@ -2207,16 +2230,7 @@ function ibs(editFn,delFn,id,rowid){
 }
 
 /* ---------- submittals ---------- */
-function fillCo(){
-  var sel=document.getElementById('m-co'),cur=sel.value;
-  sel.innerHTML='<option value="">—</option>';
-  (DB.pqd||[]).forEach(function(m){
-    var o=document.createElement('option');o.value=m.name;
-    o.textContent=((m.pqd||'').indexOf('Approved')===0?'':'[not qualified] ')+m.name+(m.scope?' — '+m.scope:'');
-    sel.appendChild(o);
-  });
-  if(cur)sel.value=cur;
-}
+function fillCo(){}
 window.showCoInfo=function(name){
   var m=(DB.pqd||[]).find(function(x){return x.name===name;});
   var info=document.getElementById('co-info'),txt=document.getElementById('co-info-txt');
@@ -2257,6 +2271,7 @@ window.closeMAT=function(){
   document.querySelectorAll('#ov-mat .fi,#ov-mat .ft').forEach(function(e){e.value='';});
   document.querySelectorAll('#ov-mat .fs').forEach(function(e){e.selectedIndex=0;});
   document.getElementById('m-eid').value='';document.getElementById('m-items').innerHTML='';
+  pickClear('m-co');pickClear('m-mfr');
   var mh=document.getElementById('m-mfr-hint');if(mh)mh.style.display='none';
   document.getElementById('co-info').style.display='none';
 };
@@ -2282,7 +2297,7 @@ window.editMAT=function(id){
   var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
   sv('m-eid',id);sv('m-name',m.name);sv('m-desc',m.desc);sv('m-aconex',m.aconex);sv('m-date',m.date);
   sv('m-cat-sub',m.catSub);sv('m-cat-cor',(m.catCor&&m.catCor!==m.catSub)?m.catCor:'');
-  sv('m-co',m.company);sv('m-mfr',m.mfr);sv('m-mfr-country',m.mfrCountry);checkMfr('m');sv('m-leed',m.leed||'N/A');sv('m-saso',m.saso||'N/A');sv('m-mts',m.mts||'Pending');sv('m-notes',m.notes);
+  pickSet('m-co',m.company);pickSet('m-mfr',m.mfr);sv('m-mfr-country',m.mfrCountry);checkMfr('m');sv('m-leed',m.leed||'N/A');sv('m-saso',m.saso||'N/A');sv('m-mts',m.mts||'Pending');sv('m-notes',m.notes);
   setMItems(m.items&&m.items.length?m.items:[]);if(!m.items||!m.items.length)addMItem();
   if(m.company)showCoInfo(m.company);else document.getElementById('co-info').style.display='none';
   document.getElementById('ov-mat').classList.add('on');
@@ -2327,14 +2342,89 @@ window.rMAT=function(){
 /* The company that submits a material is not always the company that
    made it. The manufacturer is recorded on the submittal itself, since
    test certificates and origin follow the factory, not the supplier. */
-function buildMfrList(){
-  var dl=document.getElementById('mfr-list');if(!dl)return;
-  var seen={},names=[];
-  (DB.pqd||[]).forEach(function(v){var n=(v.name||'').trim();if(n&&!seen[n.toLowerCase()]){seen[n.toLowerCase()]=1;names.push(n);}});
-  (window.AVL_DATA||[]).forEach(function(r){var n=(r.mfr||'').trim();if(n&&!seen[n.toLowerCase()]){seen[n.toLowerCase()]=1;names.push(n);}});
-  names.sort(function(a,b){return a.localeCompare(b);});
-  dl.innerHTML=names.slice(0,1200).map(function(n){return '<option value="'+n.replace(/"/g,'&quot;')+'">';}).join('');
+/* One picker for every long list in the system. The browser's own
+   dropdown cannot be styled and cannot be searched, so it is replaced:
+   type to filter, click to choose, and for manufacturers whatever you
+   type stands on its own if no record matches. */
+var PICK_SRC={
+  'm-co':'vendor','s-co':'vendor','mir-co':'vendor',
+  'm-mfr':'mfr','s-mfr':'mfr'
+};
+function pickVendorRows(q){
+  return (DB.pqd||[]).filter(function(v){
+    return !q||[v.name,v.scope,v.cat,v.loc].join(' ').toLowerCase().indexOf(q)>=0;
+  }).slice(0,60).map(function(v){
+    return {value:v.name,title:v.name,
+      sub:[v.scope,v.cat,(v.pqd||'Pending')].filter(Boolean).join(' · ')};
+  });
 }
+function pickMfrRows(q){
+  var out=[],seen={};
+  (DB.pqd||[]).forEach(function(v){
+    var n=(v.name||'').trim();if(!n)return;
+    if(q&&n.toLowerCase().indexOf(q)<0)return;
+    if(seen[n.toLowerCase()])return;seen[n.toLowerCase()]=1;
+    out.push({value:n,title:n,sub:'On record as a vendor · '+(v.pqd||'Pending')});
+  });
+  (window.AVL_DATA||[]).forEach(function(r){
+    if(out.length>=60)return;
+    var n=(r.mfr||'').trim();if(!n)return;
+    if(q&&[n,r.mat,r.country].join(' ').toLowerCase().indexOf(q)<0)return;
+    if(seen[n.toLowerCase()])return;seen[n.toLowerCase()]=1;
+    out.push({value:n,title:n,sub:['Vendor list '+r.list,r.country,r.mat].filter(Boolean).join(' · ')});
+  });
+  return out.slice(0,60);
+}
+window.pickOpen=function(id){
+  var kind=PICK_SRC[id];if(!kind)return;
+  var isVendor=(kind==='vendor');
+  var inp=document.getElementById(isVendor?(id+'-q'):id);
+  var list=document.getElementById(id+'-list');
+  if(!inp||!list)return;
+  document.querySelectorAll('.pick-list.on').forEach(function(l){if(l!==list)l.classList.remove('on');});
+  var q=inp.value.toLowerCase().trim();
+  var rows=isVendor?pickVendorRows(q):pickMfrRows(q);
+  if(!rows.length){
+    list.innerHTML='<div class="pick-none">'+(isVendor
+      ? 'No vendor matches. Record the vendor first.'
+      : 'No match — what you typed will be used as entered.')+'</div>';
+  }else{
+    list.innerHTML=rows.map(function(r,i){
+      return '<div class="pick-opt" data-i="'+i+'"><div class="pick-t">'+r.title+'</div>'
+        +(r.sub?'<div class="pick-s">'+r.sub+'</div>':'')+'</div>';
+    }).join('');
+    list.querySelectorAll('.pick-opt').forEach(function(el){
+      el.addEventListener('mousedown',function(ev){
+        ev.preventDefault();
+        pickChoose(id,rows[+el.dataset.i].value);
+      });
+    });
+  }
+  list.classList.add('on');
+};
+window.pickChoose=function(id,val){
+  var kind=PICK_SRC[id], isVendor=(kind==='vendor');
+  if(isVendor){
+    document.getElementById(id).value=val;
+    document.getElementById(id+'-q').value=val;
+    if(id==='m-co')showCoInfo(val);
+  }else{
+    document.getElementById(id).value=val;
+    checkMfr(id.split('-')[0]);
+  }
+  document.getElementById(id+'-list').classList.remove('on');
+};
+function pickSet(id,val){
+  var isVendor=(PICK_SRC[id]==='vendor');
+  var el=document.getElementById(id);if(el)el.value=val||'';
+  if(isVendor){var q=document.getElementById(id+'-q');if(q)q.value=val||'';}
+}
+function pickClear(id){pickSet(id,'');var l=document.getElementById(id+'-list');if(l)l.classList.remove('on');}
+document.addEventListener('click',function(e){
+  if(e.target.closest('.pick'))return;
+  document.querySelectorAll('.pick-list.on').forEach(function(l){l.classList.remove('on');});
+});
+function buildMfrList(){}
 window.checkMfr=function(prefix){
   var inp=document.getElementById(prefix+'-mfr'), hint=document.getElementById(prefix+'-mfr-hint');
   if(!inp||!hint)return;
@@ -2359,22 +2449,13 @@ window.checkMfr=function(prefix){
    MES records live in the same table as material submittals, tagged
    with kind:'sample'. No schema change, no migration, and every
    existing record keeps working exactly as before. */
-function fillSmpCo(){
-  var sel=document.getElementById('s-co');if(!sel)return;
-  var cur=sel.value;sel.innerHTML='<option value="">—</option>';
-  (DB.pqd||[]).forEach(function(m){
-    var o2=document.createElement('option');o2.value=m.name;
-    o2.textContent=((m.pqd||'').indexOf('Approved')===0?'':'[not qualified] ')+m.name+(m.scope?' — '+m.scope:'');
-    sel.appendChild(o2);
-  });
-  if(cur)sel.value=cur;
-}
+function fillSmpCo(){}
 window.openSMP=function(){fillSmpCo();buildMfrList();document.getElementById('smp-title').textContent='Material and equipment sample (MES)';document.getElementById('ov-smp').classList.add('on');};
 window.closeSMP=function(){
   document.getElementById('ov-smp').classList.remove('on');
   document.querySelectorAll('#ov-smp .fi,#ov-smp .ft').forEach(function(e){e.value='';});
   document.querySelectorAll('#ov-smp .fs').forEach(function(e){e.selectedIndex=0;});
-  document.getElementById('s-eid').value='';
+  document.getElementById('s-eid').value='';pickClear('s-co');pickClear('s-mfr');
   var sh=document.getElementById('s-mfr-hint');if(sh)sh.style.display='none';
 };
 document.getElementById('ov-smp').addEventListener('click',function(e){if(e.target===this)closeSMP();});
@@ -2396,7 +2477,7 @@ window.editSMP=function(id){
   fillSmpCo();buildMfrList();
   var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
   sv('s-eid',id);sv('s-name',m.name);sv('s-desc',m.desc);sv('s-aconex',m.aconex);sv('s-date',m.date);
-  sv('s-cat',m.catSub);sv('s-qty',m.qty);sv('s-co',m.company);sv('s-mfr',m.mfr);sv('s-mfr-country',m.mfrCountry);checkMfr('s');sv('s-loc',m.heldAt);
+  sv('s-cat',m.catSub);sv('s-qty',m.qty);pickSet('s-co',m.company);pickSet('s-mfr',m.mfr);sv('s-mfr-country',m.mfrCountry);checkMfr('s');sv('s-loc',m.heldAt);
   sv('s-st',m.mts||'Pending');sv('s-decdate',m.decDate);sv('s-notes',m.notes);
   document.getElementById('smp-title').textContent='Edit MES';
   document.getElementById('ov-smp').classList.add('on');
@@ -2438,16 +2519,7 @@ window.rSMP=function(){
 };
 
 /* ---------- inspections ---------- */
-function fillMIRCo(){
-  var sel=document.getElementById('mir-co');if(!sel)return;
-  var cur=sel.value;sel.innerHTML='<option value="">—</option>';
-  (DB.pqd||[]).forEach(function(m){
-    var o=document.createElement('option');o.value=m.name;
-    o.textContent=((m.pqd||'').indexOf('Approved')===0?'':'[not qualified] ')+m.name+(m.scope?' — '+m.scope:'');
-    sel.appendChild(o);
-  });
-  if(cur)sel.value=cur;
-}
+function fillMIRCo(){}
 function matRefLabel(m){var ref=m.aconex||'';return {ref:ref,name:m.name,display:m.name+(ref?'  ·  '+ref:'')};}
 window.filterMATRef=function(){
   var q=(document.getElementById('mir-mat-search').value||'').toLowerCase().trim();
@@ -2596,6 +2668,7 @@ window.closeMIR=function(){
   document.getElementById('irn-details').style.display='none';
   document.getElementById('mir-mat-list').style.display='none';
   document.getElementById('mir-mat').value='';MIR_REFS=[];renderMirChips();mirPreview();loadMIRItems([],null);
+  pickClear('mir-co');
   document.getElementById('mir-eid').value='';
 };
 document.getElementById('ov-mir').addEventListener('click',function(e){if(e.target===this)closeMIR();});
@@ -2620,7 +2693,7 @@ window.editMIR=function(id){
   fillMIRCo();
   var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
   sv('mir-eid',id);sv('mir-name',m.name);sv('mir-num',m.num);sv('mir-aconex',m.aconex);sv('mir-date',m.date);
-  sv('mir-cat',m.cat);sv('mir-co',m.company);sv('mir-leed',m.leed||'N/A');sv('mir-saso',m.saso||'N/A');
+  sv('mir-cat',m.cat);pickSet('mir-co',m.company);sv('mir-leed',m.leed||'N/A');sv('mir-saso',m.saso||'N/A');
   sv('mir-st',m.status||'Pending');sv('irn-num',m.irnNum);sv('irn-date',m.irnDate);sv('irn-st',m.irnStatus||'N/A');
   document.getElementById('irn-attached').checked=!!m.irnAttached;
   document.getElementById('irn-details').style.display=m.irnAttached?'':'none';
