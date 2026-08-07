@@ -502,7 +502,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
           <thead><tr>
             <th class="pin1" style="min-width:200px">MATERIAL</th><th class="pin2" style="min-width:120px">REFERENCE</th>
             <th>SUBMITTED</th><th>CAT SUB</th><th>CAT CORRECT</th><th style="min-width:150px">SUBMITTED BY</th><th style="min-width:150px">MANUFACTURER</th>
-            <th class="ctr">INSPECTION</th><th class="ctr">TPIA</th><th class="ctr">LEED</th><th class="ctr">SASO</th><th class="ctr">MTS</th><th>NOTES</th><th></th>
+            <th class="ctr">INSPECTION</th><th class="ctr">TPIA</th><th>PID NO.</th><th class="ctr">PID</th><th class="ctr">MEETING</th><th class="ctr">LEED</th><th class="ctr">SASO</th><th class="ctr">MTS</th><th>NOTES</th><th></th>
           </tr></thead>
           <tbody id="tb-mat"></tbody>
         </table></div>
@@ -706,7 +706,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div><label class="fl">ISO expiry date</label><input class="fi" type="date" id="f-iso-date"></div>
    </div>
 
-   <span class="m-sec">DOSSIER AND MEETING</span>
+   <span class="m-sec">DOSSIER AND MEETING <span style="color:var(--t-3);letter-spacing:0;text-transform:none;font-family:var(--sans);font-size:11px">— a dossier is raised per material, so record it on the submittal; these fields are kept for older records</span></span>
    <div class="fg">
      <div><label class="fl">PID status</label><select class="fs" id="f-pid" onchange="markStageEdited('pid')"><option>N/A</option><option>Pending</option><option>Submitted</option><option>Approved</option></select></div>
      <div><label class="fl">PID date</label><input class="fi" type="date" id="f-pid-date"></div>
@@ -760,6 +760,20 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div><label class="fl">Third-party inspection</label>
        <select class="fs" id="m-tpia"><option>N/A</option><option>Required</option><option>Not required</option></select></div>
      <div class="fg-f"><div class="hint" id="m-insp-hint" style="display:none"></div></div>
+   </div>
+
+   <span class="m-sec">PRE-INSPECTION DOSSIER AND MEETING</span>
+   <div class="fg">
+     <div><label class="fl">PID status</label><select class="fs" id="m-pid"><option>N/A</option><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
+     <div><label class="fl">PID number</label><input class="fi" id="m-pid-no" placeholder="19"></div>
+     <div class="fg-f"><label class="fl">PID reference or title</label><input class="fi" id="m-pid-ref" placeholder="TRN - for ALFANAR - MVSG Pre-Inspection Dossier"></div>
+     <div><label class="fl">PID date</label><input class="fi" type="date" id="m-pid-date"></div>
+     <div><label class="fl">Pre-fabrication meeting</label><select class="fs" id="m-pim"><option>N/A</option><option>Not Scheduled</option><option>Scheduled</option><option>Done</option></select></div>
+     <div><label class="fl">Meeting date</label><input class="fi" type="date" id="m-pim-date"></div>
+     <div class="fg-f"><label class="fl">Meeting or minutes reference</label><input class="fi" id="m-pim-ref"></div>
+   </div>
+
+   <div class="fg">
      <div><label class="fl">LEED certificate</label><select class="fs" id="m-leed"><option>N/A</option><option>Attached</option><option>Pending</option><option>Will Submit with MIR</option></select></div>
      <div><label class="fl">SASO certificate</label><select class="fs" id="m-saso"><option>N/A</option><option>Attached</option><option>Pending</option><option>Will Submit with MIR</option></select></div>
    </div>
@@ -1572,7 +1586,7 @@ function findAll(q){
   });
 
   matRecords().forEach(function(m){
-    var hay=findHay([m.name,m.aconex,m.desc,m.company,m.mfr,m.mfrCountry,m.insp,m.tpia,m.catSub,m.catCor,m.notes].concat((m.items||[]).map(function(i){return i.name;})));
+    var hay=findHay([m.name,m.aconex,m.desc,m.company,m.mfr,m.mfrCountry,m.insp,m.tpia,m.pidNo,m.pidRef,m.pimRef,m.catSub,m.catCor,m.notes].concat((m.items||[]).map(function(i){return i.name;})));
     if(!findMatches(hay,terms))return;
     out.push({group:'Material submittals',title:m.name,ref:m.aconex,
       meta:[m.catCor||m.catSub,m.company,m.mfr?('made by '+m.mfr):'',m.date].filter(Boolean).join(' · '),
@@ -2344,7 +2358,7 @@ window.saveMAT=function(){
   var eid=document.getElementById('m-eid').value, g=function(id){var e=document.getElementById(id);return e?e.value:'';};
   var catSub=g('m-cat-sub');
   var m={id:eid?+eid:Date.now(),name:n,desc:g('m-desc'),aconex:g('m-aconex'),date:g('m-date'),
-    catSub:catSub,catCor:g('m-cat-cor')||catSub,company:g('m-co'),mfr:g('m-mfr'),mfrCountry:g('m-mfr-country'),insp:g('m-insp'),tpia:g('m-tpia'),
+    catSub:catSub,catCor:g('m-cat-cor')||catSub,company:g('m-co'),mfr:g('m-mfr'),mfrCountry:g('m-mfr-country'),insp:g('m-insp'),tpia:g('m-tpia'),pid:g('m-pid'),pidNo:g('m-pid-no'),pidRef:g('m-pid-ref'),pidDate:g('m-pid-date'),pim:g('m-pim'),pimDate:g('m-pim-date'),pimRef:g('m-pim-ref'),
     leed:g('m-leed'),saso:g('m-saso'),mts:g('m-mts'),notes:g('m-notes'),items:getMItems()};
   if(eid){var i=DB.mat.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.mat[i]._rowid)m._rowid=DB.mat[i]._rowid;DB.mat[i]=m;}}
   else DB.mat.push(m);
@@ -2360,7 +2374,9 @@ window.editMAT=function(id){
   sv('m-eid',id);sv('m-name',m.name);sv('m-desc',m.desc);sv('m-aconex',m.aconex);sv('m-date',m.date);
   sv('m-cat-sub',m.catSub);sv('m-cat-cor',(m.catCor&&m.catCor!==m.catSub)?m.catCor:'');
   pickSet('m-co',m.company);pickSet('m-mfr',m.mfr);sv('m-mfr-country',m.mfrCountry);checkMfr('m');
-  sv('m-insp',m.insp||'None');sv('m-tpia',m.tpia||'N/A');inspEdited=true;renderInspHint();sv('m-leed',m.leed||'N/A');sv('m-saso',m.saso||'N/A');sv('m-mts',m.mts||'Pending');sv('m-notes',m.notes);
+  sv('m-insp',m.insp||'None');sv('m-tpia',m.tpia||'N/A');inspEdited=true;renderInspHint();
+  sv('m-pid',m.pid||'N/A');sv('m-pid-no',m.pidNo);sv('m-pid-ref',m.pidRef);sv('m-pid-date',m.pidDate);
+  sv('m-pim',m.pim||'N/A');sv('m-pim-date',m.pimDate);sv('m-pim-ref',m.pimRef);sv('m-leed',m.leed||'N/A');sv('m-saso',m.saso||'N/A');sv('m-mts',m.mts||'Pending');sv('m-notes',m.notes);
   setMItems(m.items&&m.items.length?m.items:[]);if(!m.items||!m.items.length)addMItem();
   if(m.company)showCoInfo(m.company);else document.getElementById('co-info').style.display='none';
   document.getElementById('ov-mat').classList.add('on');
@@ -2393,7 +2409,7 @@ window.rMAT=function(){
   });
   var c=document.getElementById('mat-count');if(c)c.textContent=items.length+' submittal'+(items.length===1?'':'s');
   var tb=document.getElementById('tb-mat');if(!tb)return;
-  if(!items.length){tb.innerHTML='<tr><td colspan="14" class="empty">No submittals yet.</td></tr>';return;}
+  if(!items.length){tb.innerHTML='<tr><td colspan="17" class="empty">No submittals yet.</td></tr>';return;}
   tb.innerHTML=items.map(function(m){
     var sub=m.catSub||'', cor=m.catCor||sub, diff=(m.catCor&&cor!==sub);
     return '<tr class="hov" onclick="editMAT('+m.id+')">'
@@ -2405,6 +2421,9 @@ window.rMAT=function(){
       +'<td><span class="nm" style="max-width:170px">'+(m.mfr||'—')+(m.mfrCountry?' <span class="dim">'+m.mfrCountry+'</span>':'')+'</span></td>'
       +'<td class="ctr">'+inspStamp(m.insp)+'</td>'
       +'<td class="ctr">'+stamp(m.tpia||'N/A')+'</td>'
+      +'<td><span class="ref">'+(m.pidNo||'—')+'</span></td>'
+      +'<td class="ctr">'+stamp(m.pid||'N/A')+'</td>'
+      +'<td class="ctr">'+stamp(m.pim||'N/A')+'</td>'
       +'<td class="ctr">'+stamp(m.leed||'N/A')+'</td><td class="ctr">'+stamp(m.saso||'N/A')+'</td>'
       +'<td class="ctr">'+stamp(m.mts||'Pending')+'</td>'
       +'<td><span class="dim">'+(m.notes||'—')+'</span></td>'
@@ -2677,6 +2696,7 @@ function mirPreview(){
         +fs('SASO',m.saso||'N/A')
         +f('INSPECTION',m.insp||'None')
         +f('THIRD PARTY',m.tpia||'N/A')
+        +f('DOSSIER',(m.pid||'N/A')+(m.pidNo?' · No. '+m.pidNo:''))
         +f('LINE ITEMS',items?String(items):'none')
       +'</div>'
       +(m.desc||m.notes?'<div style="padding:0 12px 11px"><div class="dlbl">'+(m.desc?'DESCRIPTION':'NOTES')+'</div><div class="dval" style="font-size:12px">'+(m.desc||m.notes)+'</div></div>':'')
@@ -3400,6 +3420,10 @@ function collectCalEvents(){
     if(m.pimDate&&m.pim!=='Done')ev.push({date:m.pimDate,type:'deadline',title:'Pre-fab meeting: '+m.name,sys:true});
   });
   (DB.mir||[]).forEach(function(m){if(m.date)ev.push({date:m.date,type:'mir',title:'Inspection: '+(m.name||m.num||''),sys:true});});
+  matRecords().forEach(function(m){
+    if(m.pidDate&&m.pid!=='Approved')ev.push({date:m.pidDate,type:'deadline',title:'Dossier'+(m.pidNo?' No. '+m.pidNo:'')+': '+m.name,sys:true});
+    if(m.pimDate&&m.pim!=='Done')ev.push({date:m.pimDate,type:'deadline',title:'Pre-fab meeting: '+m.name,sys:true});
+  });
   (DB.events||[]).forEach(function(e){ev.push({date:e.date,type:e.type||'manual',title:e.title,notes:e.notes,sys:false,id:e.id});});
   return ev;
 }
@@ -3515,17 +3539,17 @@ window.genLookAhead=function(){
   });
   mk('2','Pre-qualification',pqdR);
 
-  var pidR=[];(DB.pqd||[]).forEach(function(m){
-    if((m.cat==='C2'||m.cat==='C3')&&m.pid&&m.pid!=='Approved'&&m.pid!=='N/A'){
+  var pidR=[];matRecords().forEach(function(m){
+    if(m.pid&&m.pid!=='Approved'&&m.pid!=='N/A'){
       var cells=days.map(function(d){return m.pidDate&&fmt(d)===m.pidDate?'x':'';});
-      if(cells.some(Boolean))pidR.push({name:m.name+' ['+m.cat+']',disc:m.dis||'',sub:m.pid,cells:cells});
+      if(cells.some(Boolean))pidR.push({name:m.name+(m.pidNo?' · PID No. '+m.pidNo:''),disc:(m.catCor||m.catSub)||'',sub:[m.pid,m.company].filter(Boolean).join(' · '),cells:cells});
     }});
   mk('3','Pre-inspection dossier',pidR);
 
-  var pimR=[];(DB.pqd||[]).forEach(function(m){
+  var pimR=[];matRecords().forEach(function(m){
     if(m.pim&&m.pim!=='N/A'&&m.pim!=='Done'){
       var cells=days.map(function(d){return m.pimDate&&fmt(d)===m.pimDate?'x':'';});
-      if(cells.some(Boolean))pimR.push({name:m.name,disc:m.dis||'',sub:m.pim,cells:cells});
+      if(cells.some(Boolean))pimR.push({name:m.name,disc:(m.catCor||m.catSub)||'',sub:[m.pim,m.company].filter(Boolean).join(' · '),cells:cells});
     }});
   mk('4','Pre-inspection meeting',pimR);
 
@@ -3962,9 +3986,12 @@ var CMT_COLS=[
   ['cat','Material category',1],
   ['tpiaName','Third-party inspection agency',1],
   ['pidStatus','PID status',1],
+  ['pidNo','PID number',1],
   ['pidRef','PID reference number',1],
   ['pimStatus','Pre-fabrication meeting status',1],
   ['pimRef','Pre-fabrication meeting reference',1],
+  ['pidDate','PID date',0],
+  ['pimDate','Meeting date',0],
   ['aconex','Submittal reference',0],
   ['mts','Submittal status',0],
   ['company','Submitted by',0],
@@ -3992,8 +4019,8 @@ function cmtRows(){
     return {
       name:m.name||'', cat:(m.catCor||m.catSub)||'',
       tpiaName:f.tpia||(m.tpia==='Required'?'Required, not yet assigned':''),
-      pidStatus:v.pid||'', pidRef:v.pidRef||'',
-      pimStatus:v.pim||'', pimRef:v.pimRef||'',
+      pidStatus:m.pid||'', pidNo:m.pidNo||'', pidRef:m.pidRef||'', pidDate:m.pidDate||'',
+      pimStatus:m.pim||'', pimRef:m.pimRef||'', pimDate:m.pimDate||'',
       aconex:m.aconex||'', mts:m.mts||'', company:m.company||'',
       mfr:m.mfr||'', mfrCountry:m.mfrCountry||'', insp:m.insp||'None', date:m.date||'',
       vendorPqd:v.pqd||'', pa:v.pa||'', iso:(v.isoDate&&isExp(v.isoDate))?'Expired':(v.iso||''),
