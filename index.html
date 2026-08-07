@@ -152,7 +152,10 @@ tr.detail td{background:var(--sf-0);padding:0;border-bottom:1px solid var(--line
 .dlbl{font-family:var(--mono);font-size:10px;letter-spacing:.07em;color:var(--t-4);margin-bottom:4px}
 .dval{font-size:12.5px;white-space:normal}
 .dval.m{font-family:var(--mono);font-size:11.5px;color:var(--t-2)}
-.dacts{padding:0 20px 15px;display:flex;gap:8px;flex-wrap:wrap}
+.dacts{padding:14px 20px 15px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line)}
+.dsec{font-family:var(--mono);font-size:10px;letter-spacing:.09em;color:var(--t-4);padding:14px 20px 0}
+.dsec:first-child{padding-top:13px}
+.dwrap{padding:11px 20px 14px}
 
 /* column picker */
 .colwrap{position:relative}
@@ -1189,23 +1192,34 @@ function preC(m){return stamp(preNorm(m));}
    Rejected records are not work in progress. They sit in their own
    filter so the action list reflects what you can actually move today. */
 var ACTION_STAGES=['prepa','pa','pid','pim','mom','post'];
+
+/* A physical assessment applies to categories 2 and 3 only. Anything
+   below that is not pending — it is simply out of scope, and counting
+   it as outstanding work inflates every action figure in the system.
+   Records that already carry assessment data stay visible whatever
+   their category, so nothing already entered is hidden. */
+function paApplies(m){return m.cat==='C2'||m.cat==='C3';}
+function paHasData(m){
+  return !!(m.paDate||m.paRef||m.paResult||m.paQmsAssessor||m.paTechAssessor
+    ||(m.pa&&m.pa!=='Pending'&&m.pa!=='N/A')||(m.prepa&&m.prepa!=='Pending'));
+}
+function paInScope(m){return paApplies(m)||paHasData(m);}
+/* effective value of a stage: out-of-scope assessment reads as N/A */
+function effStage(m,k){
+  if((k==='pa'||k==='prepa')&&!paInScope(m))return 'N/A';
+  return (k==='prepa')?preNorm(m):(m[k]||((k==='pa')?'Pending':'N/A'));
+}
 function isRejected(r){var p=r.pqd||'Pending';return p==='Rejected'||p==='Code C';}
 function isoExpired(r){return r.iso==='Expired'||isExp(r.isoDate);}
 function stageNeedsMe(r){
-  return ACTION_STAGES.some(function(k){
-    var v=(k==='prepa')?preNorm(r):(r[k]||'N/A');
-    return tone(v)==='act';
-  });
+  return ACTION_STAGES.some(function(k){return tone(effStage(r,k))==='act';});
 }
 function urgency(r){
   if(r.engage==='Discontinued')return -1;
   var s=0;
   if(isoExpired(r))s+=80;
   if(isRejected(r))s+=50;
-  ACTION_STAGES.forEach(function(k){
-    var v=(k==='prepa')?preNorm(r):(r[k]||'N/A');
-    if(tone(v)==='act')s+=12;
-  });
+  ACTION_STAGES.forEach(function(k){if(tone(effStage(r,k))==='act')s+=12;});
   var p=r.pqd||'Pending';
   if(p==='Pending')s+=15;
   else if(p==='Submitted')s+=5;
@@ -1429,9 +1443,11 @@ function alertsFor(){
     if(m.isoDate&&isExp(m.isoDate)){out.push({p:80,t:'act',s:'ISO expired',n:m.name,d:'Expired '+m.isoDate,c:m,date:m.isoDate});return;}
     if(pq==='Pending'){out.push({p:15,t:'run',s:'Not submitted',n:m.name,d:'Waiting on the contractor to submit',c:m,date:m.date});return;}
     if(pq==='Submitted'){out.push({p:20,t:'run',s:'Submitted',n:m.name,d:'Awaiting review',c:m,date:m.date});return;}
-    var pre=preNorm(m);
-    if(pre==='Pending'&&m.pa!=='Done'&&m.pa!=='Waived'){out.push({p:45,t:'act',s:'Pre-PA pending',n:m.name,d:'Survey and reports needed before assessment',c:m,date:m.paDate});return;}
-    if(m.pa&&m.pa!=='Done'&&m.pa!=='Waived'&&m.pa!=='N/A'){out.push({p:42,t:'act',s:'Survey '+(m.pa==='Scheduled'?'scheduled':'pending'),n:m.name,d:m.paDate?('Scheduled '+m.paDate):'Not yet scheduled',c:m,date:m.paDate});return;}
+    if(paInScope(m)){
+      var pre=preNorm(m);
+      if(pre==='Pending'&&m.pa!=='Done'&&m.pa!=='Waived'){out.push({p:45,t:'act',s:'Pre-PA pending',n:m.name,d:'Survey and reports needed before assessment',c:m,date:m.paDate});return;}
+      if(m.pa&&m.pa!=='Done'&&m.pa!=='Waived'&&m.pa!=='N/A'){out.push({p:42,t:'act',s:'Survey '+(m.pa==='Scheduled'?'scheduled':'pending'),n:m.name,d:m.paDate?('Scheduled '+m.paDate):'Not yet scheduled',c:m,date:m.paDate});return;}
+    }
     if((m.cat==='C2'||m.cat==='C3')&&(!m.pid||m.pid==='Pending'||m.pid==='N/A')){out.push({p:38,t:'act',s:'Dossier due',n:m.name,d:'Pre-inspection dossier required',c:m,date:m.pidDate});return;}
     if((m.cat==='C2'||m.cat==='C3')&&m.pim&&m.pim!=='Done'&&m.pim!=='N/A'){out.push({p:34,t:'act',s:'Meeting due',n:m.name,d:'Pre-inspection meeting '+(m.pim||'').toLowerCase(),c:m,date:m.pimDate});return;}
     if((m.cat==='C2'||m.cat==='C3')&&m.pim==='Done'&&(!m.mom||m.mom==='Pending')){out.push({p:30,t:'act',s:'Minutes due',n:m.name,d:'Submit minutes of meeting',c:m,date:m.pimDate});return;}
@@ -1672,9 +1688,9 @@ window.rPQD=function(){
     h+='<td class="pin1 pin-edge">'+flagFor(u)+'<span class="nm" style="max-width:280px" title="'+String(m.name||'').replace(/"/g,'&quot;')+'">'+m.name+'</span></td>';
     h+='<td>'+cB(m.cat)+'</td><td>'+cB(m.dis?m.dis.slice(0,4):'')+'</td>'+originCell(m);
     var stv=function(k){
-      if(k==='prepa')return preNorm(m);
       if(k==='iso')return (m.isoDate&&isExp(m.isoDate))?'Expired':(m.iso||'N/A');
-      return m[k]||((k==='pqd'||k==='pa')?'Pending':'N/A');
+      if(k==='pqd')return m.pqd||'Pending';
+      return effStage(m,k);
     };
     PQD_STATUS.forEach(function(c){h+='<td class="ctr">'+stamp(stv(c[0]))+'</td>';});
     PQD_EXTRA.forEach(function(c){if(pqdShown[c[0]])h+='<td class="ctr">'+stamp(stv(c[0]))+'</td>';});
@@ -1689,20 +1705,66 @@ window.rPQD=function(){
     });
     h+='</tr>';
     if(pqdOpen===m.id){
-      h+='<tr class="detail"><td colspan="'+cols+'"><div class="dwrap" style="border-bottom:1px solid var(--line);padding-bottom:13px">'
-        +dfS('PRE-PA',preNorm(m))+dfS('DOSSIER',m.pid||'N/A')+dfS('MEETING',m.pim||'N/A')
-        +dfS('MINUTES',m.mom||'N/A')+dfS('POST-INSPECTION',m.post||'N/A')
-        +dfS('PA QMS REPORT',m.paQms||'Pending')+dfS('PA TECHNICAL',m.paTech||'Pending')
+      var eng=m.engage||'Active';
+      h+='<tr class="detail"><td colspan="'+cols+'">'
+
+        +'<div class="dsec">STATUS</div><div class="dwrap">'
+        +dfS('PQD',m.pqd||'Pending')
+        +dfS('PRE-PA',effStage(m,'prepa'))
+        +dfS('ASSESSMENT',effStage(m,'pa'))
+        +dfS('ISO',(m.isoDate&&isExp(m.isoDate))?'Expired':(m.iso||'N/A'))
+        +dfS('DOSSIER',m.pid||'N/A')
+        +dfS('MEETING',m.pim||'N/A')
+        +dfS('MINUTES',m.mom||'N/A')
+        +dfS('POST-INSPECTION',m.post||'N/A')
         +dfS('VENDOR LIST',avlNorm(m.avl)||'N/A')
-        +'</div><div class="dwrap">'
-        +df('FULL REFERENCE',m.aconex,1)+df('SCOPE OF WORK',m.scope)+df('ENTITY TYPE',m.type)
-        +df('SUBMITTED',m.date,1)+df('LOCATION',m.loc)+df('ORIGIN',vendorOrigin(m)+(m.origin?'':' (inferred)'))+df('BROUGHT BY',m.subco)
-        +df('PA REFERENCE',m.paRef,1)+df('SURVEY DATE',m.paDate,1)+df('ISO EXPIRY',m.isoDate,1)+df('QUALIFIED ON',m.qualDate,1)
-        +(m.engage==='Discontinued'?df('DISCONTINUED BECAUSE',m.engageReason):'')
-        +df('NOTES',m.notes)
-        +'</div><div class="dacts"><button class="btn btn-sm" onclick="event.stopPropagation();edit('+m.id+')">Edit record</button>'
+        +'<div><div class="dlbl">ENGAGEMENT</div><div class="dval"'+(eng==='Discontinued'?' style="color:var(--bad-t)"':'')+'>'+eng+'</div></div>'
+        +'</div>'
+
+        +'<div class="dsec">IDENTIFICATION</div><div class="dwrap">'
+        +df('ACONEX REFERENCE',m.aconex,1)
+        +df('SCOPE OF WORK',m.scope)
+        +df('ENTITY TYPE',m.type)
+        +df('CATEGORY',m.cat)
+        +df('DISCIPLINE',m.dis)
+        +df('ORIGIN',vendorOrigin(m)==='Unknown'?'':vendorOrigin(m)+(m.origin?'':' · inferred'))
+        +df('LOCATION',m.loc)
+        +df('BROUGHT BY',m.subco)
+        +df('SUBMITTED',m.date,1)
+        +'</div>'
+
+        +'<div class="dsec">PHYSICAL ASSESSMENT</div><div class="dwrap">'
+        +df('REFERENCE DOCUMENT',m.paRef,1)
+        +df('SURVEY DATE',m.paDate,1)
+        +dfS('QMS REPORT',m.paQms||'Pending')
+        +df('QMS ASSESSOR',m.paQmsAssessor)
+        +df('QMS RESULT',m.paQmsResult)
+        +dfS('TECHNICAL REPORT',m.paTech||'Pending')
+        +df('TECHNICAL ASSESSOR',m.paTechAssessor)
+        +df('TECHNICAL RESULT',m.paTechResult)
+        +df('OVERALL RESULT',m.paResult)
+        +'</div>'
+
+        +'<div class="dsec">DATES</div><div class="dwrap">'
+        +df('ISO EXPIRY',m.isoDate,1)
+        +df('DOSSIER DATE',m.pidDate,1)
+        +df('MEETING DATE',m.pimDate,1)
+        +df('POST-INSPECTION DATE',m.postDate,1)
+        +df('QUALIFIED ON',m.qualDate,1)
+        +'</div>'
+
+        +(((m.notes)||(eng==='Discontinued'&&m.engageReason))
+          ? '<div class="dsec">NOTES</div><div class="dwrap" style="grid-template-columns:1fr">'
+            +(eng==='Discontinued'?df('REASON FOR DISCONTINUING',m.engageReason):'')
+            +(m.notes?df('NOTES',m.notes):'')
+            +'</div>'
+          : '')
+
+        +'<div class="dacts"><button class="btn btn-sm" onclick="event.stopPropagation();edit('+m.id+')">Edit record</button>'
+        +'<button class="btn btn-sm" onclick="event.stopPropagation();goTo(\'pa\')">Assessment</button>'
         +'<button class="btn btn-sm" onclick="event.stopPropagation();goTo(\'chk\')">Open checklist</button>'
-        +'<button class="btn btn-sm btn-d" style="margin-left:auto" onclick="event.stopPropagation();del('+m.id+(m._rowid!=null?",'"+m._rowid+"'":"")+')">Delete</button></div></td></tr>';
+        +'<button class="btn btn-sm btn-d" style="margin-left:auto" onclick="event.stopPropagation();del('+m.id+(m._rowid!=null?",'"+m._rowid+"'":"")+')">Delete</button></div>'
+        +'</td></tr>';
     }
   });
   tb.innerHTML=h;
@@ -2686,7 +2748,7 @@ window.genLookAhead=function(){
   function mk(no,title,rows){sections.push({no:no,title:title,rows:rows});}
 
   var paR=[];(DB.pqd||[]).forEach(function(m){
-    if(preNorm(m)!=='N/A'&&m.pa!=='Done'&&m.pa!=='Waived'){
+    if(paInScope(m)&&preNorm(m)!=='N/A'&&m.pa!=='Done'&&m.pa!=='Waived'){
       var cells=days.map(function(d){return m.paDate&&fmt(d)===m.paDate?'x':'';});
       if(cells.some(Boolean))paR.push({name:m.name,disc:m.dis||'',sub:'Assessment '+(m.pa||'Pending').toLowerCase()+(m.paDate?' · '+m.paDate:''),cells:cells});
     }});
@@ -2806,7 +2868,8 @@ function paStage(m){
 }
 function paRelevant(m){
   if(m.engage==='Discontinued')return false;
-  if(paStage(m)==='na'&&!(m.paDate||m.paRef||m.paResult))return false;
+  if(!paInScope(m))return false;
+  if(paStage(m)==='na'&&!paHasData(m))return false;
   return true;
 }
 function paCounts(){
@@ -2838,7 +2901,7 @@ window.rPA=function(){
     return (b.paDate||'').localeCompare(a.paDate||'');
   });
   var c=document.getElementById('pa-count');
-  if(c)c.textContent=list.length+' assessment'+(list.length===1?'':'s');
+  if(c)c.textContent=list.length+' assessment'+(list.length===1?'':'s')+' · categories 2 and 3';
   var tb=document.getElementById('tb-pa');if(!tb)return;
   if(!list.length){tb.innerHTML='<tr><td colspan="11" class="empty">No assessments in this view.</td></tr>';return;}
   var today=ymd(new Date());
@@ -2878,7 +2941,8 @@ window.paVendorInfo=function(){
   var box=document.getElementById('pa-vinfo');
   if(!m){box.style.display='none';return;}
   box.style.display='';
-  box.innerHTML=stamp(m.pqd||'Pending')+' &nbsp; <span class="dim">'+[m.cat,m.dis,m.loc].filter(Boolean).join(' · ')+'</span>';
+  box.innerHTML=stamp(m.pqd||'Pending')+' &nbsp; <span class="dim">'+[m.cat,m.dis,m.loc].filter(Boolean).join(' · ')+'</span>'
+    +(paApplies(m)?'':'<div style="margin-top:7px;color:var(--t-3)">An assessment is normally required for categories 2 and 3. This vendor is '+(m.cat||'uncategorised')+' — recording one here is still allowed.</div>');
   paWaiverCheck();
 };
 /* The procedure allows a survey waiver for C1 and C2 only (note 2.1.9). */
