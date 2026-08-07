@@ -1230,7 +1230,7 @@ var STAMP_MAP={
   "Approved with Comments":["With comments","act"], "Code C":["Code C","act"], "Rejected":["Rejected","bad"],
   "Submitted":["Submitted","run"], "Pending":["Pending","act"], "Scheduled":["Scheduled","run"],
   "Not Scheduled":["Not scheduled","act"], "Done":["Done","ok"], "Waived":["Waived","ok"],
-  "Valid":["Valid","ok"], "Expired":["Expired","act"], "Issued":["Issued","ok"],
+  "Valid":["Valid","ok"], "Expired":["Expired","bad"], "Issued":["Issued","ok"],
   "Attached":["Attached","ok"], "Will Submit with MIR":["With MIR","run"],
   "Pass":["Pass","ok"], "Failed":["Failed","bad"], "Under process":["Under process","run"],
   "FAT done":["FAT done","ok"], "Final inspection done":["Final done","ok"], "Re-FAT is required":["Re-FAT needed","bad"],
@@ -1294,6 +1294,7 @@ function effStage(m,k){
 function isRejected(r){var p=r.pqd||'Pending';return p==='Rejected'||p==='Code C';}
 function isoExpired(r){return r.iso==='Expired'||isExp(r.isoDate);}
 function stageNeedsMe(r){
+  if(isoExpired(r))return true;
   return ACTION_STAGES.some(function(k){return tone(effStage(r,k))==='act';});
 }
 function urgency(r){
@@ -1668,10 +1669,10 @@ function alertsFor(){
     if(m.engage==='Discontinued')return;
     var pq=m.pqd||'Pending';
     if(pq==='Rejected'||pq==='Code C'){
-      if(m.isoDate&&isExp(m.isoDate))out.push({p:80,t:'act',s:'ISO expired',n:m.name,d:'Expired '+m.isoDate,c:m,date:m.isoDate});
+      if(m.isoDate&&isExp(m.isoDate))out.push({p:80,t:'bad',s:'Expired',n:m.name,d:'ISO certificate expired '+m.isoDate,c:m,date:m.isoDate});
       return;
     }
-    if(m.isoDate&&isExp(m.isoDate)){out.push({p:80,t:'act',s:'ISO expired',n:m.name,d:'Expired '+m.isoDate,c:m,date:m.isoDate});return;}
+    if(m.isoDate&&isExp(m.isoDate)){out.push({p:80,t:'bad',s:'Expired',n:m.name,d:'ISO certificate expired '+m.isoDate,c:m,date:m.isoDate});return;}
     if(pq==='Pending'){out.push({p:15,t:'run',s:'Not submitted',n:m.name,d:'Waiting on the contractor to submit',c:m,date:m.date});return;}
     if(pq==='Submitted'){out.push({p:20,t:'run',s:'Submitted',n:m.name,d:'Awaiting review',c:m,date:m.date});return;}
     if(paInScope(m)){
@@ -1915,6 +1916,7 @@ window.rPQD=function(){
   var h='';
   list.forEach(function(m){
     var u=urgency(m);
+    if(isoExpired(m))u=Math.max(u,80);
     h+='<tr class="hov" onclick="pqdToggle('+m.id+')"'+(m.engage==='Discontinued'?' style="opacity:.55"':'')+'>';
     h+='<td class="pin1 pin-edge">'+flagFor(u)+'<span class="nm" style="max-width:280px" title="'+String(m.name||'').replace(/"/g,'&quot;')+'">'+m.name+'</span></td>';
     h+='<td>'+cB(m.cat)+'</td><td>'+cB(m.dis?m.dis.slice(0,4):'')+'</td>'+originCell(m);
