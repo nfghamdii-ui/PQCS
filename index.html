@@ -399,7 +399,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
       <div class="ni" data-p="avl" onclick="goTo('avl',this)"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Vendor list</span><span class="ni-n" id="nb-avl">0</span></div>
       <div class="ni" data-p="comp" onclick="goTo('comp',this)"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.7l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.7l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></svg><span>Components</span><span class="ni-n" id="nb-comp">0</span></div>
       <div class="ni" data-p="proc" onclick="goTo('proc',this)"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg><span>Procedure</span></div>
-      <div class="ni" data-p="chk" onclick="goTo('chk',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><rect x="3" y="5" width="11" height="14" rx="2"/></svg><span>PQD checklist</span></div>
+      <div class="ni" data-p="chk" onclick="goTo('chk',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><rect x="3" y="5" width="11" height="14" rx="2"/></svg><span>Document review</span><span class="ni-n" id="nb-chk">0</span></div>
     </div>
 
     <div class="grp">
@@ -583,10 +583,23 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 
       <!-- ============ PQD CHECKLIST ============ -->
       <div id="pg-chk" style="display:none">
-        <div class="tw"><table>
-          <thead><tr><th style="width:56px">NO.</th><th style="min-width:340px">DESCRIPTION</th><th class="ctr" style="width:66px">YES</th><th class="ctr" style="width:66px">NO</th><th class="ctr" style="width:66px">N.R</th><th style="min-width:190px">COMMENTS</th></tr></thead>
-          <tbody id="chk-tb"></tbody>
-        </table></div>
+        <div id="chk-list-view">
+          <div class="tw"><table>
+            <thead><tr>
+              <th class="pin1 pin-edge" style="min-width:280px">VENDOR UNDER REVIEW</th>
+              <th>CAT</th><th style="min-width:170px">PROGRESS</th><th class="ctr">MISSING</th>
+              <th class="ctr">STATUS</th><th>REVIEWED</th><th>NOTES</th><th></th>
+            </tr></thead>
+            <tbody id="chk-list-tb"></tbody>
+          </table></div>
+        </div>
+        <div id="chk-detail-view" style="display:none">
+          <div class="wrap" style="padding-bottom:0"><div id="chk-head"></div></div>
+          <div class="tw"><table>
+            <thead><tr><th style="width:56px">NO.</th><th style="min-width:340px">DESCRIPTION</th><th class="ctr" style="width:66px">YES</th><th class="ctr" style="width:66px">NO</th><th class="ctr" style="width:66px">N.R</th><th style="min-width:200px">COMMENTS</th></tr></thead>
+            <tbody id="chk-tb"></tbody>
+          </table></div>
+        </div>
       </div>
 
       <!-- ============ CALENDAR ============ -->
@@ -786,6 +799,22 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
  </div>
 </div>
 
+<!-- ===================== NEW REVIEW MODAL ===================== -->
+<div class="ov" id="ov-chk">
+ <div class="modal" style="max-width:460px">
+  <div class="m-head"><h2>New document review</h2><button class="ib" onclick="closeCHKNew()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="m-body" style="padding-top:18px">
+   <div class="fg">
+     <div class="fg-f"><label class="fl">Vendor name</label><input class="fi" id="c-vendor" placeholder="Company name as it appears on the documents"></div>
+     <div><label class="fl">Category</label><select class="fs" id="c-cat"><option value="C1">Category 1</option><option value="C2">Category 2</option><option value="C3" selected>Category 3</option><option value="SUB">Subcontractor</option></select></div>
+     <div><label class="fl">Review date</label><input class="fi" type="date" id="c-date"></div>
+     <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="c-notes" rows="2" placeholder="Scope offered, who sent the file…"></textarea></div>
+   </div>
+  </div>
+  <div class="m-foot"><button class="btn" onclick="closeCHKNew()">Cancel</button><button class="btn btn-p" onclick="saveCHKNew()">Start review</button></div>
+ </div>
+</div>
+
 <!-- ===================== ASSESSMENT MODAL ===================== -->
 <div class="ov" id="ov-pa">
  <div class="modal" style="max-width:600px">
@@ -914,8 +943,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 var SB_URL="https://qwfvpwoqvpjkwxwrwtak.supabase.co";
 var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3ZnZwd29xdnBqa3d4d3J3dGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNjUzOTYsImV4cCI6MjA5Njc0MTM5Nn0.YhciQCnFNZSuZzgx0qcYRHP3Anqa3x3ppQnrUGOTqVg";
 var sb=null, CUR_PROJECT=null, CUR_USER=null, CUR_PROFILE=null;
-var SB_TABLES=['pqd','mat','mir','events','fat'];
-var DB={pqd:[],mat:[],mir:[],events:[],fat:[]};
+var SB_TABLES=['pqd','mat','mir','events','fat','checklists'];
+var DB={pqd:[],mat:[],mir:[],events:[],fat:[],checklists:[]};
 var COMP_DATA=[]; window.AVL_DATA=[];
 
 /* ---------- toast ---------- */
@@ -1074,7 +1103,7 @@ window.sbAssign=async function(uid){
 
 /* ---------- data access ---------- */
 async function sbLoadAll(){
-  DB={pqd:[],mat:[],mir:[],events:[],fat:[]};
+  DB={pqd:[],mat:[],mir:[],events:[],fat:[],checklists:[]};
   for(var i=0;i<SB_TABLES.length;i++){
     var t=SB_TABLES[i];
     var r=await sb.from(t).select('id,data').eq('project_id',CUR_PROJECT);
@@ -1240,10 +1269,11 @@ function flagFor(u){return u>=80?'<span class="flag f-bad"></span>':(u>=24?'<spa
    3. NAVIGATION AND PER-PAGE TOOLBARS
    ================================================================ */
 var PAGES=['dash','pqd','sub','mat','mir','smp','pa','fat','pasum','rpt','comp','avl','proc','dlog','chk','cal','admin'];
-var TITLES={dash:'Dashboard',pqd:'Vendors',sub:'Submittals',mat:'Submittals',mir:'Submittals',smp:'Submittals',pa:'Physical assessment',fat:'FAT schedule tracker',pasum:'Physical assessment',rpt:'Reports',comp:'Components and category',avl:'Approved vendor list',proc:'Procedure',dlog:'Material delivery log',chk:'PQD checklist',cal:'Calendar',admin:'Admin'};
-var ADD_LABEL={pqd:'New vendor',sub:'New submittal',pa:'Schedule assessment',fat:'New FAT item',cal:'New event'};
+var TITLES={dash:'Dashboard',pqd:'Vendors',sub:'Submittals',mat:'Submittals',mir:'Submittals',smp:'Submittals',pa:'Physical assessment',fat:'FAT schedule tracker',pasum:'Physical assessment',rpt:'Reports',comp:'Components and category',avl:'Approved vendor list',proc:'Procedure',dlog:'Material delivery log',chk:'Document review',cal:'Calendar',admin:'Admin'};
+var ADD_LABEL={pqd:'New vendor',sub:'New submittal',pa:'Schedule assessment',chk:'New review',fat:'New FAT item',cal:'New event'};
 var SUB_TYPE='mat';
 var PA_VIEW='pipeline', paFilterVal='open';
+var CHK_VIEW='list', CHK_CUR=null, chkFilterVal='open';
 var SUB_META={
   mat:{label:'Material',add:'New material submittal'},
   mir:{label:'Inspection',add:'New inspection request'},
@@ -1342,12 +1372,22 @@ function buildTools(page){
     h+='<select class="sel" id="dlog-st" onchange="rDLOG()"><option value="">All statuses</option><option value="complete">Complete</option><option value="partial">Partial</option><option value="pending">Not received</option></select>';
     h+='<div class="spacer"></div><span class="count" id="dlog-count"></span>';
   }else if(page==='chk'){
-    h+='<select class="sel" id="chk-cat" onchange="rCHK()"><option value="C1">Category 1</option><option value="C2">Category 2</option><option value="C3">Category 3</option><option value="SUB">Subcontractor</option></select>';
-    h+='<button class="btn" onclick="resetCHK()">Reset</button>';
-    h+='<div class="spacer"></div><div style="display:flex;align-items:center;gap:12px">'
-      +'<span class="count" id="chk-sub"></span>'
-      +'<div style="width:120px" class="bar"><div id="chk-bar" style="width:0%"></div></div>'
-      +'<span style="font-family:var(--mono);font-size:13px" id="chk-pct">0%</span></div>';
+    if(CHK_VIEW==='detail'){
+      h+='<button class="btn" onclick="chkBack()">All reviews</button>';
+      h+='<span style="width:1px;height:22px;background:var(--line);margin:0 4px"></span>';
+      h+='<select class="sel" id="chk-cat" onchange="chkChangeCat()"><option value="C1">Category 1</option><option value="C2">Category 2</option><option value="C3">Category 3</option><option value="SUB">Subcontractor</option></select>';
+      h+='<button class="btn" onclick="resetCHK()">Clear marks</button>';
+      h+='<div class="spacer"></div><div style="display:flex;align-items:center;gap:12px">'
+        +'<span class="count" id="chk-sub"></span>'
+        +'<div style="width:120px" class="bar"><div id="chk-bar" style="width:0%"></div></div>'
+        +'<span style="font-family:var(--mono);font-size:13px" id="chk-pct">0%</span></div>';
+    }else{
+      h+=searchBox('chk-q','Vendor under review…','rCHK()');
+      [['open','In review'],['missing','Missing papers'],['complete','Complete'],['all','All']].forEach(function(f){
+        h+='<button class="chip'+(chkFilterVal===f[0]?' on':'')+'" onclick="chkFilter(\''+f[0]+'\')">'+f[1]+'<span class="chip-n">'+chkCounts()[f[0]]+'</span></button>';
+      });
+      h+='<div class="spacer"></div><span class="count" id="chk-count"></span>';
+    }
   }else if(page==='cal'){
     h+='<button class="btn" onclick="calNav(-1)">Previous</button>';
     h+='<span style="font-size:14px;min-width:150px;text-align:center" id="cal-title"></span>';
@@ -1387,7 +1427,7 @@ window.goTo=function(page,el){
   if(el)el.classList.add('on');else{var d=document.querySelector('.ni[data-p='+page+']');if(d)d.classList.add('on');}
   document.getElementById('pg-title').textContent=TITLES[page]||'';
   var add=document.getElementById('top-add');
-  var lbl=(page==='sub')?SUB_META[SUB_TYPE].add:ADD_LABEL[page];
+  var lbl=(page==='sub')?SUB_META[SUB_TYPE].add:((page==='chk'&&CHK_VIEW==='detail')?'':ADD_LABEL[page]);
   if(lbl){add.style.display='';add.textContent=lbl;}else add.style.display='none';
   buildTools(page);
   var scroll=document.getElementById('content-scroll');if(scroll)scroll.scrollTop=0;
@@ -1424,6 +1464,7 @@ window.topAdd=function(){
   else if(CUR_PAGE==='sub'){
     if(SUB_TYPE==='mat')openMAT();else if(SUB_TYPE==='mir')openMIR();else openSMP();
   }
+  else if(CUR_PAGE==='chk')openCHKNew();
   else if(CUR_PAGE==='pa'||CUR_PAGE==='pasum')openPA();
   else if(CUR_PAGE==='fat')openFAT();
   else if(CUR_PAGE==='cal')openCalEvent();
@@ -2640,51 +2681,180 @@ var CHK_DATA={
  C3:[{n:'1',t:'Company profile, including but not limited to:',h:1},{n:'1.1',t:'Management and staff organisation chart'},{n:'1.2',t:'Technical support department'},{n:'1.3',t:'SASO certificate'},{n:'1.4',t:'List of projects completed, with dates'},{n:'1.5',t:'List of equipment and tools'},{n:'2',t:'International or local certificates per project specification'},{n:'3',t:'Physical assessment of the manufacturer'},{n:'4',t:'Meets project specifications'},{n:'5',t:'Project-specific product catalogue'},{n:'6',t:'Quality documents and QA/QC plan'},{n:'7',t:'Previous approvals from other consultants'},{n:'8',t:'Method statement'},{n:'9',t:'Inspection and test plan'},{n:'10',t:'Customer testimonial'},{n:'11',t:'Recent test report'},{n:'12',t:'Recent FAT report'},{n:'13',t:'Company legal status, including but not limited to:',h:1},{n:'13.1',t:'Premier membership certificate'},{n:'13.2',t:'General Organization for Social Insurance'},{n:'13.3',t:'Ministry of Commerce and Industry'},{n:'13.4',t:'Zakat certificate'},{n:'13.5',t:'Saudisation certificate'},{n:'13.6',t:'Commercial registration'},{n:'13.7',t:'VAT registration certificate'},{n:'13.8',t:'SAGIA certificate, if applicable'},{n:'13.9',t:'National address'},{n:'14',t:'Manufacturer is well known, see notes 1 and 2'}],
  SUB:[{n:'1',t:'Company profile, including but not limited to:',h:1},{n:'1.1',t:'Management and staff organisation chart with names'},{n:'1.2',t:'List of projects completed, with date and value'},{n:'2',t:'ISO 9001 certificate'},{n:'3',t:'Scope of work specified for the project'},{n:'4',t:'Quality documents, QA/QC plan and procedures'},{n:'5',t:'Previous approvals from other consultants'},{n:'6',t:'Customer testimonial'},{n:'7',t:'Company legal status, including but not limited to:',h:1},{n:'7.1',t:'General Organization for Social Insurance'},{n:'7.2',t:'Ministry of Commerce and Industry'},{n:'7.3',t:'Zakat certificate'},{n:'7.4',t:'VAT registration certificate'},{n:'7.5',t:'Saudisation certificate'},{n:'7.6',t:'Commercial registration'}]
 };
-var CHK_STATE={};
+/* ================================================================
+   DOCUMENT REVIEW
+   A review is made before the vendor exists in the system, so it is
+   kept entirely on its own: nothing here writes to a vendor record,
+   and adding a vendor stays a deliberate act you perform yourself.
+   ================================================================ */
+var CHK_LABEL={C1:'Category 1',C2:'Category 2',C3:'Category 3',SUB:'Subcontractor'};
+function chkItems(cat){return (CHK_DATA[cat]||[]).filter(function(x){return !x.h;});}
+function chkStats(r){
+  var items=chkItems(r.cat), st=r.items||{};
+  var yes=0,no=0,nr=0,unmarked=0,missing=[];
+  items.forEach(function(it){
+    var v=(st[it.n]||{}).v;
+    if(v==='yes')yes++;
+    else if(v==='nr')nr++;
+    else if(v==='no'){no++;missing.push(it);}
+    else unmarked++;
+  });
+  var done=yes+nr+no;
+  return {total:items.length,yes:yes,no:no,nr:nr,unmarked:unmarked,done:done,missing:missing,
+    pct:items.length?Math.round((yes+nr)/items.length*100):0};
+}
+function chkStatus(r){
+  var s2=chkStats(r);
+  if(s2.no>0)return 'missing';
+  if(s2.unmarked===0&&s2.total>0)return 'complete';
+  return 'open';
+}
+function chkCounts(){
+  var c={open:0,missing:0,complete:0,all:0};
+  (DB.checklists||[]).forEach(function(r){c.all++;c[chkStatus(r)]++;});
+  return c;
+}
+window.chkFilter=function(f){chkFilterVal=f;goTo('chk');};
+window.chkBack=function(){CHK_VIEW='list';CHK_CUR=null;goTo('chk');};
+window.openCHKNew=function(){
+  document.getElementById('c-vendor').value='';
+  document.getElementById('c-cat').value='C3';
+  document.getElementById('c-date').value=ymd(new Date());
+  document.getElementById('c-notes').value='';
+  document.getElementById('ov-chk').classList.add('on');
+};
+window.closeCHKNew=function(){document.getElementById('ov-chk').classList.remove('on');};
+document.getElementById('ov-chk').addEventListener('click',function(e){if(e.target===this)closeCHKNew();});
+window.saveCHKNew=function(){
+  var v=document.getElementById('c-vendor').value.trim();
+  if(!v)return alert('Enter the vendor name');
+  var r={id:Date.now(),vendor:v,cat:document.getElementById('c-cat').value,
+    date:document.getElementById('c-date').value,notes:document.getElementById('c-notes').value.trim(),items:{}};
+  DB.checklists=DB.checklists||[];
+  DB.checklists.push(r);
+  persist('checklists',r).then(stampSaved);
+  closeCHKNew();
+  CHK_CUR=r.id;CHK_VIEW='detail';goTo('chk');
+  toast('Review started');
+};
+window.openCHK=function(id){CHK_CUR=id;CHK_VIEW='detail';goTo('chk');};
+window.delCHK=function(id,rowid){
+  if(!confirm('Delete this review?'))return;
+  var rec;
+  if(rowid!=null&&rowid!=='')rec=DB.checklists.find(function(x){return String(x._rowid)===String(rowid);});
+  if(!rec)rec=DB.checklists.find(function(x){return x.id===id;});
+  if(rec&&rec._rowid){sbDelete('checklists',rec._rowid);DB.checklists=DB.checklists.filter(function(x){return String(x._rowid)!==String(rec._rowid);});}
+  else{var i=DB.checklists.indexOf(rec);if(i>-1)DB.checklists.splice(i,1);}
+  CHK_VIEW='list';CHK_CUR=null;goTo('chk');toast('Review deleted');
+};
+function curCHK(){return (DB.checklists||[]).find(function(x){return x.id===CHK_CUR;});}
+var chkSaveTimer=null;
+function chkSave(){
+  var r=curCHK();if(!r)return;
+  r.updated=new Date().toISOString();
+  clearTimeout(chkSaveTimer);
+  chkSaveTimer=setTimeout(function(){persist('checklists',r).then(stampSaved);},600);
+}
 window.rCHK=function(){
-  var sel=document.getElementById('chk-cat');if(!sel)return;
-  var cat=sel.value, items=CHK_DATA[cat]||[];
-  CHK_STATE[cat]=CHK_STATE[cat]||{};
-  var st=CHK_STATE[cat], tb=document.getElementById('chk-tb');
-  tb.innerHTML=items.map(function(it){
+  var lv=document.getElementById('chk-list-view'), dv=document.getElementById('chk-detail-view');
+  if(CHK_VIEW==='detail'&&curCHK()){lv.style.display='none';dv.style.display='';rCHKDetail();}
+  else{CHK_VIEW='list';lv.style.display='';dv.style.display='none';rCHKList();}
+};
+function rCHKList(){
+  var qe=document.getElementById('chk-q'), q=qe?qe.value.toLowerCase().trim():'';
+  var list=(DB.checklists||[]).filter(function(r){
+    if(chkFilterVal!=='all'&&chkStatus(r)!==chkFilterVal)return false;
+    if(q&&[r.vendor,r.notes,r.cat].join(' ').toLowerCase().indexOf(q)<0)return false;
+    return true;
+  }).sort(function(a,b){return String(b.updated||b.date||'').localeCompare(String(a.updated||a.date||''));});
+  var c=document.getElementById('chk-count');
+  if(c)c.textContent=list.length+' review'+(list.length===1?'':'s');
+  var tb=document.getElementById('chk-list-tb');if(!tb)return;
+  if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty">No reviews yet. Start one when a vendor sends their documents.</td></tr>';return;}
+  var word={open:'In review',missing:'Missing papers',complete:'Complete'};
+  var tn={open:'run',missing:'act',complete:'ok'};
+  tb.innerHTML=list.map(function(r){
+    var s2=chkStats(r), st=chkStatus(r);
+    var flag=(st==='missing')?'<span class="flag f-act"></span>':'<span class="flag"></span>';
+    return '<tr class="hov" onclick="openCHK('+r.id+')">'
+      +'<td class="pin1 pin-edge">'+flag+'<span class="nm" style="max-width:250px">'+r.vendor+'</span></td>'
+      +'<td><span class="ref">'+r.cat+'</span></td>'
+      +'<td><div class="bar"><div style="width:'+s2.pct+'%;background:'+(st==='missing'?'var(--act-l)':st==='complete'?'var(--ok-l)':'var(--t-3)')+'"></div></div>'
+      +'<div class="ref" style="margin-top:3px">'+s2.done+' of '+s2.total+' marked</div></td>'
+      +'<td class="ctr">'+(s2.no?'<span class="ref" style="color:var(--act-t)">'+s2.no+'</span>':'<span class="dim">—</span>')+'</td>'
+      +'<td class="ctr"><span class="stamp s-'+tn[st]+'">'+word[st]+'</span></td>'
+      +'<td><span class="ref">'+(r.date||'—')+'</span></td>'
+      +'<td><span class="dim">'+(r.notes||'—')+'</span></td>'
+      +'<td class="ctr" onclick="event.stopPropagation()"><button class="ib d" onclick="delCHK('+r.id+(r._rowid!=null?",'"+r._rowid+"'":"")+')" aria-label="Delete"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button></td>'
+      +'</tr>';
+  }).join('');
+}
+function rCHKDetail(){
+  var r=curCHK();if(!r)return;
+  var cs=document.getElementById('chk-cat');if(cs&&cs.value!==r.cat)cs.value=r.cat;
+  var s2=chkStats(r);
+  var head=document.getElementById('chk-head');
+  head.innerHTML='<div class="panel" style="margin-bottom:14px"><div class="panel-h">'
+    +'<span>'+r.vendor+' <span class="meta">'+(CHK_LABEL[r.cat]||r.cat)+(r.date?' · '+r.date:'')+'</span></span>'
+    +'<button class="btn btn-sm btn-d" onclick="delCHK('+r.id+(r._rowid!=null?",'"+r._rowid+"'":"")+')">Delete review</button></div>'
+    +(s2.missing.length
+      ? '<div class="panel-b"><div class="dlbl" style="margin-bottom:9px">MISSING — '+s2.missing.length+' item'+(s2.missing.length===1?'':'s')+' to request from the vendor</div>'
+        +s2.missing.map(function(it){
+            var cm=((r.items||{})[it.n]||{}).c;
+            return '<div style="display:flex;gap:11px;padding:6px 0;font-size:12.5px"><span class="ref" style="width:44px;flex-shrink:0;color:var(--act-t)">'+it.n+'</span>'
+              +'<span style="flex:1">'+it.t+(cm?' <span class="dim">· '+cm+'</span>':'')+'</span></div>';
+          }).join('')
+        +'</div>'
+      : (s2.unmarked===0
+          ? '<div class="panel-b"><span style="color:var(--ok-t);font-size:12.5px">Every item is accounted for. The file is ready to submit.</span></div>'
+          : '<div class="panel-b"><span class="dim" style="font-size:12.5px">'+s2.unmarked+' item'+(s2.unmarked===1?'':'s')+' still unmarked.</span></div>'))
+    +'</div>';
+
+  var items=CHK_DATA[r.cat]||[], st=r.items||{};
+  document.getElementById('chk-tb').innerHTML=items.map(function(it){
     if(it.h)return '<tr><td style="background:var(--sf-0)"><span class="ref">'+it.n+'</span></td><td colspan="5" style="background:var(--sf-0);font-weight:500">'+it.t+'</td></tr>';
     var cur=(st[it.n]&&st[it.n].v)||'', com=(st[it.n]&&st[it.n].c)||'';
     var rb=function(v,c){
       return '<td class="ctr"><span onclick="chkMark(\''+it.n+'\',\''+v+'\')" style="display:inline-flex;width:20px;height:20px;border-radius:50%;border:1px solid '+(cur===v?c:'var(--line-2)')+';background:'+(cur===v?c:'transparent')+';cursor:pointer;align-items:center;justify-content:center;color:var(--bg);font-size:12px">'+(cur===v?'✓':'')+'</span></td>';
     };
-    return '<tr><td><span class="ref">'+it.n+'</span></td><td style="white-space:normal">'+it.t+'</td>'
+    return '<tr'+(cur==='no'?' style="background:var(--act-b)"':'')+'><td><span class="ref">'+it.n+'</span></td><td style="white-space:normal">'+it.t+'</td>'
       +rb('yes','var(--ok-t)')+rb('no','var(--bad-t)')+rb('nr','var(--t-3)')
       +'<td><input value="'+com.replace(/"/g,'&quot;')+'" oninput="chkComment(\''+it.n+'\',this.value)" placeholder="—" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:5px 8px;color:var(--t-1);font-family:var(--sans);font-size:11.5px;outline:none"></td></tr>';
   }).join('');
   updCHKpct();
-};
+}
 window.chkMark=function(no,v){
-  var cat=document.getElementById('chk-cat').value;
-  CHK_STATE[cat]=CHK_STATE[cat]||{};CHK_STATE[cat][no]=CHK_STATE[cat][no]||{};
-  CHK_STATE[cat][no].v=(CHK_STATE[cat][no].v===v)?'':v;rCHK();
+  var r=curCHK();if(!r)return;
+  r.items=r.items||{};r.items[no]=r.items[no]||{};
+  r.items[no].v=(r.items[no].v===v)?'':v;
+  chkSave();rCHKDetail();
 };
 window.chkComment=function(no,v){
-  var cat=document.getElementById('chk-cat').value;
-  CHK_STATE[cat]=CHK_STATE[cat]||{};CHK_STATE[cat][no]=CHK_STATE[cat][no]||{};
-  CHK_STATE[cat][no].c=v;
+  var r=curCHK();if(!r)return;
+  r.items=r.items||{};r.items[no]=r.items[no]||{};
+  r.items[no].c=v;chkSave();
+};
+window.chkChangeCat=function(){
+  var r=curCHK();if(!r)return;
+  var nc=document.getElementById('chk-cat').value;
+  if(nc===r.cat)return;
+  if(Object.keys(r.items||{}).length&&!confirm('Switching category changes the item list. Marks that no longer apply are kept but hidden. Continue?'))
+    {document.getElementById('chk-cat').value=r.cat;return;}
+  r.cat=nc;chkSave();rCHKDetail();
 };
 function updCHKpct(){
-  var cat=document.getElementById('chk-cat').value;
-  var items=(CHK_DATA[cat]||[]).filter(function(x){return !x.h;}), st=CHK_STATE[cat]||{};
-  var done=items.filter(function(it){var v=st[it.n]&&st[it.n].v;return v==='yes'||v==='nr';}).length;
-  var pct=items.length?Math.round(done/items.length*100):0;
-  var p=document.getElementById('chk-pct'),b=document.getElementById('chk-bar'),s=document.getElementById('chk-sub');
-  if(p)p.textContent=pct+'%';
-  if(b)b.style.width=pct+'%';
-  if(s)s.textContent=done+' of '+items.length+' confirmed';
+  var r=curCHK();if(!r)return;
+  var s2=chkStats(r);
+  var p=document.getElementById('chk-pct'),b=document.getElementById('chk-bar'),sub=document.getElementById('chk-sub');
+  if(p)p.textContent=s2.pct+'%';
+  if(b)b.style.width=s2.pct+'%';
+  if(sub)sub.textContent=(s2.yes+s2.nr)+' of '+s2.total+' confirmed'+(s2.no?' · '+s2.no+' missing':'');
 }
-window.resetCHK=function(){var cat=document.getElementById('chk-cat').value;CHK_STATE[cat]={};rCHK();};
-
-/* ================================================================
-   9. CALENDAR
-   ================================================================ */
-var CAL_VIEW=new Date();CAL_VIEW.setDate(1);
-var CAL_COL={pa:['run','Survey'],mir:['ok','Inspection'],iso:['bad','Expiry'],deadline:['act','Deadline'],manual:['na','Task'],meeting:['na','Meeting'],inspection:['ok','Inspection'],delivery:['ok','Delivery']};
+window.resetCHK=function(){
+  var r=curCHK();if(!r)return;
+  if(!confirm('Clear every mark on this review?'))return;
+  r.items={};chkSave();rCHKDetail();
+};
 function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function collectCalEvents(){
   var ev=[];
@@ -3257,7 +3427,7 @@ window.importDB=function(e){
     try{
       var d=JSON.parse(ev.target.result);
       if(confirm('This replaces all current data for this project. Continue?')){
-        DB.pqd=d.pqd||[];DB.mat=d.mat||[];DB.mir=d.mir||[];DB.fat=d.fat||[];DB.events=d.events||[];
+        DB.pqd=d.pqd||[];DB.mat=d.mat||[];DB.mir=d.mir||[];DB.fat=d.fat||[];DB.events=d.events||[];DB.checklists=d.checklists||[];
         persist().then(function(){stampSaved();refreshCounts();goTo(CUR_PAGE);toast('Data restored');});
       }
     }catch(x){alert('That file could not be read.');}
@@ -3382,6 +3552,7 @@ function refreshCounts(){
   set('nb-pqd',(DB.pqd||[]).length);
   set('nb-sub',(DB.mat||[]).length+(DB.mir||[]).length);
   var pc=paCounts();set('nb-pa',pc.open+pc.scheduled);
+  var cc=chkCounts();set('nb-chk',cc.open+cc.missing);
   set('nb-fat',(DB.fat||[]).length);
   set('nb-comp',(COMP_DATA||[]).length);
   set('nb-avl',(window.AVL_DATA||[]).length);
