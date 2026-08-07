@@ -664,7 +664,10 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div><label class="fl">Entity type</label><select class="fs" id="f-type" onchange="toggleSub()"><option value="">—</option><option>Manufacturer</option><option>Subcontractor</option><option>Vendor</option></select></div>
      <div><label class="fl">Country or location</label><input class="fi" id="f-loc" oninput="suggestOrigin()"></div>
      <div><label class="fl">Origin</label><select class="fs" id="f-origin"><option value="">Infer from location</option><option>Local</option><option>Foreign</option></select></div>
-     <div id="sub-row"><label class="fl">Brought by</label><select class="fs" id="f-subco"><option value="">—</option></select></div>
+     <div id="sub-row" class="pick"><label class="fl">Brought by</label>
+       <input class="fi" id="f-subco-q" placeholder="Search subcontractors…" autocomplete="off" oninput="pickOpen('f-subco')" onfocus="pickOpen('f-subco')">
+       <input type="hidden" id="f-subco">
+       <div class="pick-list" id="f-subco-list"></div></div>
      <div><label class="fl">Material category</label><select class="fs" id="f-cat" onchange="catChanged()"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
      <div><label class="fl">Discipline</label><select class="fs" id="f-dis"><option value="">—</option><option>Architectural</option><option>Mechanical</option><option>Electrical</option><option>Civil</option><option>Structural</option><option>MEP</option></select></div>
      <div class="fg-f" id="cat-hint" style="display:none"></div>
@@ -2078,6 +2081,7 @@ function closeM(){
   document.querySelectorAll('#ov .fi,#ov .ft').forEach(function(e){e.value='';});
   document.querySelectorAll('#ov .fs').forEach(function(e){e.selectedIndex=0;});
   document.getElementById('eid').value='';
+  pickClear('f-subco');
   document.getElementById('avl-hint').style.display='none';
   document.getElementById('engage-reason-wrap').style.display='none';
   var ch=document.getElementById('cat-hint');if(ch)ch.style.display='none';
@@ -2167,14 +2171,7 @@ window.suggestOrigin=function(){
 };
 function toggleSub(){var t=document.getElementById('f-type').value;document.getElementById('sub-row').style.display=(t&&t!=='Subcontractor')?'':'none';}
 function toggleEngage(){document.getElementById('engage-reason-wrap').style.display=(document.getElementById('f-engage').value==='Discontinued')?'':'none';}
-function fillSubco(){
-  var sel=document.getElementById('f-subco'),cur=sel.value;
-  sel.innerHTML='<option value="">—</option>';
-  (DB.pqd||[]).filter(function(m){return m.type==='Subcontractor';}).forEach(function(m){
-    var o=document.createElement('option');o.value=m.name;o.textContent=m.name;sel.appendChild(o);
-  });
-  if(cur)sel.value=cur;
-}
+function fillSubco(){}
 function save(){
   var n=document.getElementById('f-name').value.trim();
   if(!n)return alert('Enter the manufacturer name');
@@ -2201,7 +2198,7 @@ window.edit=function(id){
   fillSubco();
   var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
   sv('eid',id);sv('f-name',m.name);sv('f-aconex',m.aconex);sv('f-date',m.date);sv('f-scope',m.scope);
-  sv('f-type',m.type);sv('f-loc',m.loc);sv('f-origin',m.origin);sv('f-subco',m.subco);suggestOrigin();sv('f-cat',m.cat);sv('f-dis',m.dis);
+  sv('f-type',m.type);sv('f-loc',m.loc);sv('f-origin',m.origin);pickSet('f-subco',m.subco);suggestOrigin();sv('f-cat',m.cat);sv('f-dis',m.dis);
   sv('f-avl',avlNorm(m.avl));sv('f-pqd',m.pqd||'Pending');
   sv('f-engage',m.engage||'Active');sv('f-engage-reason',m.engageReason);toggleEngage();
   sv('f-prepa',preNorm(m));sv('f-pa',m.pa||'Pending');sv('f-pa-date',m.paDate);
@@ -2402,8 +2399,24 @@ window.rMAT=function(){
    type stands on its own if no record matches. */
 var PICK_SRC={
   'm-co':'vendor','s-co':'vendor','mir-co':'vendor',
+  'f-subco':'subco',
   'm-mfr':'mfr','s-mfr':'mfr'
 };
+function pickSubcoRows(q){
+  var rows=(DB.pqd||[]).filter(function(v){
+    if(v.type!=='Subcontractor')return false;
+    return !q||[v.name,v.scope,v.loc].join(' ').toLowerCase().indexOf(q)>=0;
+  });
+  /* fall back to every vendor when none is typed as a subcontractor,
+     so the field never traps you behind a classification */
+  if(!rows.length&&q){
+    rows=(DB.pqd||[]).filter(function(v){return [v.name,v.scope].join(' ').toLowerCase().indexOf(q)>=0;});
+  }
+  return rows.slice(0,60).map(function(v){
+    return {value:v.name,title:v.name,
+      sub:[v.type,v.scope,v.cat].filter(Boolean).join(' \u00b7 ')};
+  });
+}
 function pickVendorRows(q){
   return (DB.pqd||[]).filter(function(v){
     return !q||[v.name,v.scope,v.cat,v.loc].join(' ').toLowerCase().indexOf(q)>=0;
@@ -2431,15 +2444,17 @@ function pickMfrRows(q){
 }
 window.pickOpen=function(id){
   var kind=PICK_SRC[id];if(!kind)return;
-  var isVendor=(kind==='vendor');
+  var isVendor=(kind==='vendor'||kind==='subco');
   var inp=document.getElementById(isVendor?(id+'-q'):id);
   var list=document.getElementById(id+'-list');
   if(!inp||!list)return;
   document.querySelectorAll('.pick-list.on').forEach(function(l){if(l!==list)l.classList.remove('on');});
   var q=inp.value.toLowerCase().trim();
-  var rows=isVendor?pickVendorRows(q):pickMfrRows(q);
+  var rows=(kind==='vendor')?pickVendorRows(q):(kind==='subco')?pickSubcoRows(q):pickMfrRows(q);
   if(!rows.length){
-    list.innerHTML='<div class="pick-none">'+(isVendor
+    list.innerHTML='<div class="pick-none">'+(kind==='subco'
+      ? 'No subcontractor matches. Record it as a vendor first.'
+      : isVendor
       ? 'No vendor matches. Record the vendor first.'
       : 'No match — what you typed will be used as entered.')+'</div>';
   }else{
@@ -2457,7 +2472,7 @@ window.pickOpen=function(id){
   list.classList.add('on');
 };
 window.pickChoose=function(id,val){
-  var kind=PICK_SRC[id], isVendor=(kind==='vendor');
+  var kind=PICK_SRC[id], isVendor=(kind==='vendor'||kind==='subco');
   if(isVendor){
     document.getElementById(id).value=val;
     document.getElementById(id+'-q').value=val;
@@ -2469,7 +2484,7 @@ window.pickChoose=function(id,val){
   document.getElementById(id+'-list').classList.remove('on');
 };
 function pickSet(id,val){
-  var isVendor=(PICK_SRC[id]==='vendor');
+  var k=PICK_SRC[id], isVendor=(k==='vendor'||k==='subco');
   var el=document.getElementById(id);if(el)el.value=val||'';
   if(isVendor){var q=document.getElementById(id+'-q');if(q)q.value=val||'';}
 }
