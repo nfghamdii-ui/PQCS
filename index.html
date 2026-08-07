@@ -386,6 +386,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 
     <div class="grp">
       <div class="grp-lbl">WORKFLOW</div>
+      <div class="ni" data-p="find" onclick="goTo('find',this)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3"/></svg><span>Search</span></div>
       <div class="ni" data-p="dash" onclick="goTo('dash',this)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span>Dashboard</span></div>
       <div class="ni" data-p="pqd" onclick="goTo('pqd',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="6"/><path d="M9 14.5L8 22l4-2 4 2-1-7.5"/></svg><span>Vendors</span><span class="ni-n" id="nb-pqd">0</span></div>
       <div class="ni" data-p="sub" onclick="goTo('sub',this)"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></svg><span>Submittals</span><span class="ni-n" id="nb-sub">0</span></div>
@@ -426,6 +427,9 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 
     <div class="tools" id="tools"></div>
     <div class="content" id="content-scroll">
+
+      <!-- ============ SEARCH ============ -->
+      <div id="pg-find" style="display:none"><div class="wrap"><div id="find-out"></div></div></div>
 
       <!-- ============ DASHBOARD ============ -->
       <div id="pg-dash">
@@ -1270,8 +1274,8 @@ function flagFor(u){return u>=80?'<span class="flag f-bad"></span>':(u>=24?'<spa
 /* ================================================================
    3. NAVIGATION AND PER-PAGE TOOLBARS
    ================================================================ */
-var PAGES=['dash','pqd','sub','mat','mir','smp','pa','fat','pasum','rpt','comp','avl','proc','dlog','chk','cal','admin'];
-var TITLES={dash:'Dashboard',pqd:'Vendors',sub:'Submittals',mat:'Submittals',mir:'Submittals',smp:'Submittals',pa:'Physical assessment',fat:'FAT schedule tracker',pasum:'Physical assessment',rpt:'Reports',comp:'Components and category',avl:'Approved vendor list',proc:'Procedure',dlog:'Material delivery log',chk:'Document review',cal:'Calendar',admin:'Admin'};
+var PAGES=['find','dash','pqd','sub','mat','mir','smp','pa','fat','pasum','rpt','comp','avl','proc','dlog','chk','cal','admin'];
+var TITLES={find:'Search',dash:'Dashboard',pqd:'Vendors',sub:'Submittals',mat:'Submittals',mir:'Submittals',smp:'Submittals',pa:'Physical assessment',fat:'FAT schedule tracker',pasum:'Physical assessment',rpt:'Reports',comp:'Components and category',avl:'Approved vendor list',proc:'Procedure',dlog:'Material delivery log',chk:'Document review',cal:'Calendar',admin:'Admin'};
 var ADD_LABEL={pqd:'New vendor',sub:'New submittal',pa:'Schedule assessment',chk:'New review',fat:'New FAT item',cal:'New event'};
 var SUB_TYPE='mat';
 var PA_VIEW='pipeline', paFilterVal='open';
@@ -1318,6 +1322,10 @@ function buildTools(page){
       +'<div class="colopt" data-c="paQms" onclick="togCol(this)"><span class="box"></span>PA QMS</div>'
       +'<div class="colopt" data-c="paTech" onclick="togCol(this)"><span class="box"></span>PA technical</div>'
       +'</div></div>';
+  }else if(page==='find'){
+    h+='<div class="search" style="flex:1;max-width:520px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3"/></svg>'
+      +'<input class="q" id="find-q" style="width:100%" placeholder="Material, manufacturer, reference, inspector, scope…" autocomplete="off" oninput="rFIND()" value="'+String(FIND_Q).replace(/"/g,'&quot;')+'"></div>';
+    h+='<div class="spacer"></div><span class="count" id="find-count"></span>';
   }else if(page==='sub'){
     var counts={mat:matRecords().length,mir:(DB.mir||[]).length,smp:smpRecords().length};
     ['mat','mir','smp'].forEach(function(t){
@@ -1433,6 +1441,7 @@ window.goTo=function(page,el){
   if(lbl){add.style.display='';add.textContent=lbl;}else add.style.display='none';
   buildTools(page);
   var scroll=document.getElementById('content-scroll');if(scroll)scroll.scrollTop=0;
+  if(page==='find'){var fq=document.getElementById('find-q');if(fq)fq.focus();rFIND();}
   if(page==='dash')renderDash();
   if(page==='pqd'){buildPQDHead();rPQD();}else{var fm=document.getElementById('fmenu');if(fm)fm.classList.remove('on');}
   if(page==='sub'){
@@ -1470,6 +1479,137 @@ window.topAdd=function(){
   else if(CUR_PAGE==='pa'||CUR_PAGE==='pasum')openPA();
   else if(CUR_PAGE==='fat')openFAT();
   else if(CUR_PAGE==='cal')openCalEvent();
+};
+
+/* ================================================================
+   SEARCH — one field across every record in the project.
+   Each result carries enough context to answer the question without
+   opening it, and one click lands on the record itself.
+   ================================================================ */
+var FIND_Q='';
+function fnorm(v){return String(v==null?'':v).toLowerCase();}
+function findHay(parts){return parts.filter(Boolean).join(' \u0001 ').toLowerCase();}
+function findMatches(hay,terms){return terms.every(function(t){return hay.indexOf(t)>=0;});}
+
+function findAll(q){
+  var terms=q.toLowerCase().split(/\s+/).filter(Boolean);
+  if(!terms.length)return [];
+  var out=[];
+
+  (DB.pqd||[]).forEach(function(m){
+    var hay=findHay([m.name,m.aconex,m.scope,m.loc,m.subco,m.cat,m.dis,m.type,m.paRef,m.paQmsAssessor,m.paTechAssessor,m.notes,vendorOrigin(m)]);
+    if(!findMatches(hay,terms))return;
+    out.push({group:'Vendors',title:m.name,ref:m.aconex,
+      meta:[m.cat,m.dis,vendorOrigin(m)!=='Unknown'?vendorOrigin(m):'',m.loc].filter(Boolean).join(' · '),
+      sub:m.scope,stamps:[m.pqd||'Pending',effStage(m,'pa'),(m.isoDate&&isExp(m.isoDate))?'Expired':(m.iso||'N/A')],
+      go:"goTo('pqd');setTimeout(function(){pqdToggle("+m.id+")},120)"});
+  });
+
+  matRecords().forEach(function(m){
+    var hay=findHay([m.name,m.aconex,m.desc,m.company,m.catSub,m.catCor,m.notes].concat((m.items||[]).map(function(i){return i.name;})));
+    if(!findMatches(hay,terms))return;
+    out.push({group:'Material submittals',title:m.name,ref:m.aconex,
+      meta:[m.catCor||m.catSub,m.company,m.date].filter(Boolean).join(' · '),
+      sub:m.desc,stamps:[m.mts||'Pending'],
+      go:"goTo('mat');setTimeout(function(){editMAT("+m.id+")},120)"});
+  });
+
+  smpRecords().forEach(function(m){
+    var hay=findHay([m.name,m.aconex,m.desc,m.company,m.heldAt,m.qty,m.notes]);
+    if(!findMatches(hay,terms))return;
+    out.push({group:'MES',title:m.name,ref:m.aconex,
+      meta:[m.catSub,m.company,m.date,m.heldAt].filter(Boolean).join(' · '),
+      sub:m.desc,stamps:[m.mts||'Pending'],
+      go:"goTo('smp');setTimeout(function(){editSMP("+m.id+")},120)"});
+  });
+
+  (DB.mir||[]).forEach(function(m){
+    var hay=findHay([m.name,m.num,m.aconex,m.company,m.irnNum,m.notes].concat(mirRefsOf(m)));
+    if(!findMatches(hay,terms))return;
+    out.push({group:'Inspection requests',title:m.name,ref:m.num,
+      meta:[m.cat,m.company,m.date].filter(Boolean).join(' · '),
+      sub:mirRefsOf(m).length?('Linked: '+mirRefsOf(m).join(', ')):'',
+      stamps:[m.status||'Pending',m.irnStatus||'N/A'],
+      go:"goTo('mir');setTimeout(function(){editMIR("+m.id+")},120)"});
+  });
+
+  (DB.fat||[]).forEach(function(m){
+    var hay=findHay([m.material,m.mfr,m.loc,m.addr,m.tpia,m.inspector,m.cat,m.remark,m.attSeven,m.attSapl,m.attDah]);
+    if(!findMatches(hay,terms))return;
+    out.push({group:'FAT',title:m.material,ref:'',
+      meta:[m.cat,m.mfr,m.loc,m.fatDate].filter(Boolean).join(' · '),
+      sub:m.tpia?('TPIA: '+m.tpia+(m.inspector?' · '+m.inspector:'')):'',
+      stamps:[m.remark||'Pending',m.approval||'N/A'],
+      go:"goTo('fat');setTimeout(function(){editFAT("+m.id+")},120)"});
+  });
+
+  (DB.checklists||[]).forEach(function(r){
+    var hay=findHay([r.vendor,r.notes,r.cat]);
+    if(!findMatches(hay,terms))return;
+    var st=chkStats(r), status=chkStatus(r);
+    out.push({group:'Document reviews',title:r.vendor,ref:'',
+      meta:[CHK_LABEL[r.cat]||r.cat,r.date].filter(Boolean).join(' · '),
+      sub:st.no?(st.no+' item'+(st.no===1?'':'s')+' missing'):'',
+      stamps:[status==='complete'?'Approved':status==='missing'?'Pending':'Submitted'],
+      go:"openCHK("+r.id+")"});
+  });
+
+  (window.AVL_DATA||[]).forEach(function(r){
+    var hay=findHay([r.mfr,r.mat,r.country,r.seg,r.disc,r.list]);
+    if(!findMatches(hay,terms))return;
+    out.push({group:'Approved vendor list',title:r.mfr,ref:'List '+r.list,
+      meta:[r.disc,r.cat?String(r.cat).toUpperCase():'',r.country,r.seg].filter(Boolean).join(' · '),
+      sub:r.mat,stamps:[r.status||'Approved'],go:"goTo('avl')"});
+  });
+
+  (COMP_DATA||[]).forEach(function(x){
+    var hay=findHay([x.n,x.t,x.p,x.c,x.s]);
+    if(!findMatches(hay,terms))return;
+    out.push({group:'Components',title:x.n,ref:'',
+      meta:[x.t,x.p,x.s].filter(Boolean).join(' · '),sub:'',stamps:[],go:"goTo('comp')"});
+  });
+
+  return out;
+}
+
+var FIND_ORDER=['Vendors','Material submittals','Inspection requests','MES','FAT','Document reviews','Approved vendor list','Components'];
+var FIND_CAP={'Approved vendor list':25,'Components':25};
+
+window.rFIND=function(){
+  var el=document.getElementById('find-q');
+  FIND_Q=el?el.value.trim():FIND_Q;
+  var out=document.getElementById('find-out'), cnt=document.getElementById('find-count');
+  if(!out)return;
+  if(FIND_Q.length<2){
+    out.innerHTML='<div class="panel"><div class="empty">Type at least two characters. Every vendor, submittal, inspection, FAT item, review, listed manufacturer and component is searched at once.</div></div>';
+    if(cnt)cnt.textContent='';
+    return;
+  }
+  var res=findAll(FIND_Q);
+  if(cnt)cnt.textContent=res.length+' result'+(res.length===1?'':'s');
+  if(!res.length){
+    out.innerHTML='<div class="panel"><div class="empty">Nothing matches “'+FIND_Q+'”.</div></div>';
+    return;
+  }
+  var by={};
+  res.forEach(function(r){(by[r.group]=by[r.group]||[]).push(r);});
+  var html='';
+  FIND_ORDER.forEach(function(g){
+    var rows=by[g];if(!rows||!rows.length)return;
+    var cap=FIND_CAP[g]||200, shown=rows.slice(0,cap);
+    html+='<div class="sec-h"><span class="sec-t">'+g+'</span><span class="sec-s">'+rows.length+' result'+(rows.length===1?'':'s')
+      +(rows.length>shown.length?' · showing '+shown.length:'')+'</span></div><div class="panel">';
+    html+=shown.map(function(r){
+      return '<div class="row" onclick="'+r.go+'">'
+        +'<div class="row-m"><div class="row-t">'+r.title+(r.ref?' <span class="ref">'+r.ref+'</span>':'')+'</div>'
+        +(r.meta?'<div class="row-s">'+r.meta+'</div>':'')
+        +(r.sub?'<div class="row-s" style="color:var(--t-4)">'+r.sub+'</div>':'')+'</div>'
+        +(r.stamps||[]).map(function(v){return stamp(v);}).join(' ')
+        +'</div>';
+    }).join('');
+    html+='</div>';
+  });
+  out.innerHTML=html;
 };
 
 /* ================================================================
@@ -3673,7 +3813,12 @@ function sbWaitForLib(tries){
   if(e)e.textContent='Could not load the database library. Check your connection and refresh.';
 }
 document.addEventListener('keydown',function(e){
-  if(e.key==='Escape'){document.querySelectorAll('.ov.on').forEach(function(o){o.classList.remove('on');});}
+  if(e.key==='Escape'){document.querySelectorAll('.ov.on').forEach(function(o){o.classList.remove('on');});return;}
+  /* slash jumps to search from anywhere, unless you are typing */
+  if(e.key==='/'&&!/^(INPUT|TEXTAREA|SELECT)$/.test((e.target.tagName||''))&&!document.querySelector('.ov.on')){
+    e.preventDefault();
+    goTo('find',document.querySelector('.ni[data-p=find]'));
+  }
 });
 window.addEventListener('DOMContentLoaded',function(){sbWaitForLib(0);});
 if(document.readyState!=='loading')sbWaitForLib(0);
