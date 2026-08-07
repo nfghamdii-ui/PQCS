@@ -139,9 +139,9 @@ tbody td{padding:9px 12px;border-bottom:1px solid var(--line);background:var(--s
 tbody tr:last-child td{border-bottom:none}
 tbody tr.hov:hover td{background:var(--sf-2);cursor:pointer}
 .pin1{position:sticky;left:0;z-index:15}
-.pin2{position:sticky;left:210px;z-index:15}
+.pin2{position:sticky;left:234px;z-index:15}
 thead .pin1,thead .pin2{z-index:30}
-.pin2::after{content:"";position:absolute;right:0;top:0;bottom:0;width:1px;background:var(--line-2)}
+.pin2::after,.pin-edge::after{content:"";position:absolute;right:0;top:0;bottom:0;width:1px;background:var(--line-2)}
 .nm{font-size:13px;max-width:210px;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle}
 .ref{font-family:var(--mono);font-size:11px;color:var(--t-2)}
 .dim{color:var(--t-3);font-size:12px}
@@ -427,7 +427,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 
           <div class="sec-h"><span class="sec-t">Recent activity</span></div>
           <div class="panel"><div class="tw"><table>
-            <thead><tr><th style="min-width:180px">VENDOR</th><th>REFERENCE</th><th>CAT</th><th class="ctr">PQD</th><th class="ctr">PA</th><th class="ctr">ISO</th></tr></thead>
+            <thead><tr><th style="min-width:190px">VENDOR</th><th style="min-width:150px">SCOPE</th><th>CAT</th><th class="ctr">PQD</th><th class="ctr">PA</th><th class="ctr">ISO</th></tr></thead>
             <tbody id="dash-pqd"></tbody>
           </table></div></div>
 
@@ -1112,7 +1112,15 @@ function buildTools(page){
     h+='<button class="chip" data-f="stopped" onclick="pqdFilter(this)">Discontinued<span class="chip-n" id="n-stopped">0</span></button>';
     h+='<div class="spacer"></div><span class="count" id="pqd-count"></span>';
     h+='<div class="colwrap"><button class="btn" onclick="toggleCols(event)">Columns</button><div class="colmenu" id="colmenu" onclick="event.stopPropagation()">'
-      +'<div class="colmenu-h">DETAIL COLUMNS</div>'
+      +'<div class="colmenu-h">STATUS COLUMNS</div>'
+      +'<div class="colopt" data-c="prepa" onclick="togCol(this)"><span class="box"></span>Pre-PA</div>'
+      +'<div class="colopt" data-c="pid" onclick="togCol(this)"><span class="box"></span>Dossier</div>'
+      +'<div class="colopt" data-c="pim" onclick="togCol(this)"><span class="box"></span>Meeting</div>'
+      +'<div class="colopt" data-c="mom" onclick="togCol(this)"><span class="box"></span>Minutes</div>'
+      +'<div class="colopt" data-c="post" onclick="togCol(this)"><span class="box"></span>Post-inspection</div>'
+      +'<div class="colmenu-h" style="padding-top:9px">DETAIL COLUMNS</div>'
+      +'<div class="colopt" data-c="aconex" onclick="togCol(this)"><span class="box"></span>Aconex reference</div>'
+      +'<div class="colopt" data-c="scope" onclick="togCol(this)"><span class="box"></span>Scope of work</div>'
       +'<div class="colopt" data-c="date" onclick="togCol(this)"><span class="box"></span>Submitted</div>'
       +'<div class="colopt" data-c="loc" onclick="togCol(this)"><span class="box"></span>Location</div>'
       +'<div class="colopt" data-c="subco" onclick="togCol(this)"><span class="box"></span>Brought by</div>'
@@ -1284,7 +1292,7 @@ function renderDash(){
 
   var dp=document.getElementById('dash-pqd'), rp=pqd.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,5);
   dp.innerHTML=rp.length?rp.map(function(m){
-    return '<tr class="hov" onclick="goTo(\'pqd\');setTimeout(function(){edit('+m.id+')},120)"><td><span class="nm">'+m.name+'</span></td><td><span class="ref">'+(m.aconex||'—')+'</span></td><td>'+cB(m.cat)+'</td><td class="ctr">'+sc(m.pqd||'Pending')+'</td><td class="ctr">'+sc(m.pa||'Pending')+'</td><td class="ctr">'+sc(m.iso||'N/A')+'</td></tr>';
+    return '<tr class="hov" onclick="goTo(\'pqd\');setTimeout(function(){edit('+m.id+')},120)"><td><span class="nm">'+m.name+'</span></td><td><span class="nm dim" style="max-width:150px">'+(m.scope||'—')+'</span></td><td>'+cB(m.cat)+'</td><td class="ctr">'+sc(m.pqd||'Pending')+'</td><td class="ctr">'+sc(m.pa||'Pending')+'</td><td class="ctr">'+sc(m.iso||'N/A')+'</td></tr>';
   }).join(''):'<tr><td colspan="6" class="empty">No records yet</td></tr>';
 
   var dm=document.getElementById('dash-mat'), rm=mat.slice(-5).reverse();
@@ -1371,14 +1379,38 @@ function renderCharts(live){
    Identity columns are pinned. Status columns are stamps.
    Detail columns are opt-in. Rows expand in place.
    ================================================================ */
-var PQD_STATUS=[['pqd','PQD'],['prepa','PRE-PA'],['pa','PA'],['iso','ISO'],['pid','PID'],['pim','PIM'],['mom','MOM'],['post','POST']];
-var PQD_DETAIL=[['date','SUBMITTED'],['loc','LOCATION'],['subco','BROUGHT BY'],['avl','VENDOR LIST'],['paQms','PA QMS'],['paTech','PA TECHNICAL']];
-var pqdShown={date:false,loc:false,subco:false,avl:false,paQms:false,paTech:false};
+var PQD_STATUS=[['pqd','PQD'],['pa','PA'],['iso','ISO']];
+var PQD_EXTRA=[['prepa','PRE-PA'],['pid','PID'],['pim','PIM'],['mom','MOM'],['post','POST']];
+var PQD_DETAIL=[['aconex','ACONEX REF'],['scope','SCOPE'],['date','SUBMITTED'],['loc','LOCATION'],['subco','BROUGHT BY'],['avl','VENDOR LIST'],['paQms','PA QMS'],['paTech','PA TECHNICAL']];
+var pqdShown={prepa:false,pid:false,pim:false,mom:false,post:false,aconex:false,scope:false,date:false,loc:false,subco:false,avl:false,paQms:false,paTech:false};
+
+/* Reference numbers share a long project prefix. Detect the part that
+   every record has in common and hide it — the tail is the only thing
+   that distinguishes one document from another. */
+var REF_PREFIX='';
+function computeRefPrefix(){
+  var refs=(DB.pqd||[]).map(function(m){return m.aconex||'';}).filter(function(x){return x.indexOf('-')>0;});
+  if(refs.length<3){REF_PREFIX='';return;}
+  var parts=refs[0].split('-'), keep=parts.length-1;
+  for(var i=1;i<refs.length;i++){
+    var p=refs[i].split('-'), k=0;
+    while(k<keep&&k<p.length&&p[k]===parts[k])k++;
+    keep=k;
+    if(!keep)break;
+  }
+  REF_PREFIX=keep?parts.slice(0,keep).join('-')+'-':'';
+}
+function shortRef(v){
+  if(!v)return '—';
+  return (REF_PREFIX&&v.indexOf(REF_PREFIX)===0)?v.slice(REF_PREFIX.length):v;
+}
 var pqdFilterVal='all', pqdOpen=null;
 
 function buildPQDHead(){
-  var h='<th class="pin1" style="min-width:210px">VENDOR</th><th class="pin2" style="min-width:120px">REFERENCE</th><th>CAT</th><th>DISC</th>';
+  computeRefPrefix();
+  var h='<th class="pin1 pin-edge" style="min-width:300px">VENDOR</th><th>CAT</th><th>DISC</th>';
   PQD_STATUS.forEach(function(c){h+='<th class="ctr">'+c[1]+'</th>';});
+  PQD_EXTRA.forEach(function(c){if(pqdShown[c[0]])h+='<th class="ctr">'+c[1]+'</th>';});
   PQD_DETAIL.forEach(function(c){if(pqdShown[c[0]])h+='<th>'+c[1]+'</th>';});
   document.getElementById('pqd-thead').innerHTML=h;
 }
@@ -1408,34 +1440,41 @@ window.rPQD=function(){
   pqdCounts();
   var cnt=document.getElementById('pqd-count');
   if(cnt)cnt.textContent=list.length+' record'+(list.length===1?'':'s')+' · sorted by urgency';
-  var cols=4+PQD_STATUS.length+PQD_DETAIL.filter(function(c){return pqdShown[c[0]];}).length;
+  var cols=3+PQD_STATUS.length+PQD_EXTRA.filter(function(c){return pqdShown[c[0]];}).length+PQD_DETAIL.filter(function(c){return pqdShown[c[0]];}).length;
   var tb=document.getElementById('tb');
   document.getElementById('pqd-empty').style.display=list.length?'none':'block';
   var h='';
   list.forEach(function(m){
     var u=urgency(m);
     h+='<tr class="hov" onclick="pqdToggle('+m.id+')"'+(m.engage==='Discontinued'?' style="opacity:.55"':'')+'>';
-    h+='<td class="pin1">'+flagFor(u)+'<span class="nm">'+m.name+'</span></td>';
-    h+='<td class="pin2"><span class="ref">'+(m.aconex||'—')+'</span></td>';
+    h+='<td class="pin1 pin-edge">'+flagFor(u)+'<span class="nm" style="max-width:280px" title="'+String(m.name||'').replace(/"/g,'&quot;')+'">'+m.name+'</span></td>';
     h+='<td>'+cB(m.cat)+'</td><td>'+cB(m.dis?m.dis.slice(0,4):'')+'</td>';
-    PQD_STATUS.forEach(function(c){
-      var v = c[0]==='prepa' ? preNorm(m) : (m[c[0]]||(c[0]==='pqd'||c[0]==='pa'?'Pending':'N/A'));
-      if(c[0]==='iso'&&m.isoDate&&isExp(m.isoDate))v='Expired';
-      h+='<td class="ctr">'+stamp(v)+'</td>';
-    });
+    var stv=function(k){
+      if(k==='prepa')return preNorm(m);
+      if(k==='iso')return (m.isoDate&&isExp(m.isoDate))?'Expired':(m.iso||'N/A');
+      return m[k]||((k==='pqd'||k==='pa')?'Pending':'N/A');
+    };
+    PQD_STATUS.forEach(function(c){h+='<td class="ctr">'+stamp(stv(c[0]))+'</td>';});
+    PQD_EXTRA.forEach(function(c){if(pqdShown[c[0]])h+='<td class="ctr">'+stamp(stv(c[0]))+'</td>';});
     PQD_DETAIL.forEach(function(c){
       if(!pqdShown[c[0]])return;
       var k=c[0];
       if(k==='avl')h+='<td>'+avlC(m.avl)+'</td>';
       else if(k==='paQms'||k==='paTech')h+='<td>'+stamp(m[k]||'Pending')+'</td>';
+      else if(k==='aconex')h+='<td><span class="ref" title="'+String(m.aconex||'').replace(/"/g,'&quot;')+'">'+shortRef(m.aconex)+'</span></td>';
+      else if(k==='scope')h+='<td><span class="nm dim" style="max-width:230px">'+(m.scope||'—')+'</span></td>';
       else h+='<td><span class="ref">'+(m[k]||'—')+'</span></td>';
     });
     h+='</tr>';
     if(pqdOpen===m.id){
-      h+='<tr class="detail"><td colspan="'+cols+'"><div class="dwrap">'
-        +df('SCOPE OF WORK',m.scope)+df('ENTITY TYPE',m.type)+df('SUBMITTED',m.date,1)+df('LOCATION',m.loc)
-        +df('BROUGHT BY',m.subco)+dfS('VENDOR LIST',avlNorm(m.avl)||'N/A')
+      h+='<tr class="detail"><td colspan="'+cols+'"><div class="dwrap" style="border-bottom:1px solid var(--line);padding-bottom:13px">'
+        +dfS('PRE-PA',preNorm(m))+dfS('DOSSIER',m.pid||'N/A')+dfS('MEETING',m.pim||'N/A')
+        +dfS('MINUTES',m.mom||'N/A')+dfS('POST-INSPECTION',m.post||'N/A')
         +dfS('PA QMS REPORT',m.paQms||'Pending')+dfS('PA TECHNICAL',m.paTech||'Pending')
+        +dfS('VENDOR LIST',avlNorm(m.avl)||'N/A')
+        +'</div><div class="dwrap">'
+        +df('FULL REFERENCE',m.aconex,1)+df('SCOPE OF WORK',m.scope)+df('ENTITY TYPE',m.type)
+        +df('SUBMITTED',m.date,1)+df('LOCATION',m.loc)+df('BROUGHT BY',m.subco)
         +df('PA REFERENCE',m.paRef,1)+df('SURVEY DATE',m.paDate,1)+df('ISO EXPIRY',m.isoDate,1)+df('QUALIFIED ON',m.qualDate,1)
         +(m.engage==='Discontinued'?df('DISCONTINUED BECAUSE',m.engageReason):'')
         +df('NOTES',m.notes)
