@@ -637,8 +637,9 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div><label class="fl">Country or location</label><input class="fi" id="f-loc" oninput="suggestOrigin()"></div>
      <div><label class="fl">Origin</label><select class="fs" id="f-origin"><option value="">Infer from location</option><option>Local</option><option>Foreign</option></select></div>
      <div id="sub-row"><label class="fl">Brought by</label><select class="fs" id="f-subco"><option value="">—</option></select></div>
-     <div><label class="fl">Material category</label><select class="fs" id="f-cat"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
+     <div><label class="fl">Material category</label><select class="fs" id="f-cat" onchange="catChanged()"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
      <div><label class="fl">Discipline</label><select class="fs" id="f-dis"><option value="">—</option><option>Architectural</option><option>Mechanical</option><option>Electrical</option><option>Civil</option><option>Structural</option><option>MEP</option></select></div>
+     <div class="fg-f" id="cat-hint" style="display:none"></div>
    </div>
 
    <span class="m-sec">VENDOR LIST AND PQD STATUS</span>
@@ -655,8 +656,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 
    <span class="m-sec">PHYSICAL ASSESSMENT</span>
    <div class="fg">
-     <div><label class="fl">Pre-PA</label><select class="fs" id="f-prepa"><option>Pending</option><option>Done</option><option>N/A</option></select></div>
-     <div><label class="fl">PA status</label><select class="fs" id="f-pa"><option>Pending</option><option>Scheduled</option><option>Done</option><option>Waived</option><option>N/A</option></select></div>
+     <div><label class="fl">Pre-PA</label><select class="fs" id="f-prepa" onchange="markStageEdited('prepa')"><option>Pending</option><option>Done</option><option>N/A</option></select></div>
+     <div><label class="fl">PA status</label><select class="fs" id="f-pa" onchange="markStageEdited('pa')"><option>Pending</option><option>Scheduled</option><option>Done</option><option>Waived</option><option>N/A</option></select></div>
      <div><label class="fl">Survey date</label><input class="fi" type="date" id="f-pa-date"></div>
      <div><label class="fl">PA reference document no.</label><input class="fi" id="f-pa-ref"></div>
      <div><label class="fl">QMS report</label><select class="fs" id="f-pa-qms"><option>Pending</option><option>Submitted</option><option>Approved</option><option>N/A</option></select></div>
@@ -676,16 +677,16 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 
    <span class="m-sec">DOSSIER AND MEETING</span>
    <div class="fg">
-     <div><label class="fl">PID status</label><select class="fs" id="f-pid"><option>N/A</option><option>Pending</option><option>Submitted</option><option>Approved</option></select></div>
+     <div><label class="fl">PID status</label><select class="fs" id="f-pid" onchange="markStageEdited('pid')"><option>N/A</option><option>Pending</option><option>Submitted</option><option>Approved</option></select></div>
      <div><label class="fl">PID date</label><input class="fi" type="date" id="f-pid-date"></div>
-     <div><label class="fl">Pre-inspection meeting</label><select class="fs" id="f-pim"><option>N/A</option><option>Not Scheduled</option><option>Scheduled</option><option>Done</option></select></div>
+     <div><label class="fl">Pre-inspection meeting</label><select class="fs" id="f-pim" onchange="markStageEdited('pim')"><option>N/A</option><option>Not Scheduled</option><option>Scheduled</option><option>Done</option></select></div>
      <div><label class="fl">Meeting date</label><input class="fi" type="date" id="f-pim-date"></div>
-     <div><label class="fl">Minutes of meeting</label><select class="fs" id="f-mom"><option>N/A</option><option>Pending</option><option>Submitted</option><option>Approved</option></select></div>
+     <div><label class="fl">Minutes of meeting</label><select class="fs" id="f-mom" onchange="markStageEdited('mom')"><option>N/A</option><option>Pending</option><option>Submitted</option><option>Approved</option></select></div>
    </div>
 
    <span class="m-sec">POST-INSPECTION</span>
    <div class="fg">
-     <div><label class="fl">Post dossier</label><select class="fs" id="f-post"><option>N/A</option><option>Pending</option><option>Submitted</option><option>Approved</option></select></div>
+     <div><label class="fl">Post dossier</label><select class="fs" id="f-post" onchange="markStageEdited('post')"><option>N/A</option><option>Pending</option><option>Submitted</option><option>Approved</option></select></div>
      <div><label class="fl">Post date</label><input class="fi" type="date" id="f-post-date"></div>
      <div><label class="fl">Qualification date</label><input class="fi" type="date" id="f-qual-date"></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="f-notes" rows="2"></textarea></div>
@@ -1844,7 +1845,7 @@ window.clearAllColFilters=function(){colFilters={};pqdOpen=null;buildPQDHead();r
 document.addEventListener('click',function(){var m=document.getElementById('fmenu');if(m)m.classList.remove('on');});
 
 /* ---------- PQD modal ---------- */
-function openM(){fillSubco();toggleSub();toggleEngage();document.getElementById('ov').classList.add('on');}
+function openM(){stageEdited={};fillSubco();toggleSub();toggleEngage();renderCatHint();document.getElementById('ov').classList.add('on');}
 function closeM(){
   document.getElementById('ov').classList.remove('on');
   document.querySelectorAll('#ov .fi,#ov .ft').forEach(function(e){e.value='';});
@@ -1852,9 +1853,57 @@ function closeM(){
   document.getElementById('eid').value='';
   document.getElementById('avl-hint').style.display='none';
   document.getElementById('engage-reason-wrap').style.display='none';
+  var ch=document.getElementById('cat-hint');if(ch)ch.style.display='none';
+  stageEdited={};
   window._avlMatch=null;
 }
 document.getElementById('ov').addEventListener('click',function(e){if(e.target===this)closeM();});
+/* Choosing a category sets the stages the procedure requires for it.
+     C0, C1  no manufacturer survey, no dossier, no meeting
+     C2      assessment, pre-inspection dossier, post-inspection dossier
+     C3      all of the above plus the pre-fabrication meeting and minutes
+   These are suggestions. Any stage you set by hand is locked and will
+   not be rewritten if you change the category afterwards. */
+var CAT_RULES={
+  'C0':{prepa:'N/A',pa:'N/A',pid:'N/A',pim:'N/A',mom:'N/A',post:'N/A'},
+  'C1':{prepa:'N/A',pa:'N/A',pid:'N/A',pim:'N/A',mom:'N/A',post:'N/A'},
+  'C2':{prepa:'Pending',pa:'Pending',pid:'Pending',pim:'N/A',mom:'N/A',post:'Pending'},
+  'C3':{prepa:'Pending',pa:'Pending',pid:'Pending',pim:'Not Scheduled',mom:'Pending',post:'Pending'}
+};
+var STAGE_LABEL={prepa:'Pre-PA',pa:'Assessment',pid:'Dossier',pim:'Meeting',mom:'Minutes',post:'Post-inspection'};
+var stageEdited={};
+window.markStageEdited=function(k){stageEdited[k]=true;renderCatHint();};
+window.catChanged=function(){
+  var cat=document.getElementById('f-cat').value;
+  var rules=CAT_RULES[cat];
+  var applied=[];
+  if(rules){
+    Object.keys(rules).forEach(function(k){
+      if(stageEdited[k])return;
+      var el=document.getElementById('f-'+k);
+      if(!el)return;
+      if(el.value!==rules[k]){el.value=rules[k];}
+      applied.push(k);
+    });
+  }
+  renderCatHint(applied);
+};
+function renderCatHint(applied){
+  var box=document.getElementById('cat-hint');if(!box)return;
+  var cat=document.getElementById('f-cat').value;
+  if(!CAT_RULES[cat]){box.style.display='none';return;}
+  var locked=Object.keys(stageEdited).filter(function(k){return stageEdited[k]&&CAT_RULES[cat][k]!==undefined;});
+  var setList=(applied||[]).map(function(k){return STAGE_LABEL[k]+' · '+CAT_RULES[cat][k];});
+  var h='';
+  if(setList.length)h+='<div style="color:var(--t-2)">Set from '+cat+': <span class="dim">'+setList.join(' &nbsp;·&nbsp; ')+'</span></div>';
+  if(locked.length)h+='<div style="margin-top:5px;color:var(--t-3)">Kept as you set them: '+locked.map(function(k){return STAGE_LABEL[k];}).join(', ')
+    +' <span class="link" onclick="unlockStages()">reset to '+cat+'</span></div>';
+  if(!h){box.style.display='none';return;}
+  box.style.display='';
+  box.innerHTML='<div style="border:1px solid var(--line);background:var(--bg);border-radius:var(--r);padding:9px 12px;font-size:11.5px;line-height:1.6">'+h+'</div>';
+}
+window.unlockStages=function(){stageEdited={};catChanged();};
+
 window.suggestOrigin=function(){
   var sel=document.getElementById('f-origin');if(!sel)return;
   if(sel.value)return;
@@ -1908,7 +1957,7 @@ window.edit=function(id){
   sv('f-pid',m.pid||'N/A');sv('f-pid-date',m.pidDate);
   sv('f-pim',m.pim||'N/A');sv('f-pim-date',m.pimDate);sv('f-mom',m.mom||'N/A');
   sv('f-post',m.post||'N/A');sv('f-post-date',m.postDate);sv('f-qual-date',m.qualDate);sv('f-notes',m.notes);
-  toggleSub();document.getElementById('ov').classList.add('on');
+  toggleSub();stageEdited={};renderCatHint();document.getElementById('ov').classList.add('on');
 };
 window.del=function(id,rowid){
   if(!confirm('Delete this record? This cannot be undone.'))return;
