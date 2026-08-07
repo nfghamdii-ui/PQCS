@@ -710,8 +710,10 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <div class="fg">
      <div><label class="fl">PID status</label><select class="fs" id="f-pid" onchange="markStageEdited('pid')"><option>N/A</option><option>Pending</option><option>Submitted</option><option>Approved</option></select></div>
      <div><label class="fl">PID date</label><input class="fi" type="date" id="f-pid-date"></div>
+     <div class="fg-f"><label class="fl">PID reference number</label><input class="fi" id="f-pid-ref" placeholder="Document number of the pre-inspection dossier"></div>
      <div><label class="fl">Pre-inspection meeting</label><select class="fs" id="f-pim" onchange="markStageEdited('pim')"><option>N/A</option><option>Not Scheduled</option><option>Scheduled</option><option>Done</option></select></div>
      <div><label class="fl">Meeting date</label><input class="fi" type="date" id="f-pim-date"></div>
+     <div class="fg-f"><label class="fl">Pre-fabrication meeting reference number</label><input class="fi" id="f-pim-ref" placeholder="Document number of the meeting or its minutes"></div>
      <div><label class="fl">Minutes of meeting</label><select class="fs" id="f-mom" onchange="markStageEdited('mom')"><option>N/A</option><option>Pending</option><option>Submitted</option><option>Approved</option></select></div>
    </div>
 
@@ -835,6 +837,19 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <div class="fg" style="margin-top:13px"><div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="mir-notes" rows="2"></textarea></div></div>
   </div>
   <div class="m-foot"><button class="btn" onclick="closeMIR()">Cancel</button><button class="btn btn-p" id="mir-save-btn" onclick="saveMIR()">Save inspection</button></div>
+ </div>
+</div>
+
+<!-- ===================== TRACKER EXPORT MODAL ===================== -->
+<div class="ov" id="ov-cmt">
+ <div class="modal" style="max-width:520px">
+  <div class="m-head"><h2>Critical materials tracker</h2><button class="ib" onclick="closeCMT()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="m-body" style="padding-top:16px">
+   <div class="dim" style="font-size:12px;margin-bottom:4px" id="cmt-count"></div>
+   <div class="dim" style="font-size:11.5px;margin-bottom:12px">Pick the columns to export. The ones marked <span class="meta">requested</span> are what SEVEN asked for.</div>
+   <div id="cmt-cols" style="max-height:340px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--r);padding:5px"></div>
+  </div>
+  <div class="m-foot"><button class="btn" onclick="cmtReset()" style="margin-right:auto">Reset to requested</button><button class="btn" onclick="closeCMT()">Cancel</button><button class="btn btn-p" onclick="runCMT()">Export to Excel</button></div>
  </div>
 </div>
 
@@ -1456,7 +1471,10 @@ function buildTools(page){
       +'<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--bad-l);vertical-align:middle;margin-right:5px"></i>Expiry</span>'
       +'<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--act-l);vertical-align:middle;margin-right:5px"></i>Deadline</span></div>';
   }else if(page==='rpt'){
-    h+='<button class="btn btn-p" onclick="genLookAhead()">Generate two-week look-ahead</button><button class="btn" onclick="window.print()">Print</button>';
+    h+='<button class="btn btn-p" onclick="genLookAhead()">Generate two-week look-ahead</button>';
+    h+='<button class="btn" onclick="openCMT()">Critical materials tracker</button>';
+    h+='<button class="btn" onclick="goTo(\'pa\')">Assessment summary</button>';
+    h+='<button class="btn" onclick="window.print()">Print</button>';
   }else if(page==='pasum'){
     h+='<button class="btn btn-p" onclick="genPASummary()">Refresh</button><button class="btn" onclick="exportPASummaryXLSX()">Export to Excel</button><button class="btn" onclick="window.print()">Print</button>';
   }else if(page==='proc'){
@@ -1981,7 +1999,9 @@ window.rPQD=function(){
         +'<div class="dsec">DATES</div><div class="dwrap">'
         +df('ISO EXPIRY',m.isoDate,1)
         +df('DOSSIER DATE',m.pidDate,1)
+        +df('DOSSIER REFERENCE',m.pidRef,1)
         +df('MEETING DATE',m.pimDate,1)
+        +df('MEETING REFERENCE',m.pimRef,1)
         +df('POST-INSPECTION DATE',m.postDate,1)
         +df('QUALIFIED ON',m.qualDate,1)
         +'</div>'
@@ -2185,8 +2205,8 @@ function save(){
     prepa:g('f-prepa'),pa:g('f-pa'),paDate:g('f-pa-date'),paQms:g('f-pa-qms'),paTech:g('f-pa-tech'),paRef:g('f-pa-ref'),
     paTechAssessor:g('f-pa-tech-assessor'),paQmsAssessor:g('f-pa-qms-assessor'),
     paTechResult:g('f-pa-tech-result'),paQmsResult:g('f-pa-qms-result'),paResult:g('f-pa-result'),
-    iso:g('f-iso'),isoDate:g('f-iso-date'),pid:g('f-pid'),pidDate:g('f-pid-date'),
-    pim:g('f-pim'),pimDate:g('f-pim-date'),mom:g('f-mom'),
+    iso:g('f-iso'),isoDate:g('f-iso-date'),pid:g('f-pid'),pidDate:g('f-pid-date'),pidRef:g('f-pid-ref'),
+    pim:g('f-pim'),pimDate:g('f-pim-date'),pimRef:g('f-pim-ref'),mom:g('f-mom'),
     post:g('f-post'),postDate:g('f-post-date'),qualDate:g('f-qual-date'),notes:g('f-notes')};
   if(eid){var i=DB.pqd.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.pqd[i]._rowid)m._rowid=DB.pqd[i]._rowid;DB.pqd[i]=m;}}
   else DB.pqd.push(m);
@@ -2209,7 +2229,7 @@ window.edit=function(id){
   sv('f-pa-tech-result',m.paTechResult);sv('f-pa-qms-result',m.paQmsResult);sv('f-pa-result',m.paResult);
   sv('f-iso',m.iso||'Valid');sv('f-iso-date',m.isoDate);
   sv('f-pid',m.pid||'N/A');sv('f-pid-date',m.pidDate);
-  sv('f-pim',m.pim||'N/A');sv('f-pim-date',m.pimDate);sv('f-mom',m.mom||'N/A');
+  sv('f-pid-ref',m.pidRef);sv('f-pim',m.pim||'N/A');sv('f-pim-date',m.pimDate);sv('f-pim-ref',m.pimRef);sv('f-mom',m.mom||'N/A');
   sv('f-post',m.post||'N/A');sv('f-post-date',m.postDate);sv('f-qual-date',m.qualDate);sv('f-notes',m.notes);
   toggleSub();stageEdited={};renderCatHint();document.getElementById('ov').classList.add('on');
 };
@@ -3365,6 +3385,11 @@ window.resetCHK=function(){
   if(!confirm('Clear every mark on this review?'))return;
   r.items={};chkSave();rCHKDetail();
 };
+/* ================================================================
+   CALENDAR
+   ================================================================ */
+var CAL_VIEW=new Date();CAL_VIEW.setDate(1);
+var CAL_COL={pa:['run','Survey'],mir:['ok','Inspection'],iso:['bad','Expiry'],deadline:['act','Deadline'],manual:['na','Task'],meeting:['na','Meeting'],inspection:['ok','Inspection'],delivery:['ok','Delivery']};
 function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function collectCalEvents(){
   var ev=[];
@@ -3439,6 +3464,7 @@ window.openCalEvent=function(id,preset){
 };
 window.closeCalEvent=function(){document.getElementById('ov-cal').classList.remove('on');};
 document.getElementById('ov-cal').addEventListener('click',function(e){if(e.target===this)closeCalEvent();});
+document.getElementById('ov-cmt').addEventListener('click',function(e){if(e.target===this)closeCMT();});
 window.saveCalEvent=function(){
   var title=document.getElementById('cal-ev-title').value.trim(), date=document.getElementById('cal-ev-date').value;
   if(!title)return alert('Enter an event title');
@@ -3926,6 +3952,119 @@ window.exportFATXLSX=function(){
   writeXlsx('FAT Tracker',styles,sheet,'FAT_Tracker_'+stamp2+'.xlsx');
   toast('Exported');
 };
+/* Critical materials tracker — the columns SEVEN asked for, drawn from
+   wherever each fact already lives: the material from the submittal,
+   the dossier and meeting from the vendor that submits them once, and
+   the inspection agency from the linked factory test. Nothing is
+   duplicated here, so nothing can drift out of step. */
+var CMT_COLS=[
+  ['name','Material / item name',1],
+  ['cat','Material category',1],
+  ['tpiaName','Third-party inspection agency',1],
+  ['pidStatus','PID status',1],
+  ['pidRef','PID reference number',1],
+  ['pimStatus','Pre-fabrication meeting status',1],
+  ['pimRef','Pre-fabrication meeting reference',1],
+  ['aconex','Submittal reference',0],
+  ['mts','Submittal status',0],
+  ['company','Submitted by',0],
+  ['mfr','Manufacturer',0],
+  ['mfrCountry','Country of manufacture',0],
+  ['insp','Inspection requirement',0],
+  ['date','Submission date',0],
+  ['vendorPqd','Vendor PQD status',0],
+  ['pa','Vendor assessment',0],
+  ['iso','Vendor ISO',0],
+  ['fatDate','FAT date',0],
+  ['fatRemark','FAT status',0],
+  ['delivery','First delivery date',0],
+  ['leed','LEED certificate',0],
+  ['saso','SASO certificate',0],
+  ['notes','Notes',0]
+];
+function cmtRows(){
+  return matRecords().filter(function(m){
+    var c=(m.catCor||m.catSub);
+    return c==='C2'||c==='C3';
+  }).map(function(m){
+    var v=(DB.pqd||[]).find(function(x){return x.name===m.company;})||{};
+    var f=(DB.fat||[]).find(function(x){return x.matRef&&x.matRef===(m.aconex||m.name);})||{};
+    return {
+      name:m.name||'', cat:(m.catCor||m.catSub)||'',
+      tpiaName:f.tpia||(m.tpia==='Required'?'Required, not yet assigned':''),
+      pidStatus:v.pid||'', pidRef:v.pidRef||'',
+      pimStatus:v.pim||'', pimRef:v.pimRef||'',
+      aconex:m.aconex||'', mts:m.mts||'', company:m.company||'',
+      mfr:m.mfr||'', mfrCountry:m.mfrCountry||'', insp:m.insp||'None', date:m.date||'',
+      vendorPqd:v.pqd||'', pa:v.pa||'', iso:(v.isoDate&&isExp(v.isoDate))?'Expired':(v.iso||''),
+      fatDate:f.fatDate||'', fatRemark:f.remark||'', delivery:f.delivery||'',
+      leed:m.leed||'', saso:m.saso||'', notes:m.notes||''
+    };
+  });
+}
+function cmtChosen(){
+  var saved=null;
+  try{saved=JSON.parse(localStorage.getItem('pqcs-cmt-cols')||'null');}catch(e){}
+  if(saved&&saved.length)return saved;
+  return CMT_COLS.filter(function(c){return c[2];}).map(function(c){return c[0];});
+}
+window.openCMT=function(){
+  var chosen=cmtChosen(), rows=cmtRows();
+  document.getElementById('cmt-count').textContent=rows.length+' material'+(rows.length===1?'':'s')+' in categories 2 and 3';
+  document.getElementById('cmt-cols').innerHTML=CMT_COLS.map(function(c){
+    var on=chosen.indexOf(c[0])>=0;
+    return '<div class="colopt'+(on?' on':'')+'" data-c="'+c[0]+'" onclick="cmtToggle(this)" style="padding:8px 9px">'
+      +'<span class="box"></span>'+c[1]+(c[2]?' <span class="meta">requested</span>':'')+'</div>';
+  }).join('');
+  document.getElementById('ov-cmt').classList.add('on');
+};
+window.closeCMT=function(){document.getElementById('ov-cmt').classList.remove('on');};
+window.cmtToggle=function(el){el.classList.toggle('on');};
+window.cmtReset=function(){try{localStorage.removeItem('pqcs-cmt-cols');}catch(e){}closeCMT();openCMT();};
+window.runCMT=function(){
+  var chosen=[];
+  document.querySelectorAll('#cmt-cols .colopt.on').forEach(function(el){chosen.push(el.dataset.c);});
+  if(!chosen.length)return alert('Choose at least one column');
+  try{localStorage.setItem('pqcs-cmt-cols',JSON.stringify(chosen));}catch(e){}
+  var rows=cmtRows();
+  if(!rows.length)return alert('No category 2 or 3 materials to export.');
+  if(!(window.fflate&&fflate.zipSync))return alert('The export library is still loading. Try again in a moment.');
+  var cols=CMT_COLS.filter(function(c){return chosen.indexOf(c[0])>=0;});
+  var esc=function(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+  var fills='<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+    +'<fill><patternFill patternType="solid"><fgColor rgb="FF156082"/><bgColor indexed="64"/></patternFill></fill>';
+  var fonts='<font><sz val="11"/><name val="Calibri"/></font>'
+    +'<font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font>'
+    +'<font><sz val="16"/><b/><name val="Calibri"/></font>';
+  var xfs=[
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>',
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>',
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+  ];
+  var styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +'<fonts count="3">'+fonts+'</fonts><fills count="3">'+fills+'</fills>'
+    +'<borders count="2"><border/><border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom></border></borders>'
+    +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    +'<cellXfs count="'+xfs.length+'">'+xfs.join('')+'</cellXfs></styleSheet>';
+  var cn=function(n){var t='';n++;while(n>0){var m2=(n-1)%26;t=String.fromCharCode(65+m2)+t;n=Math.floor((n-1)/26);}return t;};
+  var cx=function(rn,ci,v,st){return '<c r="'+cn(ci)+rn+'" t="inlineStr" s="'+st+'"><is><t xml:space="preserve">'+esc(v)+'</t></is></c>';};
+  var sd='<row r="1" ht="24" customHeight="1">'+cx(1,0,'Critical Materials Tracker \u2014 categories 2 and 3',2)+'</row><row r="2"></row>';
+  var hr='<row r="3" ht="30" customHeight="1">';
+  cols.forEach(function(c,i){hr+=cx(3,i,c[1],1);});
+  sd+=hr+'</row>';
+  rows.forEach(function(r,i){
+    var rn=4+i,rr='<row r="'+rn+'" ht="20" customHeight="1">';
+    cols.forEach(function(c,ci){rr+=cx(rn,ci,r[c[0]],0);});
+    sd+=rr+'</row>';
+  });
+  var colXml='<cols>'+cols.map(function(c,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+(c[0]==='name'?38:22)+'"/>';}).join('')+'</cols>';
+  var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +colXml+'<sheetData>'+sd+'</sheetData><mergeCells count="1"><mergeCell ref="A1:'+cn(Math.max(cols.length-1,0))+'1"/></mergeCells></worksheet>';
+  var d=new Date(), stamp2=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+  writeXlsx('Critical Materials',styles,sheet,'Critical_Materials_Tracker_'+stamp2+'.xlsx');
+  closeCMT();toast('Tracker exported');
+};
+
 window.exportDB=function(){
   dl(new Blob([JSON.stringify(DB,null,2)],{type:'application/json'}),'PQCS_'+new Date().toISOString().slice(0,10)+'.json');
   toast('Backup downloaded');
