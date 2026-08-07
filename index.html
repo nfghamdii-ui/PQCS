@@ -771,6 +771,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <input class="fi" id="mir-mat-search" placeholder="Type material name or reference, then pick…" oninput="filterMATRef()" onfocus="filterMATRef()" autocomplete="off">
      <div id="mir-mat-list" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:50;background:var(--sf-2);border:1px solid var(--line-2);border-radius:var(--r);margin-top:4px;max-height:210px;overflow-y:auto;box-shadow:0 12px 32px rgba(0,0,0,.5)"></div>
      <div id="mir-mat-chips" style="margin-top:9px"></div>
+     <div id="mir-mat-preview" style="margin-top:10px"></div>
    </div></div>
    <div class="mbox" style="margin-top:9px"><table class="mini">
      <thead><tr><th>ITEM</th><th style="width:96px">ORDERED</th><th style="width:104px">RECEIVED</th><th style="width:106px">STATUS</th></tr></thead>
@@ -2270,7 +2271,7 @@ window.filterMATRef=function(){
   var q=(document.getElementById('mir-mat-search').value||'').toLowerCase().trim();
   var list=document.getElementById('mir-mat-list'), mats=matRecords();
   var rows=mats.map(matRefLabel).filter(function(x){return !q||x.name.toLowerCase().indexOf(q)>=0||x.ref.toLowerCase().indexOf(q)>=0;});
-  if(!rows.length){list.innerHTML='<div style="padding:10px 12px;font-size:11.5px;color:var(--t-3)">'+(mats.length?'No match':'No submittals yet')+'</div>';list.style.display='';return;}
+  if(!rows.length){list.innerHTML='<div style="padding:10px 12px;font-size:11.5px;color:var(--t-3)">'+(mats.length?'No submittal matches. Record it under Material first.':'No submittals recorded yet. Add the material submittal first.')+'</div>';list.style.display='';return;}
   list.innerHTML=rows.map(function(x){
     return '<div class="matref-opt" data-ref="'+(x.ref||x.name).replace(/"/g,'&quot;')+'" data-disp="'+x.display.replace(/"/g,'&quot;')+'" style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--line)">'
       +'<div style="font-size:12.5px">'+x.name+'</div>'+(x.ref?'<div class="ref" style="margin-top:2px">'+x.ref+'</div>':'')+'</div>';
@@ -2301,6 +2302,39 @@ function refLabelFor(ref){
   var mm=matRecords().find(function(x){var l=matRefLabel(x);return (l.ref||l.name)===ref;});
   return mm?matRefLabel(mm):{name:ref,ref:'',display:ref};
 }
+/* Reviewing a submittal should not mean leaving the inspection form,
+   so each linked record is summarised in place. */
+function mirPreview(){
+  var box=document.getElementById('mir-mat-preview');if(!box)return;
+  if(!MIR_REFS.length){box.innerHTML='';return;}
+  box.innerHTML=MIR_REFS.map(function(ref){
+    var m=findMatByRef(ref);
+    if(!m){
+      return '<div style="border:1px solid var(--act-l);background:var(--act-b);border-radius:var(--r);padding:9px 12px;font-size:11.5px;color:var(--act-t);margin-bottom:7px">'
+        +'Reference '+ref+' is not on record as a submittal.</div>';
+    }
+    var co=(DB.pqd||[]).find(function(v){return v.name===m.company;});
+    var f=function(l,v){return '<div><div class="dlbl">'+l+'</div><div class="dval" style="font-size:12px">'+(v||'—')+'</div></div>';};
+    var fs=function(l,v){return '<div><div class="dlbl">'+l+'</div><div>'+stamp(v)+'</div></div>';};
+    var items=(m.items||[]).length;
+    return '<div style="border:1px solid var(--line);border-radius:var(--r);background:var(--bg);margin-bottom:7px">'
+      +'<div style="padding:9px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px;flex-wrap:wrap">'
+        +'<span style="font-size:12.5px">'+m.name+'</span>'
+        +(m.aconex?'<span class="ref">'+m.aconex+'</span>':'')
+        +'<span style="margin-left:auto">'+stamp(m.mts||'Pending')+'</span></div>'
+      +'<div style="padding:11px 12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:11px 16px">'
+        +f('COMPANY',m.company)
+        +(co?fs('VENDOR PQD',co.pqd||'Pending'):'<div><div class="dlbl">VENDOR PQD</div><div class="dval" style="font-size:12px;color:var(--act-t)">not on record</div></div>')
+        +f('CATEGORY',(m.catCor||m.catSub))
+        +f('SUBMITTED',m.date)
+        +fs('LEED',m.leed||'N/A')
+        +fs('SASO',m.saso||'N/A')
+        +f('LINE ITEMS',items?String(items):'none')
+      +'</div>'
+      +(m.desc||m.notes?'<div style="padding:0 12px 11px"><div class="dlbl">'+(m.desc?'DESCRIPTION':'NOTES')+'</div><div class="dval" style="font-size:12px">'+(m.desc||m.notes)+'</div></div>':'')
+      +'</div>';
+  }).join('');
+}
 window.renderMirChips=function(){
   var box=document.getElementById('mir-mat-chips');if(!box)return;
   if(!MIR_REFS.length){box.innerHTML='<span class="dim" style="font-size:11.5px">No submittal linked yet.</span>';return;}
@@ -2315,12 +2349,12 @@ window.addMirRef=function(ref){
   if(!ref)return;
   if(MIR_REFS.indexOf(ref)>=0){toast('Already linked');return;}
   MIR_REFS.push(ref);
-  renderMirChips();
+  renderMirChips();mirPreview();
   loadMIRItems(MIR_REFS,null);
 };
 window.removeMirRef=function(i){
   MIR_REFS.splice(i,1);
-  renderMirChips();
+  renderMirChips();mirPreview();
   loadMIRItems(MIR_REFS,null);
 };
 function findMatByRef(refVal){return matRecords().find(function(m){var x=matRefLabel(m);return (x.ref||x.name)===refVal;})||null;}
@@ -2368,7 +2402,7 @@ window.openMIR=function(){
   fillMIRCo();MIR_REFS=[];
   document.getElementById('mir-mat').value='';document.getElementById('mir-mat-search').value='';
   document.getElementById('mir-mat-list').style.display='none';
-  renderMirChips();loadMIRItems([],null);
+  renderMirChips();mirPreview();loadMIRItems([],null);
   document.getElementById('ov-mir').classList.add('on');
 };
 window.closeMIR=function(){
@@ -2378,7 +2412,7 @@ window.closeMIR=function(){
   document.getElementById('irn-attached').checked=false;
   document.getElementById('irn-details').style.display='none';
   document.getElementById('mir-mat-list').style.display='none';
-  document.getElementById('mir-mat').value='';MIR_REFS=[];renderMirChips();loadMIRItems([],null);
+  document.getElementById('mir-mat').value='';MIR_REFS=[];renderMirChips();mirPreview();loadMIRItems([],null);
   document.getElementById('mir-eid').value='';
 };
 document.getElementById('ov-mir').addEventListener('click',function(e){if(e.target===this)closeMIR();});
@@ -2410,7 +2444,7 @@ window.editMIR=function(id){
   MIR_REFS=mirRefsOf(m);
   document.getElementById('mir-mat').value=MIR_REFS[0]||'';
   document.getElementById('mir-mat-search').value='';
-  renderMirChips();loadMIRItems(MIR_REFS,m.recvItems||[]);
+  renderMirChips();mirPreview();loadMIRItems(MIR_REFS,m.recvItems||[]);
   sv('mir-notes',m.notes);
   document.getElementById('ov-mir').classList.add('on');
 };
