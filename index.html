@@ -387,6 +387,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
       <div class="ni" data-p="pqd" onclick="goTo('pqd',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="6"/><path d="M9 14.5L8 22l4-2 4 2-1-7.5"/></svg><span>Vendors</span><span class="ni-n" id="nb-pqd">0</span></div>
       <div class="ni" data-p="sub" onclick="goTo('sub',this)"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></svg><span>Submittals</span><span class="ni-n" id="nb-sub">0</span></div>
       <div class="ni" data-p="fat" onclick="goTo('fat',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L21 5"/><path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h10"/></svg><span>FAT tracker</span><span class="ni-n" id="nb-fat">0</span></div>
+      <div class="ni" data-p="pa" onclick="goTo('pa',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/><circle cx="6" cy="8" r="1"/></svg><span>Assessments</span><span class="ni-n" id="nb-pa">0</span></div>
       <div class="ni" data-p="dlog" onclick="goTo('dlog',this)"><svg viewBox="0 0 24 24"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span>Delivery log</span></div>
     </div>
 
@@ -400,7 +401,6 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 
     <div class="grp">
       <div class="grp-lbl">OUTPUT</div>
-      <div class="ni" data-p="pasum" onclick="goTo('pasum',this)"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9 13l2 2 4-4"/></svg><span>PA summary</span></div>
       <div class="ni" data-p="rpt" onclick="goTo('rpt',this)"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg><span>Reports</span></div>
       <div class="ni" data-p="cal" onclick="goTo('cal',this)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span>Calendar</span></div>
       <div class="ni" data-p="admin" id="ni-admin" style="display:none" onclick="goTo('admin',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Admin</span></div>
@@ -526,6 +526,20 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
             <th>PRE-FAB</th><th>FABRICATION</th><th>FAT</th><th>DELIVERY</th><th class="ctr">REMARK</th><th></th>
           </tr></thead>
           <tbody id="tb-fat"></tbody>
+        </table></div>
+      </div>
+
+      <!-- ============ PHYSICAL ASSESSMENT PIPELINE ============ -->
+      <div id="pg-pa" style="display:none">
+        <div class="tw"><table>
+          <thead><tr>
+            <th class="pin1 pin-edge" style="min-width:280px">VENDOR</th>
+            <th>CAT</th><th>DISC</th>
+            <th class="ctr">PRE-PA</th><th class="ctr">ASSESSMENT</th><th>SURVEY DATE</th>
+            <th class="ctr">QMS</th><th class="ctr">TECHNICAL</th><th class="ctr">RESULT</th>
+            <th>REFERENCE</th><th></th>
+          </tr></thead>
+          <tbody id="tb-pa"></tbody>
         </table></div>
       </div>
 
@@ -765,6 +779,46 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <div class="fg" style="margin-top:13px"><div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="mir-notes" rows="2"></textarea></div></div>
   </div>
   <div class="m-foot"><button class="btn" onclick="closeMIR()">Cancel</button><button class="btn btn-p" id="mir-save-btn" onclick="saveMIR()">Save inspection</button></div>
+ </div>
+</div>
+
+<!-- ===================== ASSESSMENT MODAL ===================== -->
+<div class="ov" id="ov-pa">
+ <div class="modal" style="max-width:600px">
+  <div class="m-head"><h2 id="pa-title">Physical assessment</h2><button class="ib" onclick="closePA()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="m-body">
+   <input type="hidden" id="pa-vid">
+   <span class="m-sec">VENDOR</span>
+   <div class="fg">
+     <div class="fg-f"><label class="fl">Vendor</label><select class="fs" id="pa-vendor" onchange="paVendorInfo()"><option value="">—</option></select>
+       <div class="hint" id="pa-vinfo" style="display:none"></div></div>
+   </div>
+   <span class="m-sec">SURVEY</span>
+   <div class="fg">
+     <div><label class="fl">Pre-PA</label><select class="fs" id="pa-prepa"><option>Pending</option><option>Done</option><option>N/A</option></select></div>
+     <div><label class="fl">Assessment status</label><select class="fs" id="pa-status" onchange="paWaiverCheck()"><option>Pending</option><option>Scheduled</option><option>Done</option><option>Waived</option><option>N/A</option></select></div>
+     <div><label class="fl">Survey date</label><input class="fi" type="date" id="pa-date"></div>
+     <div><label class="fl">Reference document no.</label><input class="fi" id="pa-ref"></div>
+     <div class="fg-f" id="pa-waiver-warn" style="display:none"></div>
+   </div>
+   <span class="m-sec">QMS REPORT</span>
+   <div class="fg">
+     <div><label class="fl">Report status</label><select class="fs" id="pa-qms"><option>Pending</option><option>Submitted</option><option>Approved</option><option>N/A</option></select></div>
+     <div><label class="fl">Assessor</label><input class="fi" id="pa-qms-assessor"></div>
+     <div class="fg-f"><label class="fl">Result</label><select class="fs" id="pa-qms-result"><option value="">—</option><option>Pass</option><option>Failed</option><option>Under process</option></select></div>
+   </div>
+   <span class="m-sec">TECHNICAL REPORT</span>
+   <div class="fg">
+     <div><label class="fl">Report status</label><select class="fs" id="pa-tech"><option>Pending</option><option>Submitted</option><option>Approved</option><option>N/A</option></select></div>
+     <div><label class="fl">Assessor</label><input class="fi" id="pa-tech-assessor"></div>
+     <div class="fg-f"><label class="fl">Result</label><select class="fs" id="pa-tech-result"><option value="">—</option><option>Pass</option><option>Failed</option><option>Under process</option></select></div>
+   </div>
+   <span class="m-sec">OUTCOME</span>
+   <div class="fg">
+     <div class="fg-f"><label class="fl">Overall assessment result</label><select class="fs" id="pa-result"><option value="">—</option><option>Pass</option><option>Failed</option><option>Under process</option></select></div>
+   </div>
+  </div>
+  <div class="m-foot"><button class="btn" onclick="closePA()">Cancel</button><button class="btn btn-p" id="pa-save-btn" onclick="savePA()">Save assessment</button></div>
  </div>
 </div>
 
@@ -1170,10 +1224,11 @@ function flagFor(u){return u>=80?'<span class="flag f-bad"></span>':(u>=24?'<spa
 /* ================================================================
    3. NAVIGATION AND PER-PAGE TOOLBARS
    ================================================================ */
-var PAGES=['dash','pqd','sub','mat','mir','smp','fat','pasum','rpt','comp','avl','proc','dlog','chk','cal','admin'];
-var TITLES={dash:'Dashboard',pqd:'Vendors',sub:'Submittals',mat:'Submittals',mir:'Submittals',smp:'Submittals',fat:'FAT schedule tracker',pasum:'Physical assessment summary',rpt:'Reports',comp:'Components and category',avl:'Approved vendor list',proc:'Procedure',dlog:'Material delivery log',chk:'PQD checklist',cal:'Calendar',admin:'Admin'};
-var ADD_LABEL={pqd:'New vendor',sub:'New submittal',fat:'New FAT item',cal:'New event'};
+var PAGES=['dash','pqd','sub','mat','mir','smp','pa','fat','pasum','rpt','comp','avl','proc','dlog','chk','cal','admin'];
+var TITLES={dash:'Dashboard',pqd:'Vendors',sub:'Submittals',mat:'Submittals',mir:'Submittals',smp:'Submittals',pa:'Physical assessment',fat:'FAT schedule tracker',pasum:'Physical assessment',rpt:'Reports',comp:'Components and category',avl:'Approved vendor list',proc:'Procedure',dlog:'Material delivery log',chk:'PQD checklist',cal:'Calendar',admin:'Admin'};
+var ADD_LABEL={pqd:'New vendor',sub:'New submittal',pa:'Schedule assessment',fat:'New FAT item',cal:'New event'};
 var SUB_TYPE='mat';
+var PA_VIEW='pipeline', paFilterVal='open';
 var SUB_META={
   mat:{label:'Material',add:'New material submittal'},
   mir:{label:'Inspection',add:'New inspection request'},
@@ -1236,6 +1291,20 @@ function buildTools(page){
       h+=searchBox('smp-q','MES, material or company…','rSMP()');
       h+='<select class="sel" id="smp-st" onchange="rSMP()">'+statusOpts+'</select>';
       h+='<div class="spacer"></div><span class="count" id="smp-count"></span>';
+    }
+  }else if(page==='pa'||page==='pasum'){
+    h+='<button class="chip'+(PA_VIEW==='pipeline'?' on':'')+'" onclick="setPAView(\'pipeline\')">Pipeline</button>';
+    h+='<button class="chip'+(PA_VIEW==='summary'?' on':'')+'" onclick="setPAView(\'summary\')">Summary report</button>';
+    h+='<span style="width:1px;height:22px;background:var(--line);margin:0 4px"></span>';
+    if(PA_VIEW==='pipeline'){
+      h+=searchBox('pa-q','Vendor, assessor, reference…','rPA()');
+      var pc=paCounts();
+      [['open','Open'],['scheduled','Scheduled'],['done','Completed'],['waived','Waived'],['all','All']].forEach(function(f){
+        h+='<button class="chip'+(paFilterVal===f[0]?' on':'')+'" onclick="paFilter(\''+f[0]+'\')">'+f[1]+'<span class="chip-n">'+pc[f[0]]+'</span></button>';
+      });
+      h+='<div class="spacer"></div><span class="count" id="pa-count"></span>';
+    }else{
+      h+='<button class="btn" onclick="exportPASummaryXLSX()">Export to Excel</button><button class="btn" onclick="window.print()">Print</button>';
     }
   }else if(page==='fat'){
     h+=searchBox('fat-q','Material, manufacturer, inspector…','rFAT()');
@@ -1317,7 +1386,15 @@ window.goTo=function(page,el){
     if(d)d.classList.add('on');
   }
   if(page==='fat')rFAT();
-  if(page==='pasum')genPASummary();
+  if(page==='pa'||page==='pasum'){
+    var showSum=(PA_VIEW==='summary');
+    var a=document.getElementById('pg-pa'),b=document.getElementById('pg-pasum');
+    if(a)a.style.display=showSum?'none':'';
+    if(b)b.style.display=showSum?'':'none';
+    if(showSum)genPASummary();else rPA();
+    document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('on');});
+    var d2=document.querySelector('.ni[data-p=pa]');if(d2)d2.classList.add('on');
+  }
   if(page==='rpt')renderRptHist();
   if(page==='avl')rAVL();
   if(page==='comp')rComp();
@@ -1332,6 +1409,7 @@ window.topAdd=function(){
   else if(CUR_PAGE==='sub'){
     if(SUB_TYPE==='mat')openMAT();else if(SUB_TYPE==='mir')openMIR();else openSMP();
   }
+  else if(CUR_PAGE==='pa'||CUR_PAGE==='pasum')openPA();
   else if(CUR_PAGE==='fat')openFAT();
   else if(CUR_PAGE==='cal')openCalEvent();
 };
@@ -2712,6 +2790,149 @@ window.loadRptHist=function(i){
   try{var hist=JSON.parse(localStorage.getItem('pqcs5-hist')||'[]');if(hist[i])document.getElementById('rpt-out').innerHTML=hist[i].html;}catch(e){}
 };
 
+/* ================================================================
+   PHYSICAL ASSESSMENT PIPELINE
+   The assessment belongs to the vendor as a whole, so it stays in the
+   vendor record. What was missing was a place to run it: everything
+   required, scheduled and completed in one list, editable in place.
+   ================================================================ */
+function paStage(m){
+  var st=m.pa||'Pending';
+  if(st==='Done')return 'done';
+  if(st==='Waived')return 'waived';
+  if(st==='Scheduled')return 'scheduled';
+  if(st==='N/A')return 'na';
+  return 'open';
+}
+function paRelevant(m){
+  if(m.engage==='Discontinued')return false;
+  if(paStage(m)==='na'&&!(m.paDate||m.paRef||m.paResult))return false;
+  return true;
+}
+function paCounts(){
+  var c={open:0,scheduled:0,done:0,waived:0,all:0};
+  (DB.pqd||[]).forEach(function(m){
+    if(!paRelevant(m))return;
+    c.all++;
+    var st=paStage(m);
+    if(c[st]!==undefined)c[st]++;
+  });
+  return c;
+}
+window.setPAView=function(v){PA_VIEW=v;goTo('pa');};
+window.paFilter=function(f){paFilterVal=f;goTo('pa');};
+window.rPA=function(){
+  var qe=document.getElementById('pa-q'), q=qe?qe.value.toLowerCase().trim():'';
+  var list=(DB.pqd||[]).filter(function(m){
+    if(!paRelevant(m))return false;
+    var st=paStage(m);
+    if(paFilterVal!=='all'&&st!==paFilterVal)return false;
+    if(q&&[m.name,m.paRef,m.paQmsAssessor,m.paTechAssessor,m.scope,m.loc].join(' ').toLowerCase().indexOf(q)<0)return false;
+    return true;
+  });
+  var rank={open:0,scheduled:1,done:2,waived:3,na:4};
+  list.sort(function(a,b){
+    var d=rank[paStage(a)]-rank[paStage(b)];
+    if(d)return d;
+    if(paStage(a)==='scheduled')return (a.paDate||'9999').localeCompare(b.paDate||'9999');
+    return (b.paDate||'').localeCompare(a.paDate||'');
+  });
+  var c=document.getElementById('pa-count');
+  if(c)c.textContent=list.length+' assessment'+(list.length===1?'':'s');
+  var tb=document.getElementById('tb-pa');if(!tb)return;
+  if(!list.length){tb.innerHTML='<tr><td colspan="11" class="empty">No assessments in this view.</td></tr>';return;}
+  var today=ymd(new Date());
+  tb.innerHTML=list.map(function(m){
+    var st=paStage(m);
+    var overdue=(st==='scheduled'&&m.paDate&&m.paDate<today);
+    var flag=(st==='open')?'<span class="flag f-act"></span>':(overdue?'<span class="flag f-bad"></span>':'<span class="flag"></span>');
+    var dateCell=m.paDate
+      ? '<span class="ref"'+(overdue?' style="color:var(--bad-t)"':'')+'>'+m.paDate+(overdue?' · overdue':'')+'</span>'
+      : '<span class="dim">—</span>';
+    return '<tr class="hov" onclick="openPA('+m.id+')">'
+      +'<td class="pin1 pin-edge">'+flag+'<span class="nm" style="max-width:250px" title="'+String(m.name).replace(/"/g,'&quot;')+'">'+m.name+'</span></td>'
+      +'<td>'+cB(m.cat)+'</td><td>'+cB(m.dis?m.dis.slice(0,4):'')+'</td>'
+      +'<td class="ctr">'+stamp(preNorm(m))+'</td>'
+      +'<td class="ctr">'+stamp(m.pa||'Pending')+'</td>'
+      +'<td>'+dateCell+'</td>'
+      +'<td class="ctr">'+stamp(m.paQms||'Pending')+'</td>'
+      +'<td class="ctr">'+stamp(m.paTech||'Pending')+'</td>'
+      +'<td class="ctr">'+(m.paResult?stamp(m.paResult):'<span class="dim">—</span>')+'</td>'
+      +'<td><span class="ref">'+(m.paRef||'—')+'</span></td>'
+      +'<td class="ctr" onclick="event.stopPropagation()"><button class="ib" onclick="openPA('+m.id+')" aria-label="Edit"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg></button></td>'
+      +'</tr>';
+  }).join('');
+};
+function fillPAVendors(){
+  var sel=document.getElementById('pa-vendor'), cur=sel.value;
+  sel.innerHTML='<option value="">—</option>';
+  (DB.pqd||[]).slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name));}).forEach(function(m){
+    var o2=document.createElement('option');o2.value=m.id;o2.textContent=m.name+(m.cat?' · '+m.cat:'');
+    sel.appendChild(o2);
+  });
+  if(cur)sel.value=cur;
+}
+window.paVendorInfo=function(){
+  var id=+document.getElementById('pa-vendor').value;
+  var m=(DB.pqd||[]).find(function(x){return x.id===id;});
+  var box=document.getElementById('pa-vinfo');
+  if(!m){box.style.display='none';return;}
+  box.style.display='';
+  box.innerHTML=stamp(m.pqd||'Pending')+' &nbsp; <span class="dim">'+[m.cat,m.dis,m.loc].filter(Boolean).join(' · ')+'</span>';
+  paWaiverCheck();
+};
+/* The procedure allows a survey waiver for C1 and C2 only (note 2.1.9). */
+window.paWaiverCheck=function(){
+  var w=document.getElementById('pa-waiver-warn');
+  var id=+document.getElementById('pa-vendor').value;
+  var m=(DB.pqd||[]).find(function(x){return x.id===id;});
+  var st=document.getElementById('pa-status').value;
+  if(m&&m.cat==='C3'&&st==='Waived'){
+    w.style.display='';
+    w.innerHTML='<div style="border:1px solid var(--act-l);background:var(--act-b);color:var(--act-t);border-radius:var(--r);padding:9px 12px;font-size:12px">The procedure allows a survey waiver for C1 and C2 only. This vendor is C3.</div>';
+  }else w.style.display='none';
+};
+window.openPA=function(id){
+  fillPAVendors();
+  var sel=document.getElementById('pa-vendor');
+  var g=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
+  if(id){
+    var m=(DB.pqd||[]).find(function(x){return x.id===id;});
+    if(!m)return;
+    sel.value=m.id;sel.disabled=true;
+    document.getElementById('pa-title').textContent='Assessment · '+m.name;
+    g('pa-vid',m.id);g('pa-prepa',preNorm(m));g('pa-status',m.pa||'Pending');g('pa-date',m.paDate);g('pa-ref',m.paRef);
+    g('pa-qms',m.paQms||'Pending');g('pa-qms-assessor',m.paQmsAssessor);g('pa-qms-result',m.paQmsResult);
+    g('pa-tech',m.paTech||'Pending');g('pa-tech-assessor',m.paTechAssessor);g('pa-tech-result',m.paTechResult);
+    g('pa-result',m.paResult);
+  }else{
+    sel.disabled=false;sel.value='';
+    document.getElementById('pa-title').textContent='Schedule an assessment';
+    g('pa-vid','');g('pa-prepa','Pending');g('pa-status','Scheduled');g('pa-date','');g('pa-ref','');
+    g('pa-qms','Pending');g('pa-qms-assessor','');g('pa-qms-result','');
+    g('pa-tech','Pending');g('pa-tech-assessor','');g('pa-tech-result','');g('pa-result','');
+  }
+  paVendorInfo();
+  document.getElementById('ov-pa').classList.add('on');
+};
+window.closePA=function(){document.getElementById('ov-pa').classList.remove('on');document.getElementById('pa-vendor').disabled=false;};
+document.getElementById('ov-pa').addEventListener('click',function(e){if(e.target===this)closePA();});
+window.savePA=function(){
+  var id=+(document.getElementById('pa-vid').value||document.getElementById('pa-vendor').value);
+  if(!id)return alert('Choose a vendor');
+  var m=(DB.pqd||[]).find(function(x){return x.id===id;});
+  if(!m)return alert('That vendor could not be found');
+  var g=function(f){var e=document.getElementById(f);return e?e.value:'';};
+  /* mutate in place so nothing else on the vendor record is touched */
+  m.prepa=g('pa-prepa');m.pa=g('pa-status');m.paDate=g('pa-date');m.paRef=g('pa-ref');
+  m.paQms=g('pa-qms');m.paQmsAssessor=g('pa-qms-assessor');m.paQmsResult=g('pa-qms-result');
+  m.paTech=g('pa-tech');m.paTechAssessor=g('pa-tech-assessor');m.paTechResult=g('pa-tech-result');
+  m.paResult=g('pa-result');
+  var btn=document.getElementById('pa-save-btn');btn.disabled=true;
+  persist('pqd',m).then(function(){btn.disabled=false;stampSaved();});
+  closePA();refreshCounts();goTo('pa');toast('Assessment saved');
+};
+
 /* ---------- PA summary ---------- */
 function paSummaryRows(){
   return (DB.pqd||[]).filter(function(m){return (m.pa||'')==='Done';}).map(function(m){
@@ -3047,6 +3268,7 @@ function refreshCounts(){
   var set=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
   set('nb-pqd',(DB.pqd||[]).length);
   set('nb-sub',(DB.mat||[]).length+(DB.mir||[]).length);
+  var pc=paCounts();set('nb-pa',pc.open+pc.scheduled);
   set('nb-fat',(DB.fat||[]).length);
   set('nb-comp',(COMP_DATA||[]).length);
   set('nb-avl',(window.AVL_DATA||[]).length);
