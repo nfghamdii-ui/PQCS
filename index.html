@@ -385,8 +385,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
       <div class="grp-lbl">WORKFLOW</div>
       <div class="ni" data-p="dash" onclick="goTo('dash',this)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span>Dashboard</span></div>
       <div class="ni" data-p="pqd" onclick="goTo('pqd',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="6"/><path d="M9 14.5L8 22l4-2 4 2-1-7.5"/></svg><span>Vendors</span><span class="ni-n" id="nb-pqd">0</span></div>
-      <div class="ni" data-p="mat" onclick="goTo('mat',this)"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></svg><span>Submittals</span><span class="ni-n" id="nb-mat">0</span></div>
-      <div class="ni" data-p="mir" onclick="goTo('mir',this)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3M8 11h6M11 8v6"/></svg><span>Inspection</span><span class="ni-n" id="nb-mir">0</span></div>
+      <div class="ni" data-p="sub" onclick="goTo('sub',this)"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></svg><span>Submittals</span><span class="ni-n" id="nb-sub">0</span></div>
       <div class="ni" data-p="fat" onclick="goTo('fat',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L21 5"/><path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h10"/></svg><span>FAT tracker</span><span class="ni-n" id="nb-fat">0</span></div>
       <div class="ni" data-p="dlog" onclick="goTo('dlog',this)"><svg viewBox="0 0 24 24"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span>Delivery log</span></div>
     </div>
@@ -502,6 +501,19 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
             <th>IRN NO.</th><th>IRN DATE</th><th class="ctr">IRN</th><th>NOTES</th><th></th>
           </tr></thead>
           <tbody id="tb-mir"></tbody>
+        </table></div>
+      </div>
+
+      <!-- ============ SAMPLES ============ -->
+      <div id="pg-smp" style="display:none">
+        <div class="tw"><table>
+          <thead><tr>
+            <th class="pin1 pin-edge" style="min-width:260px">MATERIAL / SAMPLE</th>
+            <th>SUBMITTED</th><th style="min-width:150px">COMPANY</th><th>CAT</th>
+            <th>QTY</th><th style="min-width:140px">HELD AT</th>
+            <th class="ctr">STATUS</th><th>NOTES</th><th></th>
+          </tr></thead>
+          <tbody id="tb-smp"></tbody>
         </table></div>
       </div>
 
@@ -752,6 +764,34 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <div class="fg" style="margin-top:13px"><div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="mir-notes" rows="2"></textarea></div></div>
   </div>
   <div class="m-foot"><button class="btn" onclick="closeMIR()">Cancel</button><button class="btn btn-p" id="mir-save-btn" onclick="saveMIR()">Save inspection</button></div>
+ </div>
+</div>
+
+<!-- ===================== SAMPLE MODAL ===================== -->
+<div class="ov" id="ov-smp">
+ <div class="modal" style="max-width:560px">
+  <div class="m-head"><h2 id="smp-title">Material and equipment sample</h2><button class="ib" onclick="closeSMP()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="m-body">
+   <input type="hidden" id="s-eid">
+   <span class="m-sec">SAMPLE</span>
+   <div class="fg">
+     <div class="fg-f"><label class="fl">Material or sample name</label><input class="fi" id="s-name" placeholder="Floor tile 600x600, paint shade…"></div>
+     <div class="fg-f"><label class="fl">Description</label><textarea class="ft" id="s-desc" rows="2" placeholder="Finish, colour, model, specification clause…"></textarea></div>
+     <div><label class="fl">Aconex reference</label><input class="fi" id="s-aconex"></div>
+     <div><label class="fl">Submission date</label><input class="fi" type="date" id="s-date"></div>
+     <div><label class="fl">Material category</label><select class="fs" id="s-cat"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
+     <div><label class="fl">Quantity submitted</label><input class="fi" id="s-qty" placeholder="3 pieces, 2 boards…"></div>
+     <div class="fg-f"><label class="fl">Company</label><select class="fs" id="s-co"><option value="">—</option></select></div>
+     <div class="fg-f"><label class="fl">Sample held at</label><input class="fi" id="s-loc" placeholder="Site sample room, consultant office…"></div>
+   </div>
+   <span class="m-sec">STATUS</span>
+   <div class="fg">
+     <div><label class="fl">MES status</label><select class="fs" id="s-st"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
+     <div><label class="fl">Decision date</label><input class="fi" type="date" id="s-decdate"></div>
+     <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="s-notes" rows="2"></textarea></div>
+   </div>
+  </div>
+  <div class="m-foot"><button class="btn" onclick="closeSMP()">Cancel</button><button class="btn btn-p" id="smp-save-btn" onclick="saveSMP()">Save sample</button></div>
  </div>
 </div>
 
@@ -1113,9 +1153,18 @@ function flagFor(u){return u>=80?'<span class="flag f-bad"></span>':(u>=25?'<spa
 /* ================================================================
    3. NAVIGATION AND PER-PAGE TOOLBARS
    ================================================================ */
-var PAGES=['dash','pqd','mat','mir','fat','pasum','rpt','comp','avl','proc','dlog','chk','cal','admin'];
-var TITLES={dash:'Dashboard',pqd:'Vendors',mat:'Material submittals',mir:'Material inspection',fat:'FAT schedule tracker',pasum:'Physical assessment summary',rpt:'Reports',comp:'Components and category',avl:'Approved vendor list',proc:'Procedure',dlog:'Material delivery log',chk:'PQD checklist',cal:'Calendar',admin:'Admin'};
-var ADD_LABEL={pqd:'New vendor',mat:'New submittal',mir:'New inspection',fat:'New FAT item',cal:'New event'};
+var PAGES=['dash','pqd','sub','mat','mir','smp','fat','pasum','rpt','comp','avl','proc','dlog','chk','cal','admin'];
+var TITLES={dash:'Dashboard',pqd:'Vendors',sub:'Submittals',mat:'Submittals',mir:'Submittals',smp:'Submittals',fat:'FAT schedule tracker',pasum:'Physical assessment summary',rpt:'Reports',comp:'Components and category',avl:'Approved vendor list',proc:'Procedure',dlog:'Material delivery log',chk:'PQD checklist',cal:'Calendar',admin:'Admin'};
+var ADD_LABEL={pqd:'New vendor',sub:'New submittal',fat:'New FAT item',cal:'New event'};
+var SUB_TYPE='mat';
+var SUB_META={
+  mat:{label:'Material',add:'New material submittal'},
+  mir:{label:'Inspection',add:'New inspection request'},
+  smp:{label:'MES',add:'New MES'}
+};
+function matRecords(){return (DB.mat||[]).filter(function(m){return m.kind!=='sample';});}
+function smpRecords(){return (DB.mat||[]).filter(function(m){return m.kind==='sample';});}
+window.setSubType=function(t){SUB_TYPE=t;goTo('sub');};
 var CUR_PAGE='dash';
 
 function searchBox(id,ph,fn){
@@ -1149,14 +1198,27 @@ function buildTools(page){
       +'<div class="colopt" data-c="paQms" onclick="togCol(this)"><span class="box"></span>PA QMS</div>'
       +'<div class="colopt" data-c="paTech" onclick="togCol(this)"><span class="box"></span>PA technical</div>'
       +'</div></div>';
-  }else if(page==='mat'){
-    h+=searchBox('mat-q','Material or company…','rMAT()');
-    h+='<select class="sel" id="mat-st" onchange="rMAT()"><option value="">All statuses</option><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select>';
-    h+='<div class="spacer"></div><span class="count" id="mat-count"></span>';
-  }else if(page==='mir'){
-    h+=searchBox('mir-q','Material or MIR number…','rMIR()');
-    h+='<select class="sel" id="mir-stf" onchange="rMIR()"><option value="">All statuses</option><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select>';
-    h+='<div class="spacer"></div><span class="count" id="mir-count"></span>';
+  }else if(page==='sub'){
+    var counts={mat:matRecords().length,mir:(DB.mir||[]).length,smp:smpRecords().length};
+    ['mat','mir','smp'].forEach(function(t){
+      h+='<button class="chip'+(SUB_TYPE===t?' on':'')+'" onclick="setSubType(\''+t+'\')">'+SUB_META[t].label
+        +'<span class="chip-n">'+counts[t]+'</span></button>';
+    });
+    h+='<span style="width:1px;height:22px;background:var(--line);margin:0 4px"></span>';
+    var statusOpts='<option value="">All statuses</option><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option>';
+    if(SUB_TYPE==='mat'){
+      h+=searchBox('mat-q','Material or company…','rMAT()');
+      h+='<select class="sel" id="mat-st" onchange="rMAT()">'+statusOpts+'</select>';
+      h+='<div class="spacer"></div><span class="count" id="mat-count"></span>';
+    }else if(SUB_TYPE==='mir'){
+      h+=searchBox('mir-q','Material or MIR number…','rMIR()');
+      h+='<select class="sel" id="mir-stf" onchange="rMIR()">'+statusOpts+'</select>';
+      h+='<div class="spacer"></div><span class="count" id="mir-count"></span>';
+    }else{
+      h+=searchBox('smp-q','MES, material or company…','rSMP()');
+      h+='<select class="sel" id="smp-st" onchange="rSMP()">'+statusOpts+'</select>';
+      h+='<div class="spacer"></div><span class="count" id="smp-count"></span>';
+    }
   }else if(page==='fat'){
     h+=searchBox('fat-q','Material, manufacturer, inspector…','rFAT()');
     h+='<select class="sel" id="fat-stf" onchange="rFAT()"><option value="">All remarks</option><option>FAT done</option><option>Final inspection done</option><option>Re-FAT is required</option><option>Pending</option></select>';
@@ -1215,6 +1277,7 @@ window.toggleCols=function(e){e.stopPropagation();document.getElementById('colme
 document.addEventListener('click',function(){var m=document.getElementById('colmenu');if(m)m.classList.remove('on');});
 
 window.goTo=function(page,el){
+  if(page==='mat'||page==='mir'||page==='smp'){SUB_TYPE=page;page='sub';el=null;}
   CUR_PAGE=page;
   PAGES.forEach(function(p){var e=document.getElementById('pg-'+p);if(e)e.style.display='none';});
   var pg=document.getElementById('pg-'+page);if(pg)pg.style.display='';
@@ -1222,13 +1285,19 @@ window.goTo=function(page,el){
   if(el)el.classList.add('on');else{var d=document.querySelector('.ni[data-p='+page+']');if(d)d.classList.add('on');}
   document.getElementById('pg-title').textContent=TITLES[page]||'';
   var add=document.getElementById('top-add');
-  if(ADD_LABEL[page]){add.style.display='';add.textContent=ADD_LABEL[page];}else add.style.display='none';
+  var lbl=(page==='sub')?SUB_META[SUB_TYPE].add:ADD_LABEL[page];
+  if(lbl){add.style.display='';add.textContent=lbl;}else add.style.display='none';
   buildTools(page);
   var scroll=document.getElementById('content-scroll');if(scroll)scroll.scrollTop=0;
   if(page==='dash')renderDash();
   if(page==='pqd'){buildPQDHead();rPQD();}else{var fm=document.getElementById('fmenu');if(fm)fm.classList.remove('on');}
-  if(page==='mat')rMAT();
-  if(page==='mir')rMIR();
+  if(page==='sub'){
+    ['mat','mir','smp'].forEach(function(t){var e=document.getElementById('pg-'+t);if(e)e.style.display=(t===SUB_TYPE)?'':'none';});
+    if(SUB_TYPE==='mat')rMAT();else if(SUB_TYPE==='mir')rMIR();else rSMP();
+    var d=document.querySelector('.ni[data-p=sub]');
+    document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('on');});
+    if(d)d.classList.add('on');
+  }
   if(page==='fat')rFAT();
   if(page==='pasum')genPASummary();
   if(page==='rpt')renderRptHist();
@@ -1242,8 +1311,9 @@ window.goTo=function(page,el){
 };
 window.topAdd=function(){
   if(CUR_PAGE==='pqd')openM();
-  else if(CUR_PAGE==='mat')openMAT();
-  else if(CUR_PAGE==='mir')openMIR();
+  else if(CUR_PAGE==='sub'){
+    if(SUB_TYPE==='mat')openMAT();else if(SUB_TYPE==='mir')openMIR();else openSMP();
+  }
   else if(CUR_PAGE==='fat')openFAT();
   else if(CUR_PAGE==='cal')openCalEvent();
 };
@@ -1284,7 +1354,7 @@ function renderDash(){
   var stats=[
     {v:live.length,l:'Manufacturers',go:'pqd'},
     {v:appr,l:'Qualified',go:'pqd'},
-    {v:mat.length,l:'Submittals',go:'mat'},
+    {v:matRecords().length,l:'Submittals',go:'mat'},
     {v:mir.length,l:'Inspections',go:'mir'},
     {v:act,l:'Need action',go:'pqd',c:'var(--act-t)'},
     {v:rate+'%',l:'Approval rate',go:'pqd'}
@@ -1780,7 +1850,7 @@ window.saveMAT=function(){
   var btn=document.getElementById('mat-save-btn');btn.disabled=true;
   persist('mat',m).then(function(){btn.disabled=false;stampSaved();});
   closeMAT();rMAT();toast('Submittal saved');
-  document.getElementById('nb-mat').textContent=DB.mat.length;
+  refreshCounts();
 };
 window.editMAT=function(id){
   var m=DB.mat.find(function(x){return x.id===id;});if(!m)return;
@@ -1801,12 +1871,12 @@ window.delMAT=function(id,rowid){
   if(rec&&rec._rowid){sbDelete('mat',rec._rowid);DB.mat=DB.mat.filter(function(x){return String(x._rowid)!==String(rec._rowid);});}
   else{var i=DB.mat.indexOf(rec);if(i>-1)DB.mat.splice(i,1);}
   rMAT();toast('Submittal deleted');
-  document.getElementById('nb-mat').textContent=DB.mat.length;
+  refreshCounts();
 };
 window.rMAT=function(){
   var qe=document.getElementById('mat-q'),se=document.getElementById('mat-st');
   var q=qe?qe.value.toLowerCase().trim():'', st=se?se.value:'';
-  var items=(DB.mat||[]).filter(function(m){
+  var items=matRecords().filter(function(m){
     if(st&&m.mts!==st)return false;
     if(q&&[m.name,m.company,m.aconex,m.desc].join(' ').toLowerCase().indexOf(q)<0)return false;
     return true;
@@ -1829,6 +1899,86 @@ window.rMAT=function(){
   }).join('');
 };
 
+/* ---------- MES · material and equipment samples ----------
+   MES records live in the same table as material submittals, tagged
+   with kind:'sample'. No schema change, no migration, and every
+   existing record keeps working exactly as before. */
+function fillSmpCo(){
+  var sel=document.getElementById('s-co');if(!sel)return;
+  var cur=sel.value;sel.innerHTML='<option value="">—</option>';
+  (DB.pqd||[]).forEach(function(m){
+    var o2=document.createElement('option');o2.value=m.name;
+    o2.textContent=((m.pqd||'').indexOf('Approved')===0?'':'[not qualified] ')+m.name+(m.scope?' — '+m.scope:'');
+    sel.appendChild(o2);
+  });
+  if(cur)sel.value=cur;
+}
+window.openSMP=function(){fillSmpCo();document.getElementById('smp-title').textContent='Material and equipment sample (MES)';document.getElementById('ov-smp').classList.add('on');};
+window.closeSMP=function(){
+  document.getElementById('ov-smp').classList.remove('on');
+  document.querySelectorAll('#ov-smp .fi,#ov-smp .ft').forEach(function(e){e.value='';});
+  document.querySelectorAll('#ov-smp .fs').forEach(function(e){e.selectedIndex=0;});
+  document.getElementById('s-eid').value='';
+};
+document.getElementById('ov-smp').addEventListener('click',function(e){if(e.target===this)closeSMP();});
+window.saveSMP=function(){
+  var n=document.getElementById('s-name').value.trim();
+  if(!n)return alert('Enter the material or sample name');
+  var eid=document.getElementById('s-eid').value, g=function(id){var e=document.getElementById(id);return e?e.value:'';};
+  var m={id:eid?+eid:Date.now(),kind:'sample',name:n,desc:g('s-desc'),aconex:g('s-aconex'),date:g('s-date'),
+    catSub:g('s-cat'),qty:g('s-qty'),company:g('s-co'),heldAt:g('s-loc'),
+    mts:g('s-st'),decDate:g('s-decdate'),notes:g('s-notes')};
+  if(eid){var i=DB.mat.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.mat[i]._rowid)m._rowid=DB.mat[i]._rowid;DB.mat[i]=m;}}
+  else DB.mat.push(m);
+  var btn=document.getElementById('smp-save-btn');btn.disabled=true;
+  persist('mat',m).then(function(){btn.disabled=false;stampSaved();});
+  closeSMP();refreshCounts();goTo('sub');toast('MES saved');
+};
+window.editSMP=function(id){
+  var m=(DB.mat||[]).find(function(x){return x.id===id;});if(!m)return;
+  fillSmpCo();
+  var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
+  sv('s-eid',id);sv('s-name',m.name);sv('s-desc',m.desc);sv('s-aconex',m.aconex);sv('s-date',m.date);
+  sv('s-cat',m.catSub);sv('s-qty',m.qty);sv('s-co',m.company);sv('s-loc',m.heldAt);
+  sv('s-st',m.mts||'Pending');sv('s-decdate',m.decDate);sv('s-notes',m.notes);
+  document.getElementById('smp-title').textContent='Edit MES';
+  document.getElementById('ov-smp').classList.add('on');
+};
+window.delSMP=function(id,rowid){
+  if(!confirm('Delete this MES record?'))return;
+  var rec;
+  if(rowid!=null&&rowid!=='')rec=DB.mat.find(function(x){return String(x._rowid)===String(rowid);});
+  if(!rec)rec=DB.mat.find(function(x){return x.id===id;});
+  if(rec&&rec._rowid){sbDelete('mat',rec._rowid);DB.mat=DB.mat.filter(function(x){return String(x._rowid)!==String(rec._rowid);});}
+  else{var i=DB.mat.indexOf(rec);if(i>-1)DB.mat.splice(i,1);}
+  refreshCounts();goTo('sub');toast('MES deleted');
+};
+window.rSMP=function(){
+  var qe=document.getElementById('smp-q'),se=document.getElementById('smp-st');
+  var q=qe?qe.value.toLowerCase().trim():'', st=se?se.value:'';
+  var items=smpRecords().filter(function(m){
+    if(st&&m.mts!==st)return false;
+    if(q&&[m.name,m.company,m.aconex,m.desc,m.heldAt].join(' ').toLowerCase().indexOf(q)<0)return false;
+    return true;
+  }).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  var c=document.getElementById('smp-count');if(c)c.textContent=items.length+' MES record'+(items.length===1?'':'s');
+  var tb=document.getElementById('tb-smp');if(!tb)return;
+  if(!items.length){tb.innerHTML='<tr><td colspan="9" class="empty">No MES records yet.</td></tr>';return;}
+  tb.innerHTML=items.map(function(m){
+    return '<tr class="hov" onclick="editSMP('+m.id+')">'
+      +'<td class="pin1 pin-edge"><span class="nm" style="max-width:250px" title="'+String(m.name||'').replace(/"/g,'&quot;')+'">'+m.name+'</span>'
+      +(m.desc?'<div class="dim" style="font-size:11px;margin-top:2px;max-width:250px;overflow:hidden;text-overflow:ellipsis">'+m.desc+'</div>':'')+'</td>'
+      +'<td><span class="ref">'+(m.date||'—')+'</span></td>'
+      +'<td><span class="nm" style="max-width:170px">'+(m.company||'—')+'</span></td>'
+      +'<td>'+cB(m.catSub)+'</td>'
+      +'<td><span class="dim">'+(m.qty||'—')+'</span></td>'
+      +'<td><span class="dim">'+(m.heldAt||'—')+'</span></td>'
+      +'<td class="ctr">'+stamp(m.mts||'Pending')+'</td>'
+      +'<td><span class="dim">'+(m.notes||'—')+'</span></td>'
+      +ibs('editSMP','delSMP',m.id,m._rowid)+'</tr>';
+  }).join('');
+};
+
 /* ---------- inspections ---------- */
 function fillMIRCo(){
   var sel=document.getElementById('mir-co');if(!sel)return;
@@ -1843,7 +1993,7 @@ function fillMIRCo(){
 function matRefLabel(m){var ref=m.aconex||'';return {ref:ref,name:m.name,display:m.name+(ref?'  ·  '+ref:'')};}
 window.filterMATRef=function(){
   var q=(document.getElementById('mir-mat-search').value||'').toLowerCase().trim();
-  var list=document.getElementById('mir-mat-list'), mats=DB.mat||[];
+  var list=document.getElementById('mir-mat-list'), mats=matRecords();
   var rows=mats.map(matRefLabel).filter(function(x){return !q||x.name.toLowerCase().indexOf(q)>=0||x.ref.toLowerCase().indexOf(q)>=0;});
   if(!rows.length){list.innerHTML='<div style="padding:10px 12px;font-size:11.5px;color:var(--t-3)">'+(mats.length?'No match':'No submittals yet')+'</div>';list.style.display='';return;}
   list.innerHTML=rows.map(function(x){
@@ -1865,7 +2015,7 @@ document.addEventListener('click',function(e){
   var box=document.getElementById('mir-mat-list'),inp=document.getElementById('mir-mat-search');
   if(box&&inp&&e.target!==inp&&!box.contains(e.target))box.style.display='none';
 });
-function findMatByRef(refVal){return (DB.mat||[]).find(function(m){var x=matRefLabel(m);return (x.ref||x.name)===refVal;})||null;}
+function findMatByRef(refVal){return matRecords().find(function(m){var x=matRefLabel(m);return (x.ref||x.name)===refVal;})||null;}
 window.loadMIRItems=function(refVal,received){
   var tb=document.getElementById('mir-items');if(!tb)return;
   var mat=findMatByRef(refVal), items=(mat&&mat.items&&mat.items.length)?mat.items:[];
@@ -1897,7 +2047,7 @@ function getMIRItems(){
 }
 function loadMATRef(refVal){
   document.getElementById('mir-mat').value=refVal||'';
-  var disp='';(DB.mat||[]).forEach(function(m){var x=matRefLabel(m);if((x.ref||x.name)===refVal)disp=x.display;});
+  var disp='';matRecords().forEach(function(m){var x=matRefLabel(m);if((x.ref||x.name)===refVal)disp=x.display;});
   document.getElementById('mir-mat-search').value=disp||refVal||'';
 }
 window.openMIR=function(){
@@ -1930,7 +2080,7 @@ window.saveMIR=function(){
   var btn=document.getElementById('mir-save-btn');btn.disabled=true;
   persist('mir',m).then(function(){btn.disabled=false;stampSaved();});
   closeMIR();rMIR();toast('Inspection saved');
-  document.getElementById('nb-mir').textContent=DB.mir.length;
+  refreshCounts();
 };
 window.editMIR=function(id){
   var m=DB.mir.find(function(x){return x.id===id;});if(!m)return;
@@ -1953,7 +2103,7 @@ window.delMIR=function(id,rowid){
   if(rec&&rec._rowid){sbDelete('mir',rec._rowid);DB.mir=DB.mir.filter(function(x){return String(x._rowid)!==String(rec._rowid);});}
   else{var i=DB.mir.indexOf(rec);if(i>-1)DB.mir.splice(i,1);}
   rMIR();toast('Inspection deleted');
-  document.getElementById('nb-mir').textContent=DB.mir.length;
+  refreshCounts();
 };
 window.rMIR=function(){
   var qe=document.getElementById('mir-q'),se=document.getElementById('mir-stf');
@@ -2137,7 +2287,7 @@ window.rDLOG=function(){
     });
   });
   var rows=[];
-  (DB.mat||[]).forEach(function(m){
+  matRecords().forEach(function(m){
     var ref=m.aconex||m.name;
     (m.items||[]).forEach(function(it){
       var got=recv[ref+'::'+it.name]||0, total=parseFloat(it.qty)||0, rem=total-got;
@@ -2852,8 +3002,7 @@ window.adminDeleteProject=async function(pid){
 function refreshCounts(){
   var set=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
   set('nb-pqd',(DB.pqd||[]).length);
-  set('nb-mat',(DB.mat||[]).length);
-  set('nb-mir',(DB.mir||[]).length);
+  set('nb-sub',(DB.mat||[]).length+(DB.mir||[]).length);
   set('nb-fat',(DB.fat||[]).length);
   set('nb-comp',(COMP_DATA||[]).length);
   set('nb-avl',(window.AVL_DATA||[]).length);
