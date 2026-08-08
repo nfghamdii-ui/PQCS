@@ -5462,9 +5462,28 @@ function rbRows(){
     return true;
   });
 }
+/* Columns are grouped under the register they came from, so they are
+   ordered by that register first. Otherwise one group can appear twice
+   in the band with another wedged between. The source's own columns
+   always lead. */
 function rbCols(){
   var chosen=RB_PICK[RB_SRC]||[];
-  return RB_SOURCES[RB_SRC].cols.filter(function(c){return chosen.indexOf(c[0])>=0;});
+  var picked=RB_SOURCES[RB_SRC].cols.filter(function(c){return chosen.indexOf(c[0])>=0;});
+  var order=[], own=RB_GROUP[RB_SRC]||'';
+  picked.forEach(function(c){
+    var g=rbGroupOf(c[0]);
+    if(order.indexOf(g)<0)order.push(g);
+  });
+  order.sort(function(a,b){
+    if(a===own)return -1;
+    if(b===own)return 1;
+    return 0;
+  });
+  return picked.slice().sort(function(a,b){
+    var d=order.indexOf(rbGroupOf(a[0]))-order.indexOf(rbGroupOf(b[0]));
+    if(d)return d;
+    return picked.indexOf(a)-picked.indexOf(b);
+  });
 }
 function rbValue(c,r){return c[3]?c[3](r):(r[c[0]]==null?'':r[c[0]]);}
 function rbCount(){
