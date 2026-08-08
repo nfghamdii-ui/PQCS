@@ -5193,13 +5193,19 @@ window.runCMT=function(){
   cols.forEach(function(c,i){hr+=cx(3,i,c[1],1);});
   sd+=hr+'</row>';
   rows.forEach(function(r,i){
-    var rn=4+i,rr='<row r="'+rn+'" ht="20" customHeight="1">';
+    var rn=4+i,rr='<row r="'+rn+'">';
     cols.forEach(function(c,ci){rr+=cx(rn,ci,r[c[0]],0);});
     sd+=rr+'</row>';
   });
-  var colXml='<cols>'+cols.map(function(c,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+(c[0]==='name'?38:22)+'"/>';}).join('')+'</cols>';
+  var colXml='<cols>'+cols.map(function(c,i){
+    var longest=String(c[1]).length;
+    rows.forEach(function(r){var v=String(r[c[0]]||'');if(v.length>longest)longest=v.length;});
+    return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+Math.min(Math.max(longest+3,11),60)+'"/>';
+  }).join('')+'</cols>';
   var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    +colXml+'<sheetData>'+sd+'</sheetData><mergeCells count="1"><mergeCell ref="A1:'+cn(Math.max(cols.length-1,0))+'1"/></mergeCells></worksheet>';
+    +colXml+'<sheetData>'+sd+'</sheetData>'
+    +'<autoFilter ref="A3:'+cn(Math.max(cols.length-1,0))+(3+rows.length)+'"/>'
+    +'<mergeCells count="1"><mergeCell ref="A1:'+cn(Math.max(cols.length-1,0))+'1"/></mergeCells></worksheet>';
   var d=new Date(), stamp2=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
   writeXlsx('Critical Materials',styles,sheet,'Critical_Materials_Tracker_'+stamp2+'.xlsx');
   closeCMT();toast('Tracker exported');
@@ -5450,13 +5456,25 @@ window.runRB=function(mode){
   cols.forEach(function(c,i){hr+=cx(3,i,c[1],1);});
   sd+=hr+'</row>';
   rows.forEach(function(r,i){
-    var rn=4+i,rr='<row r="'+rn+'" ht="20" customHeight="1">';
+    var rn=4+i,rr='<row r="'+rn+'">';
     cols.forEach(function(c,ci){rr+=cx(rn,ci,rbValue(c,r),0);});
     sd+=rr+'</row>';
   });
-  var colXml='<cols>'+cols.map(function(c,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+(i===0?34:20)+'"/>';}).join('')+'</cols>';
+  /* a fixed width truncates long values on screen even though the cell
+     holds them, so each column is sized to its own longest entry */
+  var colXml='<cols>'+cols.map(function(c,i){
+    var longest=String(c[1]).length;
+    rows.forEach(function(r){
+      var v=String(rbValue(c,r)||'');
+      if(v.length>longest)longest=v.length;
+    });
+    var w=Math.min(Math.max(longest+3,11),60);
+    return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'"/>';
+  }).join('')+'</cols>';
   var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    +colXml+'<sheetData>'+sd+'</sheetData><mergeCells count="1"><mergeCell ref="A1:'+cn(Math.max(cols.length-1,0))+'1"/></mergeCells></worksheet>';
+    +colXml+'<sheetData>'+sd+'</sheetData>'
+    +'<autoFilter ref="A3:'+cn(Math.max(cols.length-1,0))+(3+rows.length)+'"/>'
+    +'<mergeCells count="1"><mergeCell ref="A1:'+cn(Math.max(cols.length-1,0))+'1"/></mergeCells></worksheet>';
   var d=new Date(), st2=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
   writeXlsx(RB_SOURCES[RB_SRC].label.slice(0,28),styles,sheet,RB_SRC+'_'+st2+'.xlsx');
   closeRB();toast('Report exported');
