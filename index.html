@@ -1193,7 +1193,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div><label class="fl">Pre-PA</label><select class="fs" id="pa-prepa"><option>Pending</option><option>Done</option><option>N/A</option></select></div>
      <div><label class="fl">Assessment status</label><select class="fs" id="pa-status" onchange="paWaiverCheck()"><option>Pending</option><option>Scheduled</option><option>Done</option><option>Waived</option><option>N/A</option></select></div>
      <div><label class="fl">Survey date</label><input class="fi" type="date" id="pa-date"></div>
-     <div><label class="fl">Reference document no.</label><input class="fi" id="pa-ref"></div>
+     <div><label class="fl">Aconex reference</label><input class="fi" id="pa-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div class="fg-f" id="pa-waiver-warn" style="display:none"></div>
    </div>
    <span class="m-sec">QMS REPORT</span>
@@ -1202,7 +1202,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div class="pick"><label class="fl">Assessor</label>
        <input class="fi" id="pa-qms-assessor" placeholder="Search approved inspectors…" autocomplete="off" oninput="pickOpen('pa-qms-assessor')" onfocus="pickOpen('pa-qms-assessor')">
        <div class="pick-list" id="pa-qms-assessor-list"></div></div>
-     <div class="fg-f"><label class="fl">Result</label><select class="fs" id="pa-qms-result"><option value="">—</option><option>Pass</option><option>Failed</option><option>Under process</option></select></div>
+     <div><label class="fl">Result</label><select class="fs" id="pa-qms-result"><option value="">—</option><option>Pass</option><option>Failed</option><option>Under process</option></select></div>
+     <div><label class="fl">Aconex reference</label><input class="fi" id="pa-qms-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
    </div>
    <span class="m-sec">TECHNICAL REPORT</span>
    <div class="fg">
@@ -1210,7 +1211,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div class="pick"><label class="fl">Assessor</label>
        <input class="fi" id="pa-tech-assessor" placeholder="Search approved inspectors…" autocomplete="off" oninput="pickOpen('pa-tech-assessor')" onfocus="pickOpen('pa-tech-assessor')">
        <div class="pick-list" id="pa-tech-assessor-list"></div></div>
-     <div class="fg-f"><label class="fl">Result</label><select class="fs" id="pa-tech-result"><option value="">—</option><option>Pass</option><option>Failed</option><option>Under process</option></select></div>
+     <div><label class="fl">Result</label><select class="fs" id="pa-tech-result"><option value="">—</option><option>Pass</option><option>Failed</option><option>Under process</option></select></div>
+     <div><label class="fl">Aconex reference</label><input class="fi" id="pa-tech-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
    </div>
    <span class="m-sec">OUTCOME</span>
    <div class="fg">
@@ -2332,9 +2334,11 @@ window.rPQD=function(){
         +dfS('QMS REPORT',m.paQms||'Pending')
         +df('QMS ASSESSOR',m.paQmsAssessor)
         +df('QMS RESULT',m.paQmsResult)
+        +df('QMS REFERENCE',m.paQmsRef,1)
         +dfS('TECHNICAL REPORT',m.paTech||'Pending')
         +df('TECHNICAL ASSESSOR',m.paTechAssessor)
         +df('TECHNICAL RESULT',m.paTechResult)
+        +df('TECHNICAL REFERENCE',m.paTechRef,1)
         +df('OVERALL RESULT',m.paResult)
         +'</div>'
 
@@ -2590,7 +2594,7 @@ function save(){
   var prev=eid?(DB.pqd||[]).find(function(x){return x.id===+eid;}):null;
   if(prev){
     ['prepa','pa','paDate','paQms','paTech','paRef','paTechAssessor','paQmsAssessor',
-     'paTechResult','paQmsResult','paResult'].forEach(function(k){if(prev[k]!==undefined)m[k]=prev[k];});
+     'paTechResult','paQmsResult','paResult','paQmsRef','paTechRef'].forEach(function(k){if(prev[k]!==undefined)m[k]=prev[k];});
   }
   if(eid){var i=DB.pqd.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.pqd[i]._rowid)m._rowid=DB.pqd[i]._rowid;DB.pqd[i]=m;}}
   else DB.pqd.push(m);
@@ -4811,7 +4815,7 @@ window.rPA=function(){
       +'<td class="ctr">'+stamp(m.paQms||'Pending')+'</td>'
       +'<td class="ctr">'+stamp(m.paTech||'Pending')+'</td>'
       +'<td class="ctr">'+(m.paResult?stamp(m.paResult):'<span class="dim">—</span>')+'</td>'
-      +'<td><span class="ref">'+(m.paRef||'—')+'</span></td>'
+      +'<td><span class="ref" title="'+String(m.paRef||'').replace(/"/g,'&quot;')+'">'+(m.paRef?shortRef(m.paRef):'—')+'</span></td>'
       +'<td class="ctr" onclick="event.stopPropagation()"><button class="ib" onclick="openPA('+m.id+')" aria-label="Edit"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg></button></td>'
       +'</tr>';
   }).join('');
@@ -4856,15 +4860,15 @@ window.openPA=function(id){
     sel.value=m.id;sel.disabled=true;
     document.getElementById('pa-title').textContent='Assessment · '+m.name;
     g('pa-vid',m.id);g('pa-prepa',preNorm(m));g('pa-status',m.pa||'Pending');g('pa-date',m.paDate);g('pa-ref',m.paRef);
-    g('pa-qms',m.paQms||'Pending');g('pa-qms-assessor',m.paQmsAssessor);g('pa-qms-result',m.paQmsResult);
-    g('pa-tech',m.paTech||'Pending');g('pa-tech-assessor',m.paTechAssessor);g('pa-tech-result',m.paTechResult);
+    g('pa-qms',m.paQms||'Pending');g('pa-qms-assessor',m.paQmsAssessor);g('pa-qms-result',m.paQmsResult);g('pa-qms-ref',m.paQmsRef);
+    g('pa-tech',m.paTech||'Pending');g('pa-tech-assessor',m.paTechAssessor);g('pa-tech-result',m.paTechResult);g('pa-tech-ref',m.paTechRef);
     g('pa-result',m.paResult);
   }else{
     sel.disabled=false;sel.value='';
     document.getElementById('pa-title').textContent='Schedule an assessment';
     g('pa-vid','');g('pa-prepa','Pending');g('pa-status','Scheduled');g('pa-date','');g('pa-ref','');
-    g('pa-qms','Pending');g('pa-qms-assessor','');g('pa-qms-result','');
-    g('pa-tech','Pending');g('pa-tech-assessor','');g('pa-tech-result','');g('pa-result','');
+    g('pa-qms','Pending');g('pa-qms-assessor','');g('pa-qms-result','');g('pa-qms-ref','');
+    g('pa-tech','Pending');g('pa-tech-assessor','');g('pa-tech-result','');g('pa-tech-ref','');g('pa-result','');
   }
   paVendorInfo();
   document.getElementById('ov-pa').classList.add('on');
@@ -4879,8 +4883,8 @@ window.savePA=function(){
   var g=function(f){var e=document.getElementById(f);return e?e.value:'';};
   /* mutate in place so nothing else on the vendor record is touched */
   m.prepa=g('pa-prepa');m.pa=g('pa-status');m.paDate=g('pa-date');m.paRef=g('pa-ref');
-  m.paQms=g('pa-qms');m.paQmsAssessor=g('pa-qms-assessor');m.paQmsResult=g('pa-qms-result');
-  m.paTech=g('pa-tech');m.paTechAssessor=g('pa-tech-assessor');m.paTechResult=g('pa-tech-result');
+  m.paQms=g('pa-qms');m.paQmsAssessor=g('pa-qms-assessor');m.paQmsResult=g('pa-qms-result');m.paQmsRef=g('pa-qms-ref');
+  m.paTech=g('pa-tech');m.paTechAssessor=g('pa-tech-assessor');m.paTechResult=g('pa-tech-result');m.paTechRef=g('pa-tech-ref');
   m.paResult=g('pa-result');
   var btn=document.getElementById('pa-save-btn');btn.disabled=true;
   persist('pqd',m).then(function(){btn.disabled=false;stampSaved();});
@@ -4892,7 +4896,7 @@ function paSummaryRows(){
   return (DB.pqd||[]).filter(function(m){return (m.pa||'')==='Done';}).map(function(m){
     return {supplier:m.name||'',pqdStatus:m.pqd||'',pqdRef:m.aconex||'',scope:m.scope||'',location:m.loc||'',
       assessment:m.pa||'',techAssessor:m.paTechAssessor||'',techReport:m.paTechResult||'',
-      qmsAssessor:m.paQmsAssessor||'',qmsReport:m.paQmsResult||'',paStatus:m.paResult||'',paRef:m.paRef||'',remarks:m.notes||''};
+      qmsAssessor:m.paQmsAssessor||'',qmsReport:m.paQmsResult||'',paStatus:m.paResult||'',paRef:m.paRef||'',qmsRef:m.paQmsRef||'',techRef:m.paTechRef||'',remarks:m.notes||''};
   });
 }
 function paCellColor(col,v){
@@ -5257,7 +5261,7 @@ var RB_COL_GROUP={
     type:'vendors',scope:'vendors',subco:'vendors',date:'vendors',pqd:'vendors',avl:'vendors',iso:'vendors',
     isoDate:'vendors',qualDate:'vendors',notes:'vendors',
     prepa:'assessment',pa:'assessment',paDate:'assessment',paRef:'assessment',paQmsAssessor:'assessment',
-    paQmsResult:'assessment',paTechAssessor:'assessment',paTechResult:'assessment',paResult:'assessment'},
+    paQmsResult:'assessment',paQmsRef:'assessment',paTechAssessor:'assessment',paTechResult:'assessment',paTechRef:'assessment',paResult:'assessment'},
   materials:{vendorPqd:'vendors',vendorMatch:'vendors',vendorCat:'vendors',vendorIso:'vendors',vendorOrigin:'vendors',vendorPa:'assessment',
     pidNo:'dossiers',pidStatus:'dossiers',itpNo:'itp',itpStatus:'itp',
     tpiAgency:'tpi',tpiInspector:'tpi',fatDate:'fat',fatRemark:'fat'},
@@ -5280,9 +5284,9 @@ var RB_SOURCES={
       ['date','Submitted',0],['pqd','PQD status',1],['avl','Vendor list',0,function(m){return avlNorm(m.avl);}],
       ['prepa','Pre-PA',0,function(m){return effStage(m,'prepa');}],
       ['pa','Assessment',1,function(m){return effStage(m,'pa');}],
-      ['paDate','Survey date',0],['paRef','Assessment reference',0],
-      ['paQmsAssessor','QMS assessor',0],['paQmsResult','QMS result',0],
-      ['paTechAssessor','Technical assessor',0],['paTechResult','Technical result',0],
+      ['paDate','Survey date',0],['paRef','Assessment Aconex reference',0],
+      ['paQmsAssessor','QMS assessor',0],['paQmsResult','QMS result',0],['paQmsRef','QMS report reference',0],
+      ['paTechAssessor','Technical assessor',0],['paTechResult','Technical result',0],['paTechRef','Technical report reference',0],
       ['paResult','Assessment result',0],
       ['iso','ISO',1,function(m){return (m.isoDate&&isExp(m.isoDate))?'Expired':(m.iso||'');}],
       ['isoDate','ISO expiry',0],['qualDate','Qualified on',0],['notes','Notes',0]
