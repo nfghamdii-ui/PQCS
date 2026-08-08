@@ -1132,6 +1132,35 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
  </div>
 </div>
 
+<!-- ===================== REPORT BUILDER ===================== -->
+<div class="ov" id="ov-rb">
+ <div class="modal" style="max-width:640px">
+  <div class="m-head"><h2>Build a report</h2><button class="ib" onclick="closeRB()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="m-body" style="padding-top:16px">
+    <div class="dlbl" style="margin-bottom:8px">SOURCE</div>
+    <div id="rb-sources" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px"></div>
+
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
+      <span class="dlbl" style="margin:0">COLUMNS</span>
+      <span class="link" onclick="rbAll(true)">select all</span>
+      <span class="link" onclick="rbAll(false)">clear</span>
+      <span class="spacer"></span>
+      <span class="count" id="rb-count"></span>
+    </div>
+    <div id="rb-cols" style="max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--r);padding:5px"></div>
+
+    <div class="dlbl" style="margin:16px 0 8px">FILTERS</div>
+    <div id="rb-filters" class="fg"></div>
+  </div>
+  <div class="m-foot">
+    <button class="btn" onclick="rbReset()" style="margin-right:auto">Reset</button>
+    <button class="btn" onclick="closeRB()">Cancel</button>
+    <button class="btn" onclick="runRB('preview')">Preview</button>
+    <button class="btn btn-p" onclick="runRB('xlsx')">Export to Excel</button>
+  </div>
+ </div>
+</div>
+
 <!-- ===================== NEW REVIEW MODAL ===================== -->
 <div class="ov" id="ov-chk">
  <div class="modal" style="max-width:460px">
@@ -1744,7 +1773,8 @@ function buildTools(page){
       +'<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--bad-l);vertical-align:middle;margin-right:5px"></i>Expiry</span>'
       +'<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--act-l);vertical-align:middle;margin-right:5px"></i>Deadline</span></div>';
   }else if(page==='rpt'){
-    h+='<button class="btn btn-p" onclick="genLookAhead()">Generate two-week look-ahead</button>';
+    h+='<button class="btn" onclick="genLookAhead()">Two-week look-ahead</button>';
+    h+='<button class="btn btn-p" onclick="openRB()">Build a report</button>';
     h+='<button class="btn" onclick="openCMT()">Critical materials tracker</button>';
     h+='<button class="btn" onclick="goTo(\'pa\')">Assessment summary</button>';
     h+='<button class="btn" onclick="window.print()">Print</button>';
@@ -5173,6 +5203,263 @@ window.runCMT=function(){
   var d=new Date(), stamp2=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
   writeXlsx('Critical Materials',styles,sheet,'Critical_Materials_Tracker_'+stamp2+'.xlsx');
   closeCMT();toast('Tracker exported');
+};
+
+/* ================================================================
+   REPORT BUILDER
+   One place to pull any set of columns out of any register. Every
+   column is a function over the record, so a report can reach across
+   sections — a submittal row can carry its vendor's qualification and
+   its dossier's number without either being copied anywhere.
+   ================================================================ */
+function vendorOf(name){return (DB.pqd||[]).find(function(v){return v.name===name;})||{};}
+var RB_SOURCES={
+  vendors:{label:'Vendors',rows:function(){return (DB.pqd||[]).filter(function(v){return v.engage!=='Discontinued';});},
+    cols:[
+      ['name','Vendor',1],['aconex','Aconex reference',1],['cat','Category',1],['dis','Discipline',1],
+      ['origin','Origin',0,function(m){return vendorOrigin(m)==='Unknown'?'':vendorOrigin(m);}],
+      ['loc','Location',0],['type','Entity type',0],['scope','Scope of work',1],['subco','Brought by',0],
+      ['date','Submitted',0],['pqd','PQD status',1],['avl','Vendor list',0,function(m){return avlNorm(m.avl);}],
+      ['prepa','Pre-PA',0,function(m){return effStage(m,'prepa');}],
+      ['pa','Assessment',1,function(m){return effStage(m,'pa');}],
+      ['paDate','Survey date',0],['paRef','Assessment reference',0],
+      ['paQmsAssessor','QMS assessor',0],['paQmsResult','QMS result',0],
+      ['paTechAssessor','Technical assessor',0],['paTechResult','Technical result',0],
+      ['paResult','Assessment result',0],
+      ['iso','ISO',1,function(m){return (m.isoDate&&isExp(m.isoDate))?'Expired':(m.iso||'');}],
+      ['isoDate','ISO expiry',0],['qualDate','Qualified on',0],['notes','Notes',0]
+    ],
+    filters:[['cat','Category',['C0','C1','C2','C3']],['pqd','PQD status',['Pending','Submitted','Approved','Approved - A','Approved - B','Code C','Rejected']],['dis','Discipline',null]]},
+
+  materials:{label:'Material submittals',rows:function(){return matRecords();},
+    cols:[
+      ['name','Material',1],['aconex','Aconex reference',1],['desc','Description',0],
+      ['catSub','Category submitted',0],['catCor','Category',1,function(m){return m.catCor||m.catSub||'';}],
+      ['company','Submitted by',1],['mfr','Manufacturer',1],['mfrCountry','Country of manufacture',0],
+      ['date','Submitted',1],['mts','Submittal status',1],['insp','Inspection requirement',1],
+      ['tpia','Third-party inspection',0],['leed','LEED',0],['saso','SASO',0],
+      ['vendorPqd','Vendor PQD',0,function(m){return vendorOf(m.company).pqd||'';}],
+      ['vendorPa','Vendor assessment',0,function(m){return vendorOf(m.company).pa||'';}],
+      ['pidNo','Dossier no.',0,function(m){var d=dossiersFor(m)[0];return d?(d.no||''):'';}],
+      ['pidStatus','Dossier status',0,function(m){var d=dossiersFor(m)[0];return d?(d.status||''):'';}],
+      ['itpNo','ITP no.',0,function(m){var x=(DB.itp||[]).find(function(y){return y.mat===(m.aconex||m.name);});return x?(x.no||''):'';}],
+      ['itpStatus','ITP status',0,function(m){var x=(DB.itp||[]).find(function(y){return y.mat===(m.aconex||m.name);});return x?(x.status||''):'';}],
+      ['tpiAgency','TPI agency',0,function(m){var x=(DB.tpi||[]).find(function(y){return y.mat===(m.aconex||m.name);});return x?(x.agency||''):'';}],
+      ['tpiInspector','TPI inspector',0,function(m){var x=(DB.tpi||[]).find(function(y){return y.mat===(m.aconex||m.name);});return x?(x.inspector||''):'';}],
+      ['fatDate','FAT date',0,function(m){var f=(DB.fat||[]).find(function(y){return y.matRef===(m.aconex||m.name);});return f?(f.fatDate||''):'';}],
+      ['fatRemark','FAT status',0,function(m){var f=(DB.fat||[]).find(function(y){return y.matRef===(m.aconex||m.name);});return f?(f.remark||''):'';}],
+      ['items','Line items',0,function(m){return (m.items||[]).length||'';}],
+      ['notes','Notes',0]
+    ],
+    filters:[['catCor','Category',['C0','C1','C2','C3']],['mts','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']],['insp','Inspection',['None','Inspection on delivery','Final inspection','FAT','FAT and final inspection']]]},
+
+  dossiers:{label:'Pre-inspection dossiers',rows:function(){return (DB.dossiers||[]).slice();},
+    cols:[['no','Dossier no.',1],['title','Title',1],['ref','Aconex reference',1],['vendor','Vendor',1],
+      ['date','Submitted',1],['status','Status',1],['fabStart','Fabrication start',0],
+      ['mats','Materials',1,function(d){return pidMatsOf(d).map(function(r){return refLabelFor(r).name;}).join('; ');}],
+      ['meeting','Meeting',0,function(d){var p=meetingsFor(d)[0];return p?(p.status||''):'';}],
+      ['notes','Notes',0]],
+    filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
+
+  postdoss:{label:'Post-inspection dossiers',rows:function(){return (DB.postdoss||[]).slice();},
+    cols:[['no','Dossier no.',1],['title','Title',1],['ref','Aconex reference',1],['vendor','Vendor',1],
+      ['last','Last quantity accepted',1],['due','Due',1,function(d){return postDue(d)||'';}],
+      ['date','Submitted',1],['status','Status',1],
+      ['mats','Materials',0,function(d){return (d.mats||[]).map(function(r){return refLabelFor(r).name;}).join('; ');}],
+      ['narrative','Narrative',0],['reports','Inspection reports',0],['records','Supplier records',0],
+      ['ncr','NCRs',0],['release','Shipping release',0],['punch','Punch items',0],['notes','Notes',0]],
+    filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
+
+  tpi:{label:'TPI assignments',rows:function(){return (DB.tpi||[]).slice();},
+    cols:[['ref','Aconex reference',1],['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
+      ['agency','Agency',1],['inspector','Inspector',1],['scope','Scope',1],['date','Assigned',1],
+      ['status','Status',1],['notes','Notes',0]],
+    filters:[['status','Status',['Pending','Submitted','Approved','Rejected']]]},
+
+  meetings:{label:'Pre-fabrication meetings',rows:function(){return (DB.pfm||[]).slice();},
+    cols:[['no','Meeting no.',1],['subject','Subject',1],['vendor','Vendor',1],['date','Date',1],
+      ['status','Status',1],['loc','Location',0],['mom','Minutes',1],['mom-ref','Minutes reference',0],
+      ['ref','Aconex reference',0],['attend','Attendees',0],
+      ['dossier','Dossier',0,function(m){return dossierLabel(m.dossier);}],['notes','Notes',0]],
+    filters:[['status','Status',['Not Scheduled','Scheduled','Done','N/A']]]},
+
+  itp:{label:'ITP and FAT procedures',rows:function(){return (DB.itp||[]).slice();},
+    cols:[['no','ITP no.',1],['title','Title',1],['rev','Revision',1],
+      ['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
+      ['vendor','Vendor',1],['type','Type',1],['date','Submitted',1],['status','Status',1],
+      ['points','Hold and witness points',0],['ref','Aconex reference',0],['notes','Notes',0]],
+    filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']],['type','Type',['ITP','FAT procedure','ITP and FAT procedure']]]},
+
+  fat:{label:'FAT and final inspection',rows:function(){return (DB.fat||[]).slice();},
+    cols:[['material','Material',1],['mfr','Manufacturer',1],['cat','Category',1],['loc','Location',1],
+      ['addr','Address',0],['tpia','TPIA agency',1],['inspector','Inspector',1],['approval','TPIA approval',0],
+      ['prefab','Pre-fabrication',1],['fab','Fabrication',1],['fatDate','FAT date',1],['delivery','First delivery',1],
+      ['remark','Remark',1],['matRef','Submittal reference',0],
+      ['attSeven','SEVEN attendees',0],['attSapl','SAPL attendees',0],['attDah','DAH attendees',0]],
+    filters:[['remark','Remark',['FAT done','Final inspection done','Re-FAT is required','Pending']],['cat','Category',['C1','C2','C3']]]},
+
+  mir:{label:'Material inspection requests',rows:function(){return (DB.mir||[]).slice();},
+    cols:[['num','MIR no.',1],['name','Material',1],['aconex','Aconex reference',1],['date','Date',1],
+      ['cat','Category',1],['company','Company',1],['status','Status',1],
+      ['submittals','Linked submittals',1,function(m){return mirRefsOf(m).map(function(r){return refLabelFor(r).name;}).join('; ');}],
+      ['leed','LEED',0],['saso','SASO',0],
+      ['irnNo','Release note',0,function(m){var r=(DB.irn||[]).find(function(x){return String(x.mir)===String(m.id);});return r?(r.no||''):'';}],
+      ['irnStatus','Release status',0,function(m){var r=(DB.irn||[]).find(function(x){return String(x.mir)===String(m.id);});return r?(r.status||''):'';}],
+      ['notes','Notes',0]],
+    filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']],['cat','Category',['C0','C1','C2','C3']]]},
+
+  irn:{label:'Inspection release notes',rows:function(){return (DB.irn||[]).slice();},
+    cols:[['no','IRN no.',1],['material','Material',1],['date','Issued',1],['status','Status',1],
+      ['sent','Copy to employer',1],['sent-date','Sent on',0],['ref','Aconex reference',0],
+      ['mir','Inspection request',1,function(m){return mirLabel(m.mir);}],
+      ['exceptions','Exceptions',1],['notes','Notes',0]],
+    filters:[['status','Status',['Pending','Issued','Approved','Rejected']],['sent','Copy to employer',['Pending','Sent','N/A']]]},
+
+  inspectors:{label:'Approved inspectors',rows:function(){return (DB.inspectors||[]).slice();},
+    cols:[['name','Inspector',1],['agency','Agency',1],['disc','Discipline',1],['cert','Certificate',1],
+      ['certExp','Certificate expiry',1],['status','Status',1],['ref','Aconex reference',0],
+      ['phone','Phone',0],['email','Email',0],
+      ['assignments','Assignments',0,function(m){return inspAssignments(m.name)||'';}],['notes','Notes',0]],
+    filters:[['status','Status',['Approved','Pending','Suspended']]]},
+
+  trace:{label:'Traceability — every step',rows:function(){return matRecords().map(traceRow);},
+    cols:(function(){
+      var c=[['name','Material',1,function(r){return r.m.name;}],
+             ['cat','Category',1,function(r){return r.m.catCor||r.m.catSub||'';}],
+             ['company','Company',1,function(r){return r.m.company||'';}]];
+      [['pqd','Pre-qualification'],['pa','Assessment'],['mat','Submittal'],['pid','Dossier'],
+       ['tpi','TPI'],['pfm','Meeting'],['itp','ITP'],['fat','FAT'],['mir','MIR'],['irn','IRN'],['post','Post-inspection']]
+      .forEach(function(st){
+        c.push([st[0],st[1],1,function(r){var x=r[st[0]];return x?(x.v||(x.need?'Missing':'')):'';}]);
+      });
+      c.push(['gaps','Gaps',1,function(r){return traceGapCount(r);}]);
+      return c;
+    })(),
+    filters:[]}
+};
+var RB_SRC='materials', RB_PICK={}, RB_FILT={};
+function rbPrefKey(){return 'pqcs-rb-'+RB_SRC;}
+function rbDefaults(){
+  var saved=null;
+  try{saved=JSON.parse(localStorage.getItem(rbPrefKey())||'null');}catch(e){}
+  if(saved&&saved.length)return saved;
+  return RB_SOURCES[RB_SRC].cols.filter(function(c){return c[2];}).map(function(c){return c[0];});
+}
+window.openRB=function(){RB_FILT={};rbRender();document.getElementById('ov-rb').classList.add('on');};
+window.closeRB=function(){document.getElementById('ov-rb').classList.remove('on');};
+document.getElementById('ov-rb').addEventListener('click',function(e){if(e.target===this)closeRB();});
+window.rbSource=function(k){RB_SRC=k;RB_FILT={};rbRender();};
+function rbRender(){
+  document.getElementById('rb-sources').innerHTML=Object.keys(RB_SOURCES).map(function(k){
+    var n=RB_SOURCES[k].rows().length;
+    return '<button class="chip'+(RB_SRC===k?' on':'')+'" onclick="rbSource(\''+k+'\')">'+RB_SOURCES[k].label
+      +'<span class="chip-n">'+n+'</span></button>';
+  }).join('');
+  RB_PICK=RB_PICK[RB_SRC]?RB_PICK:{};
+  var chosen=RB_PICK[RB_SRC]||rbDefaults();
+  RB_PICK[RB_SRC]=chosen;
+  document.getElementById('rb-cols').innerHTML=RB_SOURCES[RB_SRC].cols.map(function(c){
+    var on=chosen.indexOf(c[0])>=0;
+    return '<div class="colopt'+(on?' on':'')+'" data-c="'+c[0]+'" onclick="rbToggle(this)" style="padding:7px 9px">'
+      +'<span class="box"></span>'+c[1]+'</div>';
+  }).join('');
+  var fs=RB_SOURCES[RB_SRC].filters||[];
+  document.getElementById('rb-filters').innerHTML=fs.length
+    ? fs.map(function(f){
+        var vals=f[2];
+        if(!vals){
+          var seen={};RB_SOURCES[RB_SRC].rows().forEach(function(r){var v=r[f[0]];if(v)seen[v]=1;});
+          vals=Object.keys(seen).sort();
+        }
+        return '<div><label class="fl">'+f[1]+'</label><select class="fs" onchange="rbFilter(\''+f[0]+'\',this.value)">'
+          +'<option value="">All</option>'+vals.map(function(v){
+            return '<option'+(RB_FILT[f[0]]===v?' selected':'')+'>'+v+'</option>';}).join('')+'</select></div>';
+      }).join('')
+    : '<div class="fg-f"><span class="dim" style="font-size:11.5px">No filters for this source.</span></div>';
+  rbCount();
+}
+window.rbToggle=function(el){
+  el.classList.toggle('on');
+  RB_PICK[RB_SRC]=[].slice.call(document.querySelectorAll('#rb-cols .colopt.on')).map(function(x){return x.dataset.c;});
+  rbCount();
+};
+window.rbAll=function(on){
+  document.querySelectorAll('#rb-cols .colopt').forEach(function(el){el.classList.toggle('on',on);});
+  RB_PICK[RB_SRC]=on?RB_SOURCES[RB_SRC].cols.map(function(c){return c[0];}):[];
+  rbCount();
+};
+window.rbFilter=function(k,v){if(v)RB_FILT[k]=v;else delete RB_FILT[k];rbCount();};
+window.rbReset=function(){try{localStorage.removeItem(rbPrefKey());}catch(e){}delete RB_PICK[RB_SRC];RB_FILT={};rbRender();};
+function rbRows(){
+  var src=RB_SOURCES[RB_SRC];
+  return src.rows().filter(function(r){
+    for(var k in RB_FILT){
+      var v=(RB_SRC==='materials'&&k==='catCor')?(r.catCor||r.catSub):r[k];
+      if(String(v||'')!==RB_FILT[k])return false;
+    }
+    return true;
+  });
+}
+function rbCols(){
+  var chosen=RB_PICK[RB_SRC]||[];
+  return RB_SOURCES[RB_SRC].cols.filter(function(c){return chosen.indexOf(c[0])>=0;});
+}
+function rbValue(c,r){return c[3]?c[3](r):(r[c[0]]==null?'':r[c[0]]);}
+function rbCount(){
+  var e=document.getElementById('rb-count');
+  if(e)e.textContent=rbRows().length+' rows · '+rbCols().length+' columns';
+}
+window.runRB=function(mode){
+  var cols=rbCols(), rows=rbRows();
+  if(!cols.length)return alert('Choose at least one column');
+  if(!rows.length)return alert('Nothing matches these filters');
+  try{localStorage.setItem(rbPrefKey(),JSON.stringify(RB_PICK[RB_SRC]));}catch(e){}
+  if(mode==='preview'){
+    var t='<table><thead><tr>'+cols.map(function(c){return '<th>'+c[1]+'</th>';}).join('')+'</tr></thead><tbody>'
+      +rows.map(function(r){return '<tr>'+cols.map(function(c){
+          return '<td style="text-align:left">'+String(rbValue(c,r)||'')+'</td>';}).join('')+'</tr>';}).join('')
+      +'</tbody></table>';
+    document.getElementById('rpt-out').innerHTML='<div class="panel" style="margin:0"><div class="panel-h">'
+      +RB_SOURCES[RB_SRC].label+'</div><div class="panel-b">'
+      +'<div class="dim" style="margin-bottom:12px">'+(document.getElementById('proj-name').textContent||'')
+      +' · '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})
+      +' · '+rows.length+' rows</div><div style="overflow-x:auto">'+t+'</div></div></div>';
+    closeRB();toast('Report ready');
+    return;
+  }
+  if(!(window.fflate&&fflate.zipSync))return alert('The export library is still loading. Try again in a moment.');
+  var esc=function(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+  var fills='<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+    +'<fill><patternFill patternType="solid"><fgColor rgb="FF156082"/><bgColor indexed="64"/></patternFill></fill>';
+  var fonts='<font><sz val="11"/><name val="Calibri"/></font>'
+    +'<font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font>'
+    +'<font><sz val="16"/><b/><name val="Calibri"/></font>';
+  var xfs=['<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>',
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>',
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'];
+  var styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +'<fonts count="3">'+fonts+'</fonts><fills count="3">'+fills+'</fills>'
+    +'<borders count="2"><border/><border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom></border></borders>'
+    +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    +'<cellXfs count="'+xfs.length+'">'+xfs.join('')+'</cellXfs></styleSheet>';
+  var cn=function(n){var t='';n++;while(n>0){var m2=(n-1)%26;t=String.fromCharCode(65+m2)+t;n=Math.floor((n-1)/26);}return t;};
+  var cx=function(rn,ci,v,st){return '<c r="'+cn(ci)+rn+'" t="inlineStr" s="'+st+'"><is><t xml:space="preserve">'+esc(v)+'</t></is></c>';};
+  var title=RB_SOURCES[RB_SRC].label+' — '+(document.getElementById('proj-name').textContent||'');
+  var sd='<row r="1" ht="24" customHeight="1">'+cx(1,0,title,2)+'</row><row r="2"></row>';
+  var hr='<row r="3" ht="28" customHeight="1">';
+  cols.forEach(function(c,i){hr+=cx(3,i,c[1],1);});
+  sd+=hr+'</row>';
+  rows.forEach(function(r,i){
+    var rn=4+i,rr='<row r="'+rn+'" ht="20" customHeight="1">';
+    cols.forEach(function(c,ci){rr+=cx(rn,ci,rbValue(c,r),0);});
+    sd+=rr+'</row>';
+  });
+  var colXml='<cols>'+cols.map(function(c,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+(i===0?34:20)+'"/>';}).join('')+'</cols>';
+  var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +colXml+'<sheetData>'+sd+'</sheetData><mergeCells count="1"><mergeCell ref="A1:'+cn(Math.max(cols.length-1,0))+'1"/></mergeCells></worksheet>';
+  var d=new Date(), st2=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+  writeXlsx(RB_SOURCES[RB_SRC].label.slice(0,28),styles,sheet,RB_SRC+'_'+st2+'.xlsx');
+  closeRB();toast('Report exported');
 };
 
 window.exportDB=function(){
