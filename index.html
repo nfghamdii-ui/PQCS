@@ -5219,6 +5219,34 @@ window.runCMT=function(){
    its dossier's number without either being copied anywhere.
    ================================================================ */
 function vendorOf(name){return (DB.pqd||[]).find(function(v){return v.name===name;})||{};}
+/* Columns can reach across registers, so each one says where it came
+   from. The export groups them under a merged band so a reader can see
+   at a glance which section every block of columns belongs to. */
+var RB_GROUP={
+  vendors:'VENDOR', materials:'MATERIAL SUBMITTAL', dossiers:'PRE-INSPECTION DOSSIER',
+  postdoss:'POST-INSPECTION DOSSIER', tpi:'TPI ASSIGNMENT', meetings:'PRE-FABRICATION MEETING',
+  itp:'ITP / FAT PROCEDURE', fat:'FAT / FINAL INSPECTION', mir:'INSPECTION REQUEST',
+  irn:'RELEASE NOTE', inspectors:'INSPECTOR', trace:'TRACEABILITY', assessment:'PHYSICAL ASSESSMENT'
+};
+var RB_COL_GROUP={
+  vendors:{name:'vendors',aconex:'vendors',cat:'vendors',dis:'vendors',origin:'vendors',loc:'vendors',
+    type:'vendors',scope:'vendors',subco:'vendors',date:'vendors',pqd:'vendors',avl:'vendors',iso:'vendors',
+    isoDate:'vendors',qualDate:'vendors',notes:'vendors',
+    prepa:'assessment',pa:'assessment',paDate:'assessment',paRef:'assessment',paQmsAssessor:'assessment',
+    paQmsResult:'assessment',paTechAssessor:'assessment',paTechResult:'assessment',paResult:'assessment'},
+  materials:{vendorPqd:'vendors',vendorPa:'assessment',
+    pidNo:'dossiers',pidStatus:'dossiers',itpNo:'itp',itpStatus:'itp',
+    tpiAgency:'tpi',tpiInspector:'tpi',fatDate:'fat',fatRemark:'fat'},
+  mir:{irnNo:'irn',irnStatus:'irn'},
+  dossiers:{meeting:'meetings'},
+  trace:{name:'materials',cat:'materials',company:'materials',
+    pqd:'vendors',pa:'assessment',mat:'materials',pid:'dossiers',tpi:'tpi',pfm:'meetings',
+    itp:'itp',fat:'fat',mir:'mir',irn:'irn',post:'postdoss',gaps:'trace'}
+};
+function rbGroupOf(colKey){
+  var map=RB_COL_GROUP[RB_SRC]||{};
+  return RB_GROUP[map[colKey]||RB_SRC]||'';
+}
 var RB_SOURCES={
   vendors:{label:'Vendors',rows:function(){return (DB.pqd||[]).filter(function(v){return v.engage!=='Discontinued';});},
     cols:[
@@ -5421,7 +5449,14 @@ window.runRB=function(mode){
   if(!rows.length)return alert('Nothing matches these filters');
   try{localStorage.setItem(rbPrefKey(),JSON.stringify(RB_PICK[RB_SRC]));}catch(e){}
   if(mode==='preview'){
-    var t='<table><thead><tr>'+cols.map(function(c){return '<th>'+c[1]+'</th>';}).join('')+'</tr></thead><tbody>'
+    var pb=[],pc=null;
+    cols.forEach(function(c,i){
+      var g=rbGroupOf(c[0]);
+      if(pc&&pc.g===g)pc.n++;else{pc={g:g,n:1};pb.push(pc);}
+    });
+    var t='<table><thead><tr>'
+      +pb.map(function(b){return '<th colspan="'+b.n+'" style="background:var(--sf-2);color:var(--t-2)">'+b.g+'</th>';}).join('')
+      +'</tr><tr>'+cols.map(function(c){return '<th>'+c[1]+'</th>';}).join('')+'</tr></thead><tbody>'
       +rows.map(function(r){return '<tr>'+cols.map(function(c){
           return '<td style="text-align:left">'+String(rbValue(c,r)||'')+'</td>';}).join('')+'</tr>';}).join('')
       +'</tbody></table>';
@@ -5436,15 +5471,18 @@ window.runRB=function(mode){
   if(!(window.fflate&&fflate.zipSync))return alert('The export library is still loading. Try again in a moment.');
   var esc=function(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
   var fills='<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
-    +'<fill><patternFill patternType="solid"><fgColor rgb="FF156082"/><bgColor indexed="64"/></patternFill></fill>';
+    +'<fill><patternFill patternType="solid"><fgColor rgb="FF156082"/><bgColor indexed="64"/></patternFill></fill>'
+    +'<fill><patternFill patternType="solid"><fgColor rgb="FF0C3D52"/><bgColor indexed="64"/></patternFill></fill>';
   var fonts='<font><sz val="11"/><name val="Calibri"/></font>'
     +'<font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font>'
-    +'<font><sz val="16"/><b/><name val="Calibri"/></font>';
+    +'<font><sz val="16"/><b/><name val="Calibri"/></font>'
+    +'<font><b/><color rgb="FFFFFFFF"/><sz val="10"/><name val="Calibri"/></font>';
   var xfs=['<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>',
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>',
-    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'];
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>',
+    '<xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'];
   var styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    +'<fonts count="3">'+fonts+'</fonts><fills count="3">'+fills+'</fills>'
+    +'<fonts count="4">'+fonts+'</fonts><fills count="4">'+fills+'</fills>'
     +'<borders count="2"><border/><border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom></border></borders>'
     +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
     +'<cellXfs count="'+xfs.length+'">'+xfs.join('')+'</cellXfs></styleSheet>';
@@ -5452,11 +5490,26 @@ window.runRB=function(mode){
   var cx=function(rn,ci,v,st){return '<c r="'+cn(ci)+rn+'" t="inlineStr" s="'+st+'"><is><t xml:space="preserve">'+esc(v)+'</t></is></c>';};
   var title=RB_SOURCES[RB_SRC].label+' — '+(document.getElementById('proj-name').textContent||'');
   var sd='<row r="1" ht="24" customHeight="1">'+cx(1,0,title,2)+'</row><row r="2"></row>';
-  var hr='<row r="3" ht="28" customHeight="1">';
-  cols.forEach(function(c,i){hr+=cx(3,i,c[1],1);});
+
+  /* band of merged cells naming the register behind each block */
+  var bands=[],cur=null;
+  cols.forEach(function(c,i){
+    var g=rbGroupOf(c[0]);
+    if(cur&&cur.g===g)cur.to=i;
+    else{cur={g:g,from:i,to:i};bands.push(cur);}
+  });
+  var br='<row r="3" ht="22" customHeight="1">';
+  bands.forEach(function(b){
+    br+=cx(3,b.from,b.g,3);
+    for(var k=b.from+1;k<=b.to;k++)br+=cx(3,k,'',3);
+  });
+  sd+=br+'</row>';
+
+  var hr='<row r="4" ht="28" customHeight="1">';
+  cols.forEach(function(c,i){hr+=cx(4,i,c[1],1);});
   sd+=hr+'</row>';
   rows.forEach(function(r,i){
-    var rn=4+i,rr='<row r="'+rn+'">';
+    var rn=5+i,rr='<row r="'+rn+'">';
     cols.forEach(function(c,ci){rr+=cx(rn,ci,rbValue(c,r),0);});
     sd+=rr+'</row>';
   });
@@ -5471,10 +5524,16 @@ window.runRB=function(mode){
     var w=Math.min(Math.max(longest+3,11),60);
     return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'"/>';
   }).join('')+'</cols>';
+  var last=cn(Math.max(cols.length-1,0));
+  var merges=['<mergeCell ref="A1:'+last+'1"/>'];
+  bands.forEach(function(b){
+    if(b.to>b.from)merges.push('<mergeCell ref="'+cn(b.from)+'3:'+cn(b.to)+'3"/>');
+  });
   var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +'<sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
     +colXml+'<sheetData>'+sd+'</sheetData>'
-    +'<autoFilter ref="A3:'+cn(Math.max(cols.length-1,0))+(3+rows.length)+'"/>'
-    +'<mergeCells count="1"><mergeCell ref="A1:'+cn(Math.max(cols.length-1,0))+'1"/></mergeCells></worksheet>';
+    +'<autoFilter ref="A4:'+last+(4+rows.length)+'"/>'
+    +'<mergeCells count="'+merges.length+'">'+merges.join('')+'</mergeCells></worksheet>';
   var d=new Date(), st2=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
   writeXlsx(RB_SOURCES[RB_SRC].label.slice(0,28),styles,sheet,RB_SRC+'_'+st2+'.xlsx');
   closeRB();toast('Report exported');
