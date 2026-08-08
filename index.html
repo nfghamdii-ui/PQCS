@@ -2672,9 +2672,9 @@ function ibs(editFn,delFn,id,rowid){
 /* ---------- submittals ---------- */
 function fillCo(){}
 window.showCoInfo=function(name){
-  var m=(DB.pqd||[]).find(function(x){return x.name===name;});
+  var m=vendorOf(name);
   var info=document.getElementById('co-info'),txt=document.getElementById('co-info-txt');
-  if(!m){info.style.display='none';return;}
+  if(!m||!m.name){info.style.display='none';return;}
   info.style.display='';
   txt.innerHTML=stamp(m.pqd||'Pending')+' &nbsp; '+stamp(m.pa||'Pending')+(m.cat?' &nbsp; <span class="ref">'+m.cat+'</span>':'');
 };
@@ -3094,7 +3094,7 @@ function mirPreview(){
       return '<div style="border:1px solid var(--act-l);background:var(--act-b);border-radius:var(--r);padding:9px 12px;font-size:11.5px;color:var(--act-t);margin-bottom:7px">'
         +'Reference '+ref+' is not on record as a submittal.</div>';
     }
-    var co=(DB.pqd||[]).find(function(v){return v.name===m.company;});
+    var co=vendorForMat(m);
     var f=function(l,v){return '<div><div class="dlbl">'+l+'</div><div class="dval" style="font-size:12px">'+(v||'—')+'</div></div>';};
     var fs=function(l,v){return '<div><div class="dlbl">'+l+'</div><div>'+stamp(v)+'</div></div>';};
     var items=(m.items||[]).length;
@@ -3106,7 +3106,7 @@ function mirPreview(){
       +'<div style="padding:11px 12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:11px 16px">'
         +f('SUBMITTED BY',m.company)
         +f('MANUFACTURER',m.mfr?(m.mfr+(m.mfrCountry?' · '+m.mfrCountry:'')):'')
-        +(co?fs('VENDOR PQD',co.pqd||'Pending'):'<div><div class="dlbl">VENDOR PQD</div><div class="dval" style="font-size:12px;color:var(--act-t)">not on record</div></div>')
+        +(co&&co.name?fs('VENDOR PQD',co.pqd||'Pending'):'<div><div class="dlbl">VENDOR PQD</div><div class="dval" style="font-size:12px;color:var(--act-t)">not on record</div></div>')
         +f('CATEGORY',(m.catCor||m.catSub))
         +f('SUBMITTED',m.date)
         +fs('LEED',m.leed||'N/A')
@@ -3787,7 +3787,7 @@ var TRACE_STEPS=[
 ];
 function traceRow(m){
   var ref=m.aconex||m.name;
-  var v=(DB.pqd||[]).find(function(x){return x.name===m.company;});
+  var v=vendorForMat(m);
   var ds=(DB.dossiers||[]).filter(function(d){return pidMatsOf(d).indexOf(ref)>=0;});
   var tp=(DB.tpi||[]).filter(function(x){return x.mat===ref;});
   var it=(DB.itp||[]).filter(function(x){return x.mat===ref;});
@@ -5125,7 +5125,7 @@ function cmtRows(){
     var c=(m.catCor||m.catSub);
     return c==='C2'||c==='C3';
   }).map(function(m){
-    var v=(DB.pqd||[]).find(function(x){return x.name===m.company;})||{};
+    var v=vendorForMat(m);
     var f=(DB.fat||[]).find(function(x){return x.matRef&&x.matRef===(m.aconex||m.name);})||{};
     var d0=dossiersFor(m)[0]||{};
     var p0=(d0.id?meetingsFor(d0)[0]:null)||{};
@@ -5218,7 +5218,31 @@ window.runCMT=function(){
    sections — a submittal row can carry its vendor's qualification and
    its dossier's number without either being copied anywhere.
    ================================================================ */
-function vendorOf(name){return (DB.pqd||[]).find(function(v){return v.name===name;})||{};}
+/* Vendor details are joined by name, and names are typed by hand, so an
+   exact match is too brittle — a trailing space or a different case
+   silently empties the column. The submittal also carries a
+   manufacturer, which is often the vendor on record when the company
+   field was left blank. */
+function nameKey(x){return String(x||'').toLowerCase().replace(/\s+/g,' ').replace(/[.,]/g,'').trim();}
+function vendorOf(name){
+  var k=nameKey(name);
+  if(!k)return {};
+  var v=(DB.pqd||[]).find(function(x){return nameKey(x.name)===k;});
+  if(v)return v;
+  if(k.length>=5){
+    v=(DB.pqd||[]).find(function(x){
+      var n=nameKey(x.name);
+      return n.length>=5&&(n.indexOf(k)>=0||k.indexOf(n)>=0);
+    });
+    if(v)return v;
+  }
+  return {};
+}
+function vendorForMat(m){
+  var v=vendorOf(m.company);
+  if(v.name)return v;
+  return vendorOf(m.mfr);
+}
 /* Columns can reach across registers, so each one says where it came
    from. The export groups them under a merged band so a reader can see
    at a glance which section every block of columns belongs to. */
@@ -5234,7 +5258,7 @@ var RB_COL_GROUP={
     isoDate:'vendors',qualDate:'vendors',notes:'vendors',
     prepa:'assessment',pa:'assessment',paDate:'assessment',paRef:'assessment',paQmsAssessor:'assessment',
     paQmsResult:'assessment',paTechAssessor:'assessment',paTechResult:'assessment',paResult:'assessment'},
-  materials:{vendorPqd:'vendors',vendorPa:'assessment',
+  materials:{vendorPqd:'vendors',vendorMatch:'vendors',vendorCat:'vendors',vendorIso:'vendors',vendorOrigin:'vendors',vendorPa:'assessment',
     pidNo:'dossiers',pidStatus:'dossiers',itpNo:'itp',itpStatus:'itp',
     tpiAgency:'tpi',tpiInspector:'tpi',fatDate:'fat',fatRemark:'fat'},
   mir:{irnNo:'irn',irnStatus:'irn'},
@@ -5272,8 +5296,12 @@ var RB_SOURCES={
       ['company','Submitted by',1],['mfr','Manufacturer',1],['mfrCountry','Country of manufacture',0],
       ['date','Submitted',1],['mts','Submittal status',1],['insp','Inspection requirement',1],
       ['tpia','Third-party inspection',0],['leed','LEED',0],['saso','SASO',0],
-      ['vendorPqd','Vendor PQD',0,function(m){return vendorOf(m.company).pqd||'';}],
-      ['vendorPa','Vendor assessment',0,function(m){return vendorOf(m.company).pa||'';}],
+      ['vendorPqd','Vendor PQD',0,function(m){return vendorForMat(m).pqd||'';}],
+      ['vendorPa','Vendor assessment',0,function(m){return vendorForMat(m).pa||'';}],
+      ['vendorMatch','Vendor record',0,function(m){var v=vendorForMat(m);return v.name||'not on record';}],
+      ['vendorCat','Vendor category',0,function(m){return vendorForMat(m).cat||'';}],
+      ['vendorIso','Vendor ISO',0,function(m){var v=vendorForMat(m);return v.name?((v.isoDate&&isExp(v.isoDate))?'Expired':(v.iso||'')):'';}],
+      ['vendorOrigin','Vendor origin',0,function(m){var v=vendorForMat(m);return v.name?(vendorOrigin(v)==='Unknown'?'':vendorOrigin(v)):'';}],
       ['pidNo','Dossier no.',0,function(m){var d=dossiersFor(m)[0];return d?(d.no||''):'';}],
       ['pidStatus','Dossier status',0,function(m){var d=dossiersFor(m)[0];return d?(d.status||''):'';}],
       ['itpNo','ITP no.',0,function(m){var x=(DB.itp||[]).find(function(y){return y.mat===(m.aconex||m.name);});return x?(x.no||''):'';}],
