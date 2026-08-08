@@ -759,19 +759,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    </div>
 
    <span class="m-sec">PHYSICAL ASSESSMENT</span>
-   <div class="fg">
-     <div><label class="fl">Pre-PA</label><select class="fs" id="f-prepa" onchange="markStageEdited('prepa')"><option>Pending</option><option>Done</option><option>N/A</option></select></div>
-     <div><label class="fl">PA status</label><select class="fs" id="f-pa" onchange="markStageEdited('pa')"><option>Pending</option><option>Scheduled</option><option>Done</option><option>Waived</option><option>N/A</option></select></div>
-     <div><label class="fl">Survey date</label><input class="fi" type="date" id="f-pa-date"></div>
-     <div><label class="fl">PA reference document no.</label><input class="fi" id="f-pa-ref"></div>
-     <div><label class="fl">QMS report</label><select class="fs" id="f-pa-qms"><option>Pending</option><option>Submitted</option><option>Approved</option><option>N/A</option></select></div>
-     <div><label class="fl">Technical report</label><select class="fs" id="f-pa-tech"><option>Pending</option><option>Submitted</option><option>Approved</option><option>N/A</option></select></div>
-     <div><label class="fl">Technical assessor</label><input class="fi" id="f-pa-tech-assessor"></div>
-     <div><label class="fl">QMS assessor</label><input class="fi" id="f-pa-qms-assessor"></div>
-     <div><label class="fl">Technical result</label><select class="fs" id="f-pa-tech-result"><option value="">—</option><option>Pass</option><option>Failed</option><option>Under process</option></select></div>
-     <div><label class="fl">QMS result</label><select class="fs" id="f-pa-qms-result"><option value="">—</option><option>Pass</option><option>Failed</option><option>Under process</option></select></div>
-     <div><label class="fl">Overall PA result</label><select class="fs" id="f-pa-result"><option value="">—</option><option>Pass</option><option>Failed</option><option>Under process</option></select></div>
-   </div>
+   <div class="fg"><div class="fg-f"><div class="hint" id="f-pa-link"></div></div></div>
 
    <span class="m-sec">ISO CERTIFICATION</span>
    <div class="fg">
@@ -779,16 +767,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div><label class="fl">ISO expiry date</label><input class="fi" type="date" id="f-iso-date"></div>
    </div>
 
-   <span class="m-sec">DOSSIER AND MEETING <span style="color:var(--t-3);letter-spacing:0;text-transform:none;font-family:var(--sans);font-size:11px">— a dossier is raised per material, so record it on the submittal; these fields are kept for older records</span></span>
-   <div class="fg">
-     <div><label class="fl">PID status</label><select class="fs" id="f-pid" onchange="markStageEdited('pid')"><option>N/A</option><option>Pending</option><option>Submitted</option><option>Approved</option></select></div>
-     <div><label class="fl">PID date</label><input class="fi" type="date" id="f-pid-date"></div>
-     <div class="fg-f"><label class="fl">PID reference number</label><input class="fi" id="f-pid-ref" placeholder="Document number of the pre-inspection dossier"></div>
-     <div><label class="fl">Pre-inspection meeting</label><select class="fs" id="f-pim" onchange="markStageEdited('pim')"><option>N/A</option><option>Not Scheduled</option><option>Scheduled</option><option>Done</option></select></div>
-     <div><label class="fl">Meeting date</label><input class="fi" type="date" id="f-pim-date"></div>
-     <div class="fg-f"><label class="fl">Pre-fabrication meeting reference number</label><input class="fi" id="f-pim-ref" placeholder="Document number of the meeting or its minutes"></div>
-     <div><label class="fl">Minutes of meeting</label><select class="fs" id="f-mom" onchange="markStageEdited('mom')"><option>N/A</option><option>Pending</option><option>Submitted</option><option>Approved</option></select></div>
-   </div>
+   <span class="m-sec">PRE-INSPECTION DOSSIER</span>
+   <div class="fg"><div class="fg-f"><div class="hint" id="f-pid-link"></div></div></div>
 
    <span class="m-sec">POST-INSPECTION</span>
    <div class="fg">
@@ -904,15 +884,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    </div>
 
    <span class="m-sec">INSPECTION RELEASE NOTE</span>
-   <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
-     <input type="checkbox" id="irn-attached" onchange="toggleIRNDetails()" style="width:15px;height:15px;accent-color:var(--t-2);cursor:pointer">
-     <label for="irn-attached" style="font-size:12.5px;cursor:pointer">IRN attached or issued</label>
-   </div>
-   <div id="irn-details" style="display:none"><div class="fg">
-     <div><label class="fl">IRN number</label><input class="fi" id="irn-num" placeholder="IRN-001"></div>
-     <div><label class="fl">IRN date</label><input class="fi" type="date" id="irn-date"></div>
-     <div class="fg-f"><label class="fl">IRN status</label><select class="fs" id="irn-st"><option>N/A</option><option>Pending</option><option>Issued</option><option>Approved</option><option>Rejected</option></select></div>
-   </div></div>
+   <div class="fg"><div class="fg-f"><div class="hint" id="mir-irn-link"></div></div></div>
+
    <div class="fg" style="margin-top:13px"><div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="mir-notes" rows="2"></textarea></div></div>
   </div>
   <div class="m-foot"><button class="btn" onclick="closeMIR()">Cancel</button><button class="btn btn-p" id="mir-save-btn" onclick="saveMIR()">Save inspection</button></div>
@@ -1053,14 +1026,9 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div id="d-mat-chips" style="margin-top:9px"></div>
    </div></div>
 
-   <span class="m-sec">PRE-FABRICATION MEETING — its own record</span>
+   <span class="m-sec">MEETING</span>
    <div class="fg">
-     <div><label class="fl">Meeting status</label><select class="fs" id="d-pim"><option>N/A</option><option>Not Scheduled</option><option>Scheduled</option><option>Done</option></select></div>
-     <div><label class="fl">Meeting date</label><input class="fi" type="date" id="d-pim-date"></div>
-     <div class="fg-f"><label class="fl">Meeting file reference</label><input class="fi" id="d-pim-ref" placeholder="Reference of the meeting file"></div>
-     <div><label class="fl">Minutes status</label><select class="fs" id="d-mom"><option>N/A</option><option>Pending</option><option>Submitted</option><option>Approved</option></select></div>
-     <div><label class="fl">Minutes reference</label><input class="fi" id="d-mom-ref"></div>
-     <div class="fg-f"><label class="fl">Attendees</label><input class="fi" id="d-attend" placeholder="Who attended from SEVEN, PMC, the contractor and the vendor"></div>
+     <div class="fg-f"><div class="hint" id="d-pfm-link"></div></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="d-notes" rows="2"></textarea></div>
    </div>
   </div>
@@ -1517,7 +1485,7 @@ function preC(m){return stamp(preNorm(m));}
      cleared   nothing outstanding
    Rejected records are not work in progress. They sit in their own
    filter so the action list reflects what you can actually move today. */
-var ACTION_STAGES=['prepa','pa','pid','pim','mom','post'];
+var ACTION_STAGES=['prepa','pa','post'];
 
 /* A physical assessment applies to categories 2 and 3 only. Anything
    below that is not pending — it is simply out of scope, and counting
@@ -1594,9 +1562,6 @@ function buildTools(page){
     h+='<div class="colwrap"><button class="btn" onclick="toggleCols(event)">Columns</button><div class="colmenu" id="colmenu" onclick="event.stopPropagation()">'
       +'<div class="colmenu-h">STATUS COLUMNS</div>'
       +'<div class="colopt" data-c="prepa" onclick="togCol(this)"><span class="box"></span>Pre-PA</div>'
-      +'<div class="colopt" data-c="pid" onclick="togCol(this)"><span class="box"></span>Dossier</div>'
-      +'<div class="colopt" data-c="pim" onclick="togCol(this)"><span class="box"></span>Meeting</div>'
-      +'<div class="colopt" data-c="mom" onclick="togCol(this)"><span class="box"></span>Minutes</div>'
       +'<div class="colopt" data-c="post" onclick="togCol(this)"><span class="box"></span>Post-inspection</div>'
       +'<div class="colmenu-h" style="padding-top:9px">DETAIL COLUMNS</div>'
       +'<div class="colopt" data-c="aconex" onclick="togCol(this)"><span class="box"></span>Aconex reference</div>'
@@ -1817,12 +1782,12 @@ function findAll(q){
   });
 
   (DB.mir||[]).forEach(function(m){
-    var hay=findHay([m.name,m.num,m.aconex,m.company,m.irnNum,m.notes].concat(mirRefsOf(m)));
+    var hay=findHay([m.name,m.num,m.aconex,m.company,m.notes].concat(mirRefsOf(m)));
     if(!findMatches(hay,terms))return;
     out.push({group:'Inspection requests',title:m.name,ref:m.num,
       meta:[m.cat,m.company,m.date].filter(Boolean).join(' · '),
       sub:mirRefsOf(m).length?('Linked: '+mirRefsOf(m).join(', ')):'',
-      stamps:[m.status||'Pending',m.irnStatus||'N/A'],
+      stamps:[m.status||'Pending'],
       go:"goTo('mir');setTimeout(function(){editMIR("+m.id+")},120)"});
   });
 
@@ -1848,12 +1813,12 @@ function findAll(q){
   });
 
   (DB.dossiers||[]).forEach(function(d){
-    var hay=findHay([d.no,d.title,d.ref,d.vendor,d.pimRef,d.momRef,d.attend,d.notes].concat(pidMatsOf(d)));
+    var hay=findHay([d.no,d.title,d.ref,d.vendor,d.notes].concat(pidMatsOf(d)));
     if(!findMatches(hay,terms))return;
     out.push({group:'Dossiers',title:(d.no?'No. '+d.no+' — ':'')+(d.title||'Dossier'),ref:d.ref,
       meta:[d.vendor,d.date,pidMatsOf(d).length?(pidMatsOf(d).length+' material'+(pidMatsOf(d).length===1?'':'s')):''].filter(Boolean).join(' \u00b7 '),
-      sub:d.pimDate?('Meeting '+(d.pim||'').toLowerCase()+' · '+d.pimDate):'',
-      stamps:[d.status||'Pending',d.pim||'N/A'],
+      sub:(function(){var p=meetingsFor(d)[0];return p?('Meeting '+(p.status||'').toLowerCase()+(p.date?' · '+p.date:'')):'';})(),
+      stamps:[d.status||'Pending'],
       go:"goTo('pid');setTimeout(function(){editPID("+d.id+")},120)"});
   });
 
@@ -1945,10 +1910,29 @@ function alertsFor(){
       if(pre==='Pending'&&m.pa!=='Done'&&m.pa!=='Waived'){out.push({p:45,t:'act',s:'Pre-PA pending',n:m.name,d:'Survey and reports needed before assessment',c:m,date:m.paDate});return;}
       if(m.pa&&m.pa!=='Done'&&m.pa!=='Waived'&&m.pa!=='N/A'){out.push({p:42,t:'act',s:'Survey '+(m.pa==='Scheduled'?'scheduled':'pending'),n:m.name,d:m.paDate?('Scheduled '+m.paDate):'Not yet scheduled',c:m,date:m.paDate});return;}
     }
-    if((m.cat==='C2'||m.cat==='C3')&&(!m.pid||m.pid==='Pending'||m.pid==='N/A')){out.push({p:38,t:'act',s:'Dossier due',n:m.name,d:'Pre-inspection dossier required',c:m,date:m.pidDate});return;}
-    if((m.cat==='C2'||m.cat==='C3')&&m.pim&&m.pim!=='Done'&&m.pim!=='N/A'){out.push({p:34,t:'act',s:'Meeting due',n:m.name,d:'Pre-inspection meeting '+(m.pim||'').toLowerCase(),c:m,date:m.pimDate});return;}
-    if((m.cat==='C2'||m.cat==='C3')&&m.pim==='Done'&&(!m.mom||m.mom==='Pending')){out.push({p:30,t:'act',s:'Minutes due',n:m.name,d:'Submit minutes of meeting',c:m,date:m.pimDate});return;}
     if(m.post==='Pending'){out.push({p:26,t:'act',s:'Post dossier',n:m.name,d:'Post-inspection dossier pending',c:m,date:m.postDate});return;}
+  });
+  /* dossiers, meetings and release notes are chased from their own
+     registers rather than from a copy held on the vendor */
+  (DB.dossiers||[]).forEach(function(d){
+    var st=d.status||'Pending';
+    if(st!=='Approved'&&st!=='Approved with Comments')
+      out.push({p:38,t:(st==='Rejected'?'bad':'act'),s:st,n:(d.no?'Dossier No. '+d.no:'Dossier'),d:d.title||d.vendor||'',c:null,date:d.date,go:"goTo('pid');setTimeout(function(){editPID("+d.id+")},120)"});
+  });
+  (DB.pfm||[]).forEach(function(p){
+    if(p.status&&p.status!=='Done'&&p.status!=='N/A')
+      out.push({p:34,t:'act',s:p.status,n:(p.no?'Meeting No. '+p.no:'Meeting'),d:p.subject||p.vendor||'',c:null,date:p.date,go:"goTo('pfm');setTimeout(function(){editPFM("+p.id+")},120)"});
+    else if(p.status==='Done'&&p.mom&&p.mom!=='N/A'&&p.mom!=='Approved')
+      out.push({p:30,t:'act',s:'Minutes '+p.mom.toLowerCase(),n:(p.no?'Meeting No. '+p.no:'Meeting'),d:'Minutes outstanding',c:null,date:p.date,go:"goTo('pfm');setTimeout(function(){editPFM("+p.id+")},120)"});
+  });
+  (DB.itp||[]).forEach(function(x){
+    var st=x.status||'Pending';
+    if(st!=='Approved'&&st!=='Approved with Comments')
+      out.push({p:32,t:(st==='Rejected'?'bad':'act'),s:st,n:(x.no?'ITP '+x.no:'ITP'),d:x.title||'',c:null,date:x.date,go:"goTo('itp');setTimeout(function(){editITP("+x.id+")},120)"});
+  });
+  (DB.irn||[]).forEach(function(r){
+    var late=(r.date&&r.sent!=='Sent'&&r.sent!=='N/A'&&(Date.now()-new Date(r.date).getTime())>48*3600*1000);
+    if(late)out.push({p:44,t:'act',s:'Copy overdue',n:(r.no?'Release note '+r.no:'Release note'),d:'Employer copy due within forty-eight hours',c:null,date:r.date,go:"goTo('irn');setTimeout(function(){editIRN("+r.id+")},120)"});
   });
   out.sort(function(a,b){return b.p-a.p;});
   return out;
@@ -1981,10 +1965,11 @@ function renderDash(){
   }else{
     box.innerHTML=al.slice(0,9).map(function(a){
       var age=daysSince(a.date);
-      return '<div class="row" onclick="goTo(\'pqd\');setTimeout(function(){edit('+a.c.id+')},120)">'
+      var act2=a.go||("goTo('pqd');setTimeout(function(){edit("+(a.c?a.c.id:0)+")},120)");
+      return '<div class="row" onclick="'+act2+'">'
         +stamp(a.s)
         +'<div class="row-m"><div class="row-t">'+a.n+'</div><div class="row-s">'+a.d+'</div></div>'
-        +'<span class="meta">'+(a.c.cat||'—')+(a.c.dis?' · '+a.c.dis.slice(0,2).toUpperCase():'')+'</span>'
+        +'<span class="meta">'+(a.c?((a.c.cat||'—')+(a.c.dis?' · '+a.c.dis.slice(0,2).toUpperCase():'')):'')+'</span>'
         +'<span class="age" style="color:var(--'+(a.t==='bad'?'bad':a.t==='act'?'act':'t')+'-t)">'+(age?age+'d':'—')+'</span></div>';
     }).join('');
   }
@@ -2048,9 +2033,9 @@ function renderCharts(live){
   var stages=[
     {k:'Submitted',n:live.filter(function(m){return m.pqd&&m.pqd!=='Pending';}).length},
     {k:'Assessed',n:live.filter(function(m){return m.pa==='Done'||m.pa==='Waived';}).length},
-    {k:'Dossier',n:live.filter(function(m){return m.pid==='Approved';}).length},
-    {k:'Meeting',n:live.filter(function(m){return m.pim==='Done';}).length},
-    {k:'Minutes',n:live.filter(function(m){return m.mom==='Approved';}).length},
+    {k:'Dossier',n:(DB.dossiers||[]).filter(function(d){return (d.status||'').indexOf('Approved')===0;}).length},
+    {k:'Meeting',n:(DB.pfm||[]).filter(function(p){return p.status==='Done';}).length},
+    {k:'ITP',n:(DB.itp||[]).filter(function(x){return (x.status||'').indexOf('Approved')===0;}).length},
     {k:'Qualified',n:live.filter(function(m){return (m.pqd||'').indexOf('Approved')===0;}).length}
   ];
   var max=Math.max(1,live.length);
@@ -2082,9 +2067,9 @@ function renderCharts(live){
    Detail columns are opt-in. Rows expand in place.
    ================================================================ */
 var PQD_STATUS=[['pqd','PQD'],['pa','PA'],['iso','ISO']];
-var PQD_EXTRA=[['prepa','PRE-PA'],['pid','PID'],['pim','PIM'],['mom','MOM'],['post','POST']];
+var PQD_EXTRA=[['prepa','PRE-PA'],['post','POST']];
 var PQD_DETAIL=[['aconex','ACONEX REF'],['scope','SCOPE'],['date','SUBMITTED'],['loc','LOCATION'],['subco','BROUGHT BY'],['avl','VENDOR LIST'],['paQms','PA QMS'],['paTech','PA TECHNICAL']];
-var pqdShown={prepa:false,pid:false,pim:false,mom:false,post:false,aconex:false,scope:false,date:false,loc:false,subco:false,avl:false,paQms:false,paTech:false};
+var pqdShown={prepa:false,post:false,aconex:false,scope:false,date:false,loc:false,subco:false,avl:false,paQms:false,paTech:false};
 
 /* Reference numbers share a long project prefix. Detect the part that
    every record has in common and hide it — the tail is the only thing
@@ -2211,9 +2196,7 @@ window.rPQD=function(){
         +dfS('PRE-PA',effStage(m,'prepa'))
         +dfS('ASSESSMENT',effStage(m,'pa'))
         +dfS('ISO',(m.isoDate&&isExp(m.isoDate))?'Expired':(m.iso||'N/A'))
-        +dfS('DOSSIER',m.pid||'N/A')
-        +dfS('MEETING',m.pim||'N/A')
-        +dfS('MINUTES',m.mom||'N/A')
+        +df('DOSSIERS',(function(){var n=(DB.dossiers||[]).filter(function(d){return d.vendor===m.name;}).length;return n?n+' recorded':'';})())
         +dfS('POST-INSPECTION',m.post||'N/A')
         +dfS('VENDOR LIST',avlNorm(m.avl)||'N/A')
         +'<div><div class="dlbl">ENGAGEMENT</div><div class="dval"'+(eng==='Discontinued'?' style="color:var(--bad-t)"':'')+'>'+eng+'</div></div>'
@@ -2344,7 +2327,7 @@ window.clearAllColFilters=function(){colFilters={};pqdOpen=null;buildPQDHead();r
 document.addEventListener('click',function(){var m=document.getElementById('fmenu');if(m)m.classList.remove('on');});
 
 /* ---------- PQD modal ---------- */
-function openM(){stageEdited={};fillSubco();toggleSub();toggleEngage();renderCatHint();document.getElementById('ov').classList.add('on');}
+function openM(){stageEdited={};fillSubco();toggleSub();toggleEngage();renderCatHint();renderVendorPaLink(null);renderVendorPidLink(null);document.getElementById('ov').classList.add('on');}
 function closeM(){
   document.getElementById('ov').classList.remove('on');
   document.querySelectorAll('#ov .fi,#ov .ft').forEach(function(e){e.value='';});
@@ -2438,6 +2421,32 @@ window.suggestOrigin=function(){
   var guess=vendorOrigin({loc:document.getElementById('f-loc').value});
   sel.options[0].textContent=(guess==='Unknown')?'Infer from location':'Infer from location — '+guess;
 };
+/* The assessment and the dossier are edited in their own sections, so
+   the vendor form shows what they say rather than a second copy. */
+function renderVendorPaLink(m){
+  var box=document.getElementById('f-pa-link');if(!box)return;
+  if(!m){box.innerHTML='<span class="dim">Save the vendor first, then schedule the assessment from the Physical assessment page.</span>';return;}
+  if(!paInScope(m)){box.innerHTML='<span class="dim">Not required for '+(m.cat||'this category')+'.</span>';return;}
+  box.innerHTML=stamp(preNorm(m))+' '+stamp(m.pa||'Pending')
+    +(m.paResult?' '+stamp(m.paResult):'')
+    +' <span class="dim">'+[m.paDate,m.paRef,m.paTechAssessor].filter(Boolean).join(' \u00b7 ')+'</span>'
+    +' <span class="link" onclick="closeM();goTo(\'pa\');setTimeout(function(){openPA('+m.id+')},120)">Open assessment</span>';
+}
+function renderVendorPidLink(m){
+  var box=document.getElementById('f-pid-link');if(!box)return;
+  if(!m){box.innerHTML='<span class="dim">Save the vendor first. Dossiers are raised per material under Pre-inspection dossier.</span>';return;}
+  var ds=(DB.dossiers||[]).filter(function(d){return d.vendor===m.name;});
+  if(!ds.length){
+    box.innerHTML='<span class="dim">No dossier recorded for this vendor. </span>'
+      +'<span class="link" onclick="closeM();goTo(\'pid\');setTimeout(openPID,120)">Raise one</span>';
+    return;
+  }
+  box.innerHTML=ds.slice(0,5).map(function(d){
+    return '<div style="display:flex;align-items:center;gap:9px;padding:4px 0">'
+      +'<span class="ref">'+(d.no?'No. '+d.no:'—')+'</span>'
+      +'<span style="flex:1;font-size:12px">'+(d.title||'')+'</span>'+stamp(d.status||'Pending')+'</div>';
+  }).join('')+(ds.length>5?'<div class="dim">and '+(ds.length-5)+' more</div>':'');
+}
 function toggleSub(){var t=document.getElementById('f-type').value;document.getElementById('sub-row').style.display=(t&&t!=='Subcontractor')?'':'none';}
 function toggleEngage(){document.getElementById('engage-reason-wrap').style.display=(document.getElementById('f-engage').value==='Discontinued')?'':'none';}
 function fillSubco(){}
@@ -2449,12 +2458,14 @@ function save(){
   var m={id:eid?+eid:Date.now(),name:n,aconex:g('f-aconex'),date:g('f-date'),scope:g('f-scope'),
     type:g('f-type'),loc:g('f-loc'),origin:g('f-origin'),subco:g('f-subco'),cat:g('f-cat'),dis:g('f-dis'),
     avl:g('f-avl'),pqd:g('f-pqd'),engage:g('f-engage')||'Active',engageReason:g('f-engage-reason'),
-    prepa:g('f-prepa'),pa:g('f-pa'),paDate:g('f-pa-date'),paQms:g('f-pa-qms'),paTech:g('f-pa-tech'),paRef:g('f-pa-ref'),
-    paTechAssessor:g('f-pa-tech-assessor'),paQmsAssessor:g('f-pa-qms-assessor'),
-    paTechResult:g('f-pa-tech-result'),paQmsResult:g('f-pa-qms-result'),paResult:g('f-pa-result'),
-    iso:g('f-iso'),isoDate:g('f-iso-date'),pid:g('f-pid'),pidDate:g('f-pid-date'),pidRef:g('f-pid-ref'),
-    pim:g('f-pim'),pimDate:g('f-pim-date'),pimRef:g('f-pim-ref'),mom:g('f-mom'),
+    iso:g('f-iso'),isoDate:g('f-iso-date'),
     post:g('f-post'),postDate:g('f-post-date'),qualDate:g('f-qual-date'),notes:g('f-notes')};
+  /* the assessment is edited on its own page, so carry it across untouched */
+  var prev=eid?(DB.pqd||[]).find(function(x){return x.id===+eid;}):null;
+  if(prev){
+    ['prepa','pa','paDate','paQms','paTech','paRef','paTechAssessor','paQmsAssessor',
+     'paTechResult','paQmsResult','paResult'].forEach(function(k){if(prev[k]!==undefined)m[k]=prev[k];});
+  }
   if(eid){var i=DB.pqd.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.pqd[i]._rowid)m._rowid=DB.pqd[i]._rowid;DB.pqd[i]=m;}}
   else DB.pqd.push(m);
   var btn=document.getElementById('pqd-save-btn');btn.disabled=true;
@@ -2470,13 +2481,8 @@ window.edit=function(id){
   sv('f-type',m.type);sv('f-loc',m.loc);sv('f-origin',m.origin);pickSet('f-subco',m.subco);suggestOrigin();sv('f-cat',m.cat);sv('f-dis',m.dis);
   sv('f-avl',avlNorm(m.avl));sv('f-pqd',m.pqd||'Pending');
   sv('f-engage',m.engage||'Active');sv('f-engage-reason',m.engageReason);toggleEngage();
-  sv('f-prepa',preNorm(m));sv('f-pa',m.pa||'Pending');sv('f-pa-date',m.paDate);
-  sv('f-pa-qms',m.paQms||'Pending');sv('f-pa-tech',m.paTech||'Pending');sv('f-pa-ref',m.paRef);
-  sv('f-pa-tech-assessor',m.paTechAssessor);sv('f-pa-qms-assessor',m.paQmsAssessor);
-  sv('f-pa-tech-result',m.paTechResult);sv('f-pa-qms-result',m.paQmsResult);sv('f-pa-result',m.paResult);
   sv('f-iso',m.iso||'Valid');sv('f-iso-date',m.isoDate);
-  sv('f-pid',m.pid||'N/A');sv('f-pid-date',m.pidDate);
-  sv('f-pid-ref',m.pidRef);sv('f-pim',m.pim||'N/A');sv('f-pim-date',m.pimDate);sv('f-pim-ref',m.pimRef);sv('f-mom',m.mom||'N/A');
+  renderVendorPaLink(m);renderVendorPidLink(m);
   sv('f-post',m.post||'N/A');sv('f-post-date',m.postDate);sv('f-qual-date',m.qualDate);sv('f-notes',m.notes);
   toggleSub();stageEdited={};renderCatHint();document.getElementById('ov').classList.add('on');
 };
@@ -2643,7 +2649,7 @@ function renderMatPidLink(m){
     return '<div style="display:flex;align-items:center;gap:9px;padding:5px 0">'
       +'<span class="ref">'+(d.no?'No. '+d.no:'—')+'</span>'
       +'<span style="flex:1;font-size:12px">'+(d.title||'')+'</span>'
-      +stamp(d.status||'Pending')+stamp(d.pim||'N/A')+'</div>';
+      +stamp(d.status||'Pending')+'</div>';
   }).join('');
 }
 function inspStamp(v){
@@ -2679,7 +2685,7 @@ window.rMAT=function(){
       +'<td class="ctr">'+stamp(m.tpia||'N/A')+'</td>'
       +'<td><span class="ref">'+(dsOf.length?dsOf.map(function(d){return d.no||'—';}).join(', '):'—')+'</span></td>'
       +'<td class="ctr">'+(dsOf.length?stamp(dsOf[0].status||'Pending'):'<span class="stamp s-na">None</span>')+'</td>'
-      +'<td class="ctr">'+(dsOf.length?stamp(dsOf[0].pim||'N/A'):'<span class="stamp s-na">N/A</span>')+'</td>'
+      +'<td class="ctr">'+(function(){var p=dsOf.length?meetingsFor(dsOf[0])[0]:null;return p?stamp(p.status||'Not Scheduled'):'<span class="stamp s-na">N/A</span>';})()+'</td>'
       +'<td class="ctr">'+stamp(m.leed||'N/A')+'</td><td class="ctr">'+stamp(m.saso||'N/A')+'</td>'
       +'<td class="ctr">'+stamp(m.mts||'Pending')+'</td>'
       +'<td><span class="dim">'+(m.notes||'—')+'</span></td>'
@@ -3055,30 +3061,42 @@ window.openMIR=function(){
   fillMIRCo();MIR_REFS=[];
   document.getElementById('mir-mat').value='';document.getElementById('mir-mat-search').value='';
   document.getElementById('mir-mat-list').style.display='none';
-  renderMirChips();mirPreview();loadMIRItems([],null);
+  renderMirChips();mirPreview();loadMIRItems([],null);renderMirIrnLink(null);
   document.getElementById('ov-mir').classList.add('on');
 };
 window.closeMIR=function(){
   document.getElementById('ov-mir').classList.remove('on');
   document.querySelectorAll('#ov-mir .fi,#ov-mir .ft').forEach(function(e){e.value='';});
   document.querySelectorAll('#ov-mir .fs').forEach(function(e){e.selectedIndex=0;});
-  document.getElementById('irn-attached').checked=false;
-  document.getElementById('irn-details').style.display='none';
   document.getElementById('mir-mat-list').style.display='none';
   document.getElementById('mir-mat').value='';MIR_REFS=[];renderMirChips();mirPreview();loadMIRItems([],null);
   pickClear('mir-co');
   document.getElementById('mir-eid').value='';
 };
 document.getElementById('ov-mir').addEventListener('click',function(e){if(e.target===this)closeMIR();});
-window.toggleIRNDetails=function(){var d=document.getElementById('irn-details');d.style.display=document.getElementById('irn-attached').checked?'':'none';};
+function renderMirIrnLink(m){
+  var box=document.getElementById('mir-irn-link');if(!box)return;
+  if(!m){box.innerHTML='<span class="dim">Save the request first, then issue its release note from the Inspection release note page.</span>';return;}
+  var rs=(DB.irn||[]).filter(function(r){return String(r.mir)===String(m.id);});
+  if(!rs.length){
+    box.innerHTML='<span class="dim">No release note issued against this request. </span>'
+      +'<span class="link" onclick="closeMIR();goTo(\'irn\');setTimeout(openIRN,120)">Issue one</span>';
+    return;
+  }
+  box.innerHTML=rs.map(function(r){
+    return '<div style="display:flex;align-items:center;gap:9px;padding:4px 0">'
+      +'<span class="ref">'+(r.no||'—')+'</span>'
+      +'<span style="flex:1;font-size:12px">'+[r.date,r.exceptions].filter(Boolean).join(' · ')+'</span>'
+      +stamp(r.status||'Pending')+stamp(r.sent||'Pending')+'</div>';
+  }).join('');
+}
 window.saveMIR=function(){
   var n=document.getElementById('mir-name').value.trim();
   if(!n)return alert('Enter the material name');
   var eid=document.getElementById('mir-eid').value, g=function(id){var e=document.getElementById(id);return e?e.value:'';};
   var m={id:eid?+eid:Date.now(),name:n,num:g('mir-num'),aconex:g('mir-aconex'),date:g('mir-date'),
     cat:g('mir-cat'),company:g('mir-co'),leed:g('mir-leed'),saso:g('mir-saso'),status:g('mir-st'),
-    irnNum:g('irn-num'),irnDate:g('irn-date'),irnStatus:g('irn-st'),matRef:(MIR_REFS[0]||''),
-    irnAttached:document.getElementById('irn-attached').checked,matRefs:MIR_REFS.slice(),recvItems:getMIRItems(),notes:g('mir-notes')};
+    matRef:(MIR_REFS[0]||''),matRefs:MIR_REFS.slice(),recvItems:getMIRItems(),notes:g('mir-notes')};
   if(eid){var i=DB.mir.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.mir[i]._rowid)m._rowid=DB.mir[i]._rowid;DB.mir[i]=m;}}
   else DB.mir.push(m);
   var btn=document.getElementById('mir-save-btn');btn.disabled=true;
@@ -3092,9 +3110,7 @@ window.editMIR=function(id){
   var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
   sv('mir-eid',id);sv('mir-name',m.name);sv('mir-num',m.num);sv('mir-aconex',m.aconex);sv('mir-date',m.date);
   sv('mir-cat',m.cat);pickSet('mir-co',m.company);sv('mir-leed',m.leed||'N/A');sv('mir-saso',m.saso||'N/A');
-  sv('mir-st',m.status||'Pending');sv('irn-num',m.irnNum);sv('irn-date',m.irnDate);sv('irn-st',m.irnStatus||'N/A');
-  document.getElementById('irn-attached').checked=!!m.irnAttached;
-  document.getElementById('irn-details').style.display=m.irnAttached?'':'none';
+  sv('mir-st',m.status||'Pending');renderMirIrnLink(m);
   MIR_REFS=mirRefsOf(m);
   document.getElementById('mir-mat').value=MIR_REFS[0]||'';
   document.getElementById('mir-mat-search').value='';
@@ -3132,6 +3148,7 @@ window.rMIR=function(){
   var tb=document.getElementById('tb-mir');if(!tb)return;
   if(!items.length){tb.innerHTML='<tr><td colspan="14" class="empty">No inspection records yet.</td></tr>';return;}
   tb.innerHTML=items.map(function(m){
+    var rn=(DB.irn||[]).find(function(r){return String(r.mir)===String(m.id);});
     return '<tr class="hov" onclick="editMIR('+m.id+')">'
       +'<td class="pin1"><span class="nm">'+m.name+'</span></td>'
       +'<td class="pin2"><span class="ref">'+(m.num||'—')+'</span></td>'
@@ -3140,8 +3157,8 @@ window.rMIR=function(){
       +'<td>'+mirRefCell(m)+'</td>'
       +'<td class="ctr">'+stamp(m.leed||'N/A')+'</td><td class="ctr">'+stamp(m.saso||'N/A')+'</td>'
       +'<td class="ctr">'+stamp(m.status||'Pending')+'</td>'
-      +'<td><span class="ref">'+(m.irnNum||'—')+'</span></td><td><span class="ref">'+(m.irnDate||'—')+'</span></td>'
-      +'<td class="ctr">'+stamp(m.irnStatus||'N/A')+'</td>'
+      +'<td><span class="ref">'+(rn?(rn.no||'—'):'—')+'</span></td><td><span class="ref">'+(rn?(rn.date||'—'):'—')+'</span></td>'
+      +'<td class="ctr">'+(rn?stamp(rn.status||'Pending'):'<span class="stamp s-na">None</span>')+'</td>'
       +'<td><span class="dim">'+(m.notes||'—')+'</span></td>'
       +ibs('editMIR','delMIR',m.id,m._rowid)+'</tr>';
   }).join('');
@@ -3323,13 +3340,34 @@ window.rFAT=function(){
    procedure ties the two together: the dossier is submitted twenty-one
    days before the meeting.
    ================================================================ */
+/* The meeting is its own record now, so the dossier does not store one.
+   It reads back whichever meeting points at it — one source, no drift. */
+function meetingsFor(d){
+  return (DB.pfm||[]).filter(function(p){return String(p.dossier)===String(d.id);});
+}
+function renderPidMeetingLink(d){
+  var box=document.getElementById('d-pfm-link');if(!box)return;
+  if(!d){box.innerHTML='<span class="dim">Save the dossier first, then raise its meeting from the Pre-fabrication meeting page.</span>';return;}
+  var ms=meetingsFor(d);
+  if(!ms.length){
+    box.innerHTML='<span class="dim">No meeting raised against this dossier yet. </span>'
+      +'<span class="link" onclick="closePID();goTo(\'pfm\');setTimeout(openPFM,120)">Raise one</span>';
+    return;
+  }
+  box.innerHTML=ms.map(function(p){
+    return '<div style="display:flex;align-items:center;gap:9px;padding:5px 0">'
+      +'<span class="ref">'+(p.no?'No. '+p.no:'—')+'</span>'
+      +'<span style="flex:1;font-size:12px">'+[p.subject,p.date].filter(Boolean).join(' · ')+'</span>'
+      +stamp(p.status||'Not Scheduled')+stamp(p.mom||'N/A')+'</div>';
+  }).join('');
+}
 function pidMatsOf(d){return (d&&d.mats&&d.mats.length)?d.mats.slice():[];}
 function pidStage(d){
   var st=d.status||'Pending';
-  if(st==='Rejected')return 'open';
   if(st!=='Approved'&&st!=='Approved with Comments')return 'open';
-  if(d.pim&&d.pim!=='N/A'&&d.pim!=='Done')return 'meeting';
-  if(d.pim==='Done'&&d.mom&&d.mom!=='N/A'&&d.mom!=='Approved')return 'meeting';
+  var ms=meetingsFor(d);
+  if(ms.some(function(p){return p.status&&p.status!=='N/A'&&p.status!=='Done';}))return 'meeting';
+  if(ms.some(function(p){return p.status==='Done'&&p.mom&&p.mom!=='N/A'&&p.mom!=='Approved';}))return 'meeting';
   return 'closed';
 }
 function pidCounts(){
@@ -3378,7 +3416,7 @@ function renderPidChips(){
 }
 window.removePidMat=function(i){PID_MATS.splice(i,1);renderPidChips();};
 window.openPID=function(){
-  PID_MATS=[];
+  PID_MATS=[];renderPidMeetingLink(null);
   document.getElementById('d-eid').value='';
   document.getElementById('pid-title').textContent='Pre-inspection dossier';
   renderPidChips();
@@ -3399,9 +3437,7 @@ window.savePID=function(){
   if(!no&&!title)return alert('Enter the dossier number or its title');
   var eid=document.getElementById('d-eid').value, g=function(id){var e=document.getElementById(id);return e?e.value:'';};
   var m={id:eid?+eid:Date.now(),no:no,title:title,ref:g('d-ref'),date:g('d-date'),vendor:g('d-vendor'),
-    status:g('d-status'),fabStart:g('d-fab'),mats:PID_MATS.slice(),
-    pim:g('d-pim'),pimDate:g('d-pim-date'),pimRef:g('d-pim-ref'),
-    mom:g('d-mom'),momRef:g('d-mom-ref'),attend:g('d-attend'),notes:g('d-notes')};
+    status:g('d-status'),fabStart:g('d-fab'),mats:PID_MATS.slice(),notes:g('d-notes')};
   DB.dossiers=DB.dossiers||[];
   if(eid){var i=DB.dossiers.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.dossiers[i]._rowid)m._rowid=DB.dossiers[i]._rowid;DB.dossiers[i]=m;}}
   else DB.dossiers.push(m);
@@ -3414,8 +3450,7 @@ window.editPID=function(id){
   var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
   sv('d-eid',id);sv('d-no',m.no);sv('d-title',m.title);sv('d-ref',m.ref);sv('d-date',m.date);
   pickSet('d-vendor',m.vendor);sv('d-status',m.status||'Pending');sv('d-fab',m.fabStart);
-  sv('d-pim',m.pim||'N/A');sv('d-pim-date',m.pimDate);sv('d-pim-ref',m.pimRef);
-  sv('d-mom',m.mom||'N/A');sv('d-mom-ref',m.momRef);sv('d-attend',m.attend);sv('d-notes',m.notes);
+  sv('d-notes',m.notes);renderPidMeetingLink(m);
   PID_MATS=pidMatsOf(m);renderPidChips();
   document.getElementById('pid-title').textContent='Dossier'+(m.no?' No. '+m.no:'');
   document.getElementById('ov-pid').classList.add('on');
@@ -3447,7 +3482,8 @@ window.rPID=function(){
   var today=ymd(new Date());
   tb.innerHTML=list.map(function(d){
     var stg=pidStage(d);
-    var overdue=(d.pim==='Scheduled'&&d.pimDate&&d.pimDate<today);
+    var mtg=meetingsFor(d)[0];
+    var overdue=(mtg&&mtg.status==='Scheduled'&&mtg.date&&mtg.date<today);
     var flag=overdue?'<span class="flag f-bad"></span>':(stg==='open'?'<span class="flag f-act"></span>':'<span class="flag"></span>');
     var mats=pidMatsOf(d);
     var matCell=mats.length
@@ -3461,9 +3497,9 @@ window.rPID=function(){
       +'<td>'+matCell+'</td>'
       +'<td><span class="ref">'+(d.date||'—')+'</span></td>'
       +'<td class="ctr">'+stamp(d.status||'Pending')+'</td>'
-      +'<td class="ctr">'+stamp(d.pim||'N/A')+'</td>'
-      +'<td><span class="ref"'+(overdue?' style="color:var(--bad-t)"':'')+'>'+(d.pimDate||'—')+(overdue?' · overdue':'')+'</span></td>'
-      +'<td class="ctr">'+stamp(d.mom||'N/A')+'</td>'
+      +'<td class="ctr">'+(mtg?stamp(mtg.status||'Not Scheduled'):'<span class="stamp s-na">None</span>')+'</td>'
+      +'<td><span class="ref"'+(overdue?' style="color:var(--bad-t)"':'')+'>'+((mtg&&mtg.date)||'—')+(overdue?' · overdue':'')+'</span></td>'
+      +'<td class="ctr">'+(mtg?stamp(mtg.mom||'N/A'):'<span class="stamp s-na">N/A</span>')+'</td>'
       +ibs('editPID','delPID',d.id,d._rowid)+'</tr>';
   }).join('');
 };
@@ -4198,14 +4234,15 @@ function collectCalEvents(){
   (DB.pqd||[]).forEach(function(m){
     if(m.paDate)ev.push({date:m.paDate,type:'pa',title:'Survey: '+m.name,sys:true});
     if(m.isoDate)ev.push({date:m.isoDate,type:'iso',title:'ISO expiry: '+m.name,sys:true});
-    if(m.pidDate&&m.pid!=='Approved')ev.push({date:m.pidDate,type:'deadline',title:'Dossier due: '+m.name,sys:true});
-    if(m.pimDate&&m.pim!=='Done')ev.push({date:m.pimDate,type:'deadline',title:'Pre-fab meeting: '+m.name,sys:true});
   });
   (DB.mir||[]).forEach(function(m){if(m.date)ev.push({date:m.date,type:'mir',title:'Inspection: '+(m.name||m.num||''),sys:true});});
+  (DB.pfm||[]).forEach(function(p){
+    if(p.date&&p.status!=='Done')ev.push({date:p.date,type:'meeting',title:'Pre-fab meeting'+(p.no?' No. '+p.no:'')+(p.vendor?' · '+p.vendor:''),sys:true});
+  });
   (DB.dossiers||[]).forEach(function(d){
     var label=(d.no?'No. '+d.no:'')+(d.vendor?' · '+d.vendor:'');
     if(d.date&&d.status!=='Approved')ev.push({date:d.date,type:'deadline',title:'Dossier '+label,sys:true});
-    if(d.pimDate&&d.pim!=='Done')ev.push({date:d.pimDate,type:'meeting',title:'Pre-fab meeting '+label,sys:true});
+
     if(d.fabStart)ev.push({date:d.fabStart,type:'deadline',title:'Fabrication starts '+label,sys:true});
   });
   (DB.events||[]).forEach(function(e){ev.push({date:e.date,type:e.type||'manual',title:e.title,notes:e.notes,sys:false,id:e.id});});
@@ -4330,10 +4367,10 @@ window.genLookAhead=function(){
     }});
   mk('3','Pre-inspection dossier',pidR);
 
-  var pimR=[];(DB.dossiers||[]).forEach(function(dd){
-    if(dd.pim&&dd.pim!=='N/A'&&dd.pim!=='Done'){
-      var cells=days.map(function(d){return dd.pimDate&&fmt(d)===dd.pimDate?'x':'';});
-      if(cells.some(Boolean))pimR.push({name:(dd.no?'No. '+dd.no+' — ':'')+(dd.title||''),disc:'',sub:[dd.pim,dd.vendor].filter(Boolean).join(' · '),cells:cells});
+  var pimR=[];(DB.pfm||[]).forEach(function(pp){
+    if(pp.status&&pp.status!=='N/A'&&pp.status!=='Done'){
+      var cells=days.map(function(d){return pp.date&&fmt(d)===pp.date?'x':'';});
+      if(cells.some(Boolean))pimR.push({name:(pp.no?'No. '+pp.no+' — ':'')+(pp.subject||''),disc:'',sub:[pp.status,pp.vendor].filter(Boolean).join(' · '),cells:cells});
     }});
   mk('4','Pre-inspection meeting',pimR);
 
@@ -4352,10 +4389,11 @@ window.genLookAhead=function(){
 
   var mirR=[];(DB.mir||[]).forEach(function(m){
     var inWin=m.date&&days.some(function(d){return fmt(d)===m.date;});
-    if(!inWin&&!m.irnAttached)return;
+    if(!inWin)return;
     var cells=days.map(function(d){return (m.date&&fmt(d)===m.date)?'x':'';});
     var rf=mirRefsOf(m);var sub='Inspection '+(m.status||'Pending').toLowerCase()+(rf.length?' · '+rf.join(', '):'');
-    if(m.irnAttached)sub+=' · release note attached'+(m.irnNum?' ('+m.irnNum+')':'');
+    var rn2=(DB.irn||[]).find(function(r){return String(r.mir)===String(m.id);});
+    if(rn2)sub+=' · release note '+(rn2.no||'issued');
     mirR.push({name:m.name,disc:'',sub:sub,cells:cells});
   });
   mk('7','Material release',mirR);
@@ -4801,11 +4839,12 @@ function cmtRows(){
     var v=(DB.pqd||[]).find(function(x){return x.name===m.company;})||{};
     var f=(DB.fat||[]).find(function(x){return x.matRef&&x.matRef===(m.aconex||m.name);})||{};
     var d0=dossiersFor(m)[0]||{};
+    var p0=(d0.id?meetingsFor(d0)[0]:null)||{};
     return {
       name:m.name||'', cat:(m.catCor||m.catSub)||'',
       tpiaName:f.tpia||(m.tpia==='Required'?'Required, not yet assigned':''),
       pidStatus:(d0.status||''), pidNo:(d0.no||''), pidRef:(d0.title||d0.ref||''), pidDate:(d0.date||''),
-      pimStatus:(d0.pim||''), pimRef:(d0.pimRef||d0.momRef||''), pimDate:(d0.pimDate||''),
+      pimStatus:(p0.status||''), pimRef:(p0['mom-ref']||p0.no||''), pimDate:(p0.date||''),
       aconex:m.aconex||'', mts:m.mts||'', company:m.company||'',
       mfr:m.mfr||'', mfrCountry:m.mfrCountry||'', insp:m.insp||'None', date:m.date||'',
       vendorPqd:v.pqd||'', pa:v.pa||'', iso:(v.isoDate&&isExp(v.isoDate))?'Expired':(v.iso||''),
