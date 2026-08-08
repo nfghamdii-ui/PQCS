@@ -215,6 +215,16 @@ th.thf.act .fcar{opacity:1;color:var(--act-t)}
 .fs option{background:var(--sf-2)}
 .ft{resize:vertical;min-height:58px;line-height:1.6}
 .fi[type=date]{font-family:var(--mono);font-size:12px}
+/* The browser's own date box shows whatever format the machine is set
+   to and refuses a paste. These read and write dd/mm/yyyy, the way
+   Aconex prints them, and accept a pasted value in any common form. */
+.dwrapf{position:relative}
+.fi.dt{font-family:var(--mono);font-size:12.5px;letter-spacing:.02em;padding-right:34px}
+.dt-btn{position:absolute;right:6px;bottom:6px;width:24px;height:24px;border:none;background:none;cursor:pointer;color:var(--t-3);border-radius:5px;display:flex;align-items:center;justify-content:center;padding:0}
+.dt-btn:hover{background:var(--sf-3);color:var(--t-1)}
+.dt-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7}
+.dt-native{position:absolute;right:6px;bottom:6px;width:24px;height:24px;opacity:0;cursor:pointer;padding:0;border:none}
+.fi.dt.bad{border-color:var(--bad-l)}
 .hint{margin-top:6px;font-size:11.5px}
 .mini{width:100%;border-collapse:collapse;font-size:12px}
 .mini th{background:var(--sf-0);padding:7px 10px;text-align:left;font-family:var(--mono);font-size:10px;font-weight:400;letter-spacing:.06em;color:var(--t-4);border-bottom:1px solid var(--line)}
@@ -747,7 +757,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <div class="fg">
      <div class="fg-f"><label class="fl">Manufacturer name</label><input class="fi" id="f-name" placeholder="Company name" oninput="checkAVL()"><div class="hint" id="avl-hint" style="display:none"></div></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="f-aconex" placeholder="MBL-P4M-QC-MNQ-00001"></div>
-     <div><label class="fl">Submitted date</label><input class="fi" type="date" id="f-date"></div>
+     <div><label class="fl">Submitted date</label><span class="dwrapf"><input class="fi dt" id="f-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div class="fg-f"><label class="fl">Scope of work</label><input class="fi" id="f-scope" placeholder="Chillers, HV switchgear…"></div>
      <div><label class="fl">Entity type</label><select class="fs" id="f-type" onchange="toggleSub()"><option value="">—</option><option>Manufacturer</option><option>Subcontractor</option><option>Vendor</option><option>Inspection agency</option></select></div>
      <div><label class="fl">Country or location</label><input class="fi" id="f-loc" oninput="suggestOrigin()"></div>
@@ -779,7 +789,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <span class="m-sec">ISO CERTIFICATION</span>
    <div class="fg">
      <div><label class="fl">ISO status</label><select class="fs" id="f-iso"><option>Valid</option><option>Expired</option><option>Pending</option></select></div>
-     <div><label class="fl">ISO expiry date</label><input class="fi" type="date" id="f-iso-date"></div>
+     <div><label class="fl">ISO expiry date</label><span class="dwrapf"><input class="fi dt" id="f-iso-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
    </div>
 
    <span class="m-sec">PRE-INSPECTION DOSSIER</span>
@@ -788,7 +798,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <span class="m-sec">POST-INSPECTION DOSSIER</span>
    <div class="fg">
      <div class="fg-f"><div class="hint" id="f-post-link"></div></div>
-     <div><label class="fl">Qualification date</label><input class="fi" type="date" id="f-qual-date"></div>
+     <div><label class="fl">Qualification date</label><span class="dwrapf"><input class="fi dt" id="f-qual-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="f-notes" rows="2"></textarea></div>
    </div>
   </div>
@@ -807,7 +817,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div class="fg-f"><label class="fl">Material name</label><input class="fi" id="m-name" placeholder="Chiller unit, cable tray…"></div>
      <div class="fg-f"><label class="fl">Description</label><textarea class="ft" id="m-desc" rows="2"></textarea></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="m-aconex" placeholder="MBL-P4M-QC-MTS-00001"></div>
-     <div><label class="fl">Submission date</label><input class="fi" type="date" id="m-date"></div>
+     <div><label class="fl">Submission date</label><span class="dwrapf"><input class="fi dt" id="m-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Category submitted</label><select class="fs" id="m-cat-sub" onchange="applyInspDefault()"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
      <div><label class="fl">Correct category</label><select class="fs" id="m-cat-cor" onchange="applyInspDefault()"><option value="">Same as submitted</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
      <div class="fg-f pick"><label class="fl">Submitted by — company on record</label>
@@ -868,7 +878,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div class="fg-f"><label class="fl">Material name</label><input class="fi" id="mir-name"></div>
      <div><label class="fl">MIR number</label><input class="fi" id="mir-num" placeholder="MIR-001"></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="mir-aconex"></div>
-     <div><label class="fl">Inspection date</label><input class="fi" type="date" id="mir-date"></div>
+     <div><label class="fl">Inspection date</label><span class="dwrapf"><input class="fi dt" id="mir-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Material category</label><select class="fs" id="mir-cat"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
      <div class="fg-f pick"><label class="fl">Company</label>
        <input class="fi" id="mir-co-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('mir-co')" onfocus="pickOpen('mir-co')">
@@ -914,13 +924,13 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <span class="m-sec">DOSSIER</span>
    <div class="fg">
      <div><label class="fl">Dossier number</label><input class="fi" id="o-no" placeholder="07"></div>
-     <div><label class="fl">Submission date</label><input class="fi" type="date" id="o-date"></div>
+     <div><label class="fl">Submission date</label><span class="dwrapf"><input class="fi dt" id="o-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div class="fg-f"><label class="fl">Title as transmitted</label><input class="fi" id="o-title"></div>
      <div class="fg-f"><label class="fl">Aconex reference</label><input class="fi" id="o-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div class="fg-f pick"><label class="fl">Vendor</label>
        <input class="fi" id="o-vendor-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('o-vendor')" onfocus="pickOpen('o-vendor')">
        <input type="hidden" id="o-vendor"><div class="pick-list" id="o-vendor-list"></div></div>
-     <div><label class="fl">Last quantity accepted</label><input class="fi" type="date" id="o-last"></div>
+     <div><label class="fl">Last quantity accepted</label><span class="dwrapf"><input class="fi dt" id="o-last" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Status</label><select class="fs" id="o-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
    </div>
 
@@ -964,7 +974,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input class="fi" id="t-agency-q" placeholder="Search agencies…" autocomplete="off" oninput="pickOpen('t-agency')" onfocus="pickOpen('t-agency')">
        <input type="hidden" id="t-agency"><div class="pick-list" id="t-agency-list"></div></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="t-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
-     <div><label class="fl">Assigned on</label><input class="fi" type="date" id="t-date"></div>
+     <div><label class="fl">Assigned on</label><span class="dwrapf"><input class="fi dt" id="t-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div class="fg-f"><label class="fl">Scope of inspection</label><input class="fi" id="t-scope" placeholder="Witness, hold point, full-time surveillance…"></div>
      <div><label class="fl">Status</label><select class="fs" id="t-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Rejected</option></select></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="t-notes" rows="2"></textarea></div>
@@ -981,7 +991,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <span class="m-sec">MEETING</span>
    <div class="fg">
      <div><label class="fl">Meeting number</label><input class="fi" id="p-no"></div>
-     <div><label class="fl">Meeting date</label><input class="fi" type="date" id="p-date"></div>
+     <div><label class="fl">Meeting date</label><span class="dwrapf"><input class="fi dt" id="p-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div class="fg-f"><label class="fl">Subject</label><input class="fi" id="p-subject" placeholder="Pre-fabrication meeting for…"></div>
      <div class="fg-f pick"><label class="fl">Related dossier</label>
        <input class="fi" id="p-dossier-q" placeholder="Search dossiers…" autocomplete="off" oninput="pickOpen('p-dossier')" onfocus="pickOpen('p-dossier')">
@@ -1018,7 +1028,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div class="fg-f pick"><label class="fl">Vendor</label>
        <input class="fi" id="n-vendor-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('n-vendor')" onfocus="pickOpen('n-vendor')">
        <input type="hidden" id="n-vendor"><div class="pick-list" id="n-vendor-list"></div></div>
-     <div><label class="fl">Submitted date</label><input class="fi" type="date" id="n-date"></div>
+     <div><label class="fl">Submitted date</label><span class="dwrapf"><input class="fi dt" id="n-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Status</label><select class="fs" id="n-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
      <div><label class="fl">Type</label><select class="fs" id="n-type"><option>ITP</option><option>FAT procedure</option><option>ITP and FAT procedure</option></select></div>
      <div><label class="fl">Hold and witness points</label><input class="fi" id="n-points" type="number" min="0" placeholder="0"></div>
@@ -1037,7 +1047,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <span class="m-sec">RELEASE</span>
    <div class="fg">
      <div><label class="fl">IRN number</label><input class="fi" id="r-no"></div>
-     <div><label class="fl">Issue date</label><input class="fi" type="date" id="r-date"></div>
+     <div><label class="fl">Issue date</label><span class="dwrapf"><input class="fi dt" id="r-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div class="fg-f pick"><label class="fl">Inspection request</label>
        <input class="fi" id="r-mir-q" placeholder="Search inspection requests…" autocomplete="off" oninput="pickOpen('r-mir')" onfocus="pickOpen('r-mir')">
        <input type="hidden" id="r-mir"><div class="pick-list" id="r-mir-list"></div>
@@ -1045,7 +1055,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div class="fg-f"><label class="fl">Material</label><input class="fi" id="r-material"></div>
      <div><label class="fl">Status</label><select class="fs" id="r-status"><option>Pending</option><option>Issued</option><option>Approved</option><option>Rejected</option></select></div>
      <div><label class="fl">Copy to employer</label><select class="fs" id="r-sent"><option>Pending</option><option>Sent</option><option>N/A</option></select></div>
-     <div><label class="fl">Sent on</label><input class="fi" type="date" id="r-sent-date"></div>
+     <div><label class="fl">Sent on</label><span class="dwrapf"><input class="fi dt" id="r-sent-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="r-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div class="fg-f"><label class="fl">Exceptions and punch items</label><textarea class="ft" id="r-exceptions" rows="2" placeholder="Every exception carried at release"></textarea></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="r-notes" rows="2"></textarea></div>
@@ -1063,7 +1073,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <span class="m-sec">DOSSIER</span>
    <div class="fg">
      <div><label class="fl">Dossier number</label><input class="fi" id="d-no" placeholder="19"></div>
-     <div><label class="fl">Submission date</label><input class="fi" type="date" id="d-date"></div>
+     <div><label class="fl">Submission date</label><span class="dwrapf"><input class="fi dt" id="d-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div class="fg-f"><label class="fl">Title as transmitted</label><input class="fi" id="d-title" placeholder="TRN - for ALFANAR - MVSG Pre-Inspection Dossier"></div>
      <div class="fg-f"><label class="fl">Aconex reference</label><input class="fi" id="d-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div class="fg-f pick"><label class="fl">Vendor</label>
@@ -1071,7 +1081,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input type="hidden" id="d-vendor">
        <div class="pick-list" id="d-vendor-list"></div></div>
      <div><label class="fl">Dossier status</label><select class="fs" id="d-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
-     <div><label class="fl">Fabrication start</label><input class="fi" type="date" id="d-fab"></div>
+     <div><label class="fl">Fabrication start</label><span class="dwrapf"><input class="fi dt" id="d-fab" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
    </div>
 
    <span class="m-sec">MATERIALS COVERED — a dossier may cover more than one</span>
@@ -1107,7 +1117,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <div class="hint" id="i-agency-hint" style="display:none"></div></div>
      <div class="fg-f"><label class="fl">Discipline or scope</label><input class="fi" id="i-disc" placeholder="Mechanical, welding, electrical, coatings…"></div>
      <div><label class="fl">Certificate number</label><input class="fi" id="i-cert"></div>
-     <div><label class="fl">Certificate expiry</label><input class="fi" type="date" id="i-cert-exp"></div>
+     <div><label class="fl">Certificate expiry</label><span class="dwrapf"><input class="fi dt" id="i-cert-exp" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Status</label><select class="fs" id="i-status"><option>Approved</option><option>Pending</option><option>Suspended</option></select></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="i-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div><label class="fl">Phone</label><input class="fi" id="i-phone"></div>
@@ -1170,7 +1180,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <div class="fg">
      <div class="fg-f"><label class="fl">Vendor name</label><input class="fi" id="c-vendor" placeholder="Company name as it appears on the documents"></div>
      <div><label class="fl">Category</label><select class="fs" id="c-cat"><option value="C1">Category 1</option><option value="C2">Category 2</option><option value="C3" selected>Category 3</option><option value="SUB">Subcontractor</option></select></div>
-     <div><label class="fl">Review date</label><input class="fi" type="date" id="c-date"></div>
+     <div><label class="fl">Review date</label><span class="dwrapf"><input class="fi dt" id="c-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="c-notes" rows="2" placeholder="Scope offered, who sent the file…"></textarea></div>
    </div>
   </div>
@@ -1193,7 +1203,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <div class="fg">
      <div><label class="fl">Pre-PA</label><select class="fs" id="pa-prepa"><option>Pending</option><option>Done</option><option>N/A</option></select></div>
      <div><label class="fl">Assessment status</label><select class="fs" id="pa-status" onchange="paWaiverCheck()"><option>Pending</option><option>Scheduled</option><option>Done</option><option>Waived</option><option>N/A</option></select></div>
-     <div><label class="fl">Survey date</label><input class="fi" type="date" id="pa-date"></div>
+     <div><label class="fl">Survey date</label><span class="dwrapf"><input class="fi dt" id="pa-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="pa-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div class="fg-f" id="pa-waiver-warn" style="display:none"></div>
    </div>
@@ -1254,10 +1264,10 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    </div>
    <span class="m-sec">DATES</span>
    <div class="fg">
-     <div><label class="fl">Pre-fabrication</label><input class="fi" type="date" id="fat-prefab"></div>
-     <div><label class="fl">Fabrication</label><input class="fi" type="date" id="fat-fab"></div>
-     <div><label class="fl">FAT</label><input class="fi" type="date" id="fat-fatdate"></div>
-     <div><label class="fl">First delivery</label><input class="fi" type="date" id="fat-delivery"></div>
+     <div><label class="fl">Pre-fabrication</label><span class="dwrapf"><input class="fi dt" id="fat-prefab" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
+     <div><label class="fl">Fabrication</label><span class="dwrapf"><input class="fi dt" id="fat-fab" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
+     <div><label class="fl">FAT</label><span class="dwrapf"><input class="fi dt" id="fat-fatdate" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
+     <div><label class="fl">First delivery</label><span class="dwrapf"><input class="fi dt" id="fat-delivery" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
    </div>
    <span class="m-sec">ATTENDEES</span>
    <div class="fg">
@@ -1278,7 +1288,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <input type="hidden" id="cal-eid">
    <div class="fg">
      <div class="fg-f"><label class="fl">Title</label><input class="fi" id="cal-ev-title" placeholder="Pre-fab meeting with vendor"></div>
-     <div><label class="fl">Date</label><input class="fi" type="date" id="cal-ev-date"></div>
+     <div><label class="fl">Date</label><span class="dwrapf"><input class="fi dt" id="cal-ev-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Type</label><select class="fs" id="cal-ev-type"><option value="manual">General task</option><option value="meeting">Meeting</option><option value="inspection">Inspection</option><option value="deadline">Deadline</option><option value="delivery">Delivery</option></select></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="cal-ev-notes" rows="2"></textarea></div>
    </div>
@@ -2326,12 +2336,12 @@ window.rPQD=function(){
         +df('ORIGIN',vendorOrigin(m)==='Unknown'?'':vendorOrigin(m)+(m.origin?'':' · inferred'))
         +df('LOCATION',m.loc)
         +df('BROUGHT BY',m.subco)
-        +df('SUBMITTED',m.date,1)
+        +df('SUBMITTED',dtToDisplay(m.date),1)
         +'</div>'
 
         +'<div class="dsec">PHYSICAL ASSESSMENT</div><div class="dwrap">'
         +df('REFERENCE DOCUMENT',m.paRef,1)
-        +df('SURVEY DATE',m.paDate,1)
+        +df('SURVEY DATE',dtToDisplay(m.paDate),1)
         +dfS('QMS REPORT',m.paQms||'Pending')
         +df('QMS ASSESSOR',m.paQmsAssessor)
         +df('QMS RESULT',m.paQmsResult)
@@ -2344,12 +2354,12 @@ window.rPQD=function(){
         +'</div>'
 
         +'<div class="dsec">DATES</div><div class="dwrap">'
-        +df('ISO EXPIRY',m.isoDate,1)
-        +df('DOSSIER DATE',m.pidDate,1)
+        +df('ISO EXPIRY',dtToDisplay(m.isoDate),1)
+        +df('DOSSIER DATE',dtToDisplay(m.pidDate),1)
         +df('DOSSIER REFERENCE',m.pidRef,1)
-        +df('MEETING DATE',m.pimDate,1)
+        +df('MEETING DATE',dtToDisplay(m.pimDate),1)
         +df('MEETING REFERENCE',m.pimRef,1)
-        +df('QUALIFIED ON',m.qualDate,1)
+        +df('QUALIFIED ON',dtToDisplay(m.qualDate),1)
         +'</div>'
 
         +(((m.notes)||(eng==='Discontinued'&&m.engageReason))
@@ -2446,7 +2456,7 @@ document.addEventListener('click',function(){var m=document.getElementById('fmen
 function openM(){stageEdited={};fillSubco();toggleSub();toggleEngage();renderCatHint();renderVendorPaLink(null);renderVendorPidLink(null);renderVendorPostLink(null);document.getElementById('ov').classList.add('on');}
 function closeM(){
   document.getElementById('ov').classList.remove('on');
-  document.querySelectorAll('#ov .fi,#ov .ft').forEach(function(e){e.value='';});
+  document.querySelectorAll('#ov .fi,#ov .ft').forEach(function(e){e.value='';if(e.dataset)e.dataset.iso='';});
   document.querySelectorAll('#ov .fs').forEach(function(e){e.selectedIndex=0;});
   document.getElementById('eid').value='';
   pickClear('f-subco');
@@ -2585,7 +2595,7 @@ function save(){
   var n=document.getElementById('f-name').value.trim();
   if(!n)return alert('Enter the manufacturer name');
   var eid=document.getElementById('eid').value;
-  var g=function(id){var e=document.getElementById(id);return e?e.value:'';};
+  var g=function(id){var e=document.getElementById(id);return e?dtGet(e):'';};
   var m={id:eid?+eid:Date.now(),name:n,aconex:g('f-aconex'),date:g('f-date'),scope:g('f-scope'),
     type:g('f-type'),loc:g('f-loc'),origin:g('f-origin'),subco:g('f-subco'),cat:g('f-cat'),dis:g('f-dis'),
     avl:g('f-avl'),pqd:g('f-pqd'),engage:g('f-engage')||'Active',engageReason:g('f-engage-reason'),
@@ -2607,7 +2617,7 @@ function save(){
 window.edit=function(id){
   var m=(DB.pqd||[]).find(function(x){return x.id===id;});if(!m)return;
   fillSubco();
-  var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
+  var sv=function(f,v){var e=document.getElementById(f);if(e)dtSet(e,v);};
   sv('eid',id);sv('f-name',m.name);sv('f-aconex',m.aconex);sv('f-date',m.date);sv('f-scope',m.scope);
   sv('f-type',m.type);sv('f-loc',m.loc);sv('f-origin',m.origin);pickSet('f-subco',m.subco);suggestOrigin();sv('f-cat',m.cat);sv('f-dis',m.dis);
   sv('f-avl',avlNorm(m.avl));sv('f-pqd',m.pqd||'Pending');
@@ -2713,7 +2723,7 @@ function setMItems(items){var tb=document.getElementById('m-items');if(tb)tb.inn
 window.openMAT=function(){fillCo();buildMfrList();inspEdited=false;renderMatPidLink(null);document.getElementById('co-info').style.display='none';setMItems([]);addMItem();document.getElementById('ov-mat').classList.add('on');};
 window.closeMAT=function(){
   document.getElementById('ov-mat').classList.remove('on');
-  document.querySelectorAll('#ov-mat .fi,#ov-mat .ft').forEach(function(e){e.value='';});
+  document.querySelectorAll('#ov-mat .fi,#ov-mat .ft').forEach(function(e){e.value='';if(e.dataset)e.dataset.iso='';});
   document.querySelectorAll('#ov-mat .fs').forEach(function(e){e.selectedIndex=0;});
   document.getElementById('m-eid').value='';document.getElementById('m-items').innerHTML='';
   pickClear('m-co');pickClear('m-mfr');inspEdited=false;
@@ -2740,7 +2750,7 @@ window.saveMAT=function(){
 window.editMAT=function(id){
   var m=DB.mat.find(function(x){return x.id===id;});if(!m)return;
   fillCo();buildMfrList();
-  var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
+  var sv=function(f,v){var e=document.getElementById(f);if(e)dtSet(e,v);};
   sv('m-eid',id);sv('m-name',m.name);sv('m-desc',m.desc);sv('m-aconex',m.aconex);sv('m-date',m.date);
   sv('m-cat-sub',m.catSub);sv('m-cat-cor',(m.catCor&&m.catCor!==m.catSub)?m.catCor:'');
   pickSet('m-co',m.company);pickSet('m-mfr',m.mfr);sv('m-mfr-country',m.mfrCountry);checkMfr('m');
@@ -3197,7 +3207,7 @@ window.openMIR=function(){
 };
 window.closeMIR=function(){
   document.getElementById('ov-mir').classList.remove('on');
-  document.querySelectorAll('#ov-mir .fi,#ov-mir .ft').forEach(function(e){e.value='';});
+  document.querySelectorAll('#ov-mir .fi,#ov-mir .ft').forEach(function(e){e.value='';if(e.dataset)e.dataset.iso='';});
   document.querySelectorAll('#ov-mir .fs').forEach(function(e){e.selectedIndex=0;});
   document.getElementById('mir-mat-list').style.display='none';
   document.getElementById('mir-mat').value='';MIR_REFS=[];renderMirChips();mirPreview();loadMIRItems([],null);
@@ -3238,7 +3248,7 @@ window.saveMIR=function(){
 window.editMIR=function(id){
   var m=DB.mir.find(function(x){return x.id===id;});if(!m)return;
   fillMIRCo();
-  var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
+  var sv=function(f,v){var e=document.getElementById(f);if(e)dtSet(e,v);};
   sv('mir-eid',id);sv('mir-name',m.name);sv('mir-num',m.num);sv('mir-aconex',m.aconex);sv('mir-date',m.date);
   sv('mir-cat',m.cat);pickSet('mir-co',m.company);sv('mir-leed',m.leed||'N/A');sv('mir-saso',m.saso||'N/A');
   sv('mir-st',m.status||'Pending');renderMirIrnLink(m);
@@ -3337,7 +3347,7 @@ window.openFATFrom=function(matId){
   var m=matRecords().find(function(x){return x.id===matId;});
   if(!m)return;
   openFAT();
-  var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
+  var sv=function(f,v){var e=document.getElementById(f);if(e)dtSet(e,v);};
   sv('fat-mat',fatRefOf(m));
   sv('fat-mat-q',m.name+(m.aconex?'  \u00b7  '+m.aconex:''));
   sv('fat-material',m.name);
@@ -3391,7 +3401,7 @@ function fatMatHint(){
 window.openFAT=function(){document.getElementById('fat-eid').value='';document.getElementById('fat-title').textContent='FAT schedule item';document.getElementById('ov-fat').classList.add('on');};
 window.closeFAT=function(){
   document.getElementById('ov-fat').classList.remove('on');
-  document.querySelectorAll('#ov-fat .fi,#ov-fat .ft').forEach(function(e){e.value='';});
+  document.querySelectorAll('#ov-fat .fi,#ov-fat .ft').forEach(function(e){e.value='';e.dataset.iso='';});
   document.querySelectorAll('#ov-fat .fs').forEach(function(e){e.selectedIndex=0;});
   document.getElementById('fat-eid').value='';
   var fh=document.getElementById('fat-mat-hint');if(fh)fh.style.display='none';
@@ -3416,7 +3426,7 @@ window.saveFAT=function(){
 };
 window.editFAT=function(id){
   var m=(DB.fat||[]).find(function(x){return x.id===id;});if(!m)return;
-  var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
+  var sv=function(f,v){var e=document.getElementById(f);if(e)dtSet(e,v);};
   sv('fat-eid',id);sv('fat-mat',m.matRef);
   sv('fat-mat-q',m.matRef?((matRecords().find(function(x){return fatRefOf(x)===m.matRef;})||{name:m.matRef}).name+'  \u00b7  '+m.matRef):'');
   sv('fat-material',m.material);sv('fat-mfr',m.mfr);sv('fat-cat',m.cat);sv('fat-loc',m.loc);sv('fat-addr',m.addr);
@@ -3555,7 +3565,7 @@ window.openPID=function(){
 };
 window.closePID=function(){
   document.getElementById('ov-pid').classList.remove('on');
-  document.querySelectorAll('#ov-pid .fi,#ov-pid .ft').forEach(function(e){e.value='';});
+  document.querySelectorAll('#ov-pid .fi,#ov-pid .ft').forEach(function(e){e.value='';if(e.dataset)e.dataset.iso='';});
   document.querySelectorAll('#ov-pid .fs').forEach(function(e){e.selectedIndex=0;});
   document.getElementById('d-eid').value='';pickClear('d-vendor');
   PID_MATS=[];renderPidChips();
@@ -3578,7 +3588,7 @@ window.savePID=function(){
 };
 window.editPID=function(id){
   var m=(DB.dossiers||[]).find(function(x){return x.id===id;});if(!m)return;
-  var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
+  var sv=function(f,v){var e=document.getElementById(f);if(e)dtSet(e,v);};
   sv('d-eid',id);sv('d-no',m.no);sv('d-title',m.title);sv('d-ref',m.ref);sv('d-date',m.date);
   pickSet('d-vendor',m.vendor);sv('d-status',m.status||'Pending');sv('d-fab',m.fabStart);
   sv('d-notes',m.notes);renderPidMeetingLink(m);
@@ -3629,7 +3639,7 @@ window.rPID=function(){
       +'<td><span class="ref">'+(d.date||'—')+'</span></td>'
       +'<td class="ctr">'+stamp(d.status||'Pending')+'</td>'
       +'<td class="ctr">'+(mtg?stamp(mtg.status||'Not Scheduled'):'<span class="stamp s-na">None</span>')+'</td>'
-      +'<td><span class="ref"'+(overdue?' style="color:var(--bad-t)"':'')+'>'+((mtg&&mtg.date)||'—')+(overdue?' · overdue':'')+'</span></td>'
+      +'<td><span class="ref"'+(overdue?' style="color:var(--bad-t)"':'')+'>'+(dtToDisplay(mtg&&mtg.date)||'—')+(overdue?' · overdue':'')+'</span></td>'
       +'<td class="ctr">'+(mtg?stamp(mtg.mom||'N/A'):'<span class="stamp s-na">N/A</span>')+'</td>'
       +ibs('editPID','delPID',d.id,d._rowid)+'</tr>';
   }).join('');
@@ -3702,7 +3712,7 @@ window.openPOST=function(){
 window.closePOST=function(){
   var ov=document.getElementById('ov-post');
   ov.classList.remove('on');
-  ov.querySelectorAll('.fi,.ft').forEach(function(e){e.value='';});
+  ov.querySelectorAll('.fi,.ft').forEach(function(e){e.value='';if(e.dataset)e.dataset.iso='';});
   ov.querySelectorAll('.fs').forEach(function(e){e.selectedIndex=0;});
   document.getElementById('o-eid').value='';pickClear('o-vendor');
   POST_MATS=[];renderPostChips();
@@ -3710,7 +3720,7 @@ window.closePOST=function(){
 };
 document.getElementById('ov-post').addEventListener('click',function(e){if(e.target===this)closePOST();});
 window.savePOST=function(){
-  var g=function(f){var e=document.getElementById('o-'+f);return e?e.value:'';};
+  var g=function(f){var e=document.getElementById('o-'+f);return e?dtGet(e):'';};
   var no=g('no').trim(), title=g('title').trim();
   if(!no&&!title)return alert('Enter the dossier number or its title');
   var eid=document.getElementById('o-eid').value;
@@ -3727,7 +3737,7 @@ window.savePOST=function(){
 };
 window.editPOST=function(id){
   var m=(DB.postdoss||[]).find(function(x){return x.id===id;});if(!m)return;
-  var sv=function(f,v){var e=document.getElementById('o-'+f);if(e)e.value=v||'';};
+  var sv=function(f,v){var e=document.getElementById('o-'+f);if(e)dtSet(e,v);};
   document.getElementById('o-eid').value=id;
   ['no','title','ref','date','last','status','narrative','waivers','reports','records','ncr','release','punch','notes']
     .forEach(function(f){sv(f,m[f]);});
@@ -3875,8 +3885,8 @@ window.rTRACE=function(){
    ================================================================ */
 function crud(cfg){
   var K=cfg.key, P=cfg.prefix, T=cfg.table, OV=cfg.ov;
-  function g(f){var e=document.getElementById(P+'-'+f);return e?e.value:'';}
-  function sv(f,v){var e=document.getElementById(P+'-'+f);if(e)e.value=v||'';}
+  function g(f){var e=document.getElementById(P+'-'+f);return e?dtGet(e):'';}
+  function sv(f,v){var e=document.getElementById(P+'-'+f);if(e)dtSet(e,v);}
   window['open'+K]=function(){
     document.getElementById(P+'-eid').value='';
     document.getElementById(cfg.titleId).textContent=cfg.newTitle;
@@ -3887,7 +3897,7 @@ function crud(cfg){
   window['close'+K]=function(){
     var ov=document.getElementById('ov-'+OV);
     ov.classList.remove('on');
-    ov.querySelectorAll('.fi,.ft').forEach(function(e){e.value='';});
+    ov.querySelectorAll('.fi,.ft').forEach(function(e){e.value='';if(e.dataset)e.dataset.iso='';});
     ov.querySelectorAll('.fs').forEach(function(e){e.selectedIndex=0;});
     document.getElementById(P+'-eid').value='';
     (cfg.picks||[]).forEach(function(p){pickClear(p);});
@@ -3986,7 +3996,7 @@ crud({key:'PFM',prefix:'p',ov:'pfm',table:'pfm',titleId:'pfm-title',
       +'<td><span class="nm" style="max-width:240px">'+(m.subject||'—')+'</span></td>'
       +'<td><span class="nm" style="max-width:150px">'+(m.vendor||'—')+'</span></td>'
       +'<td><span class="ref">'+(m.dossier?dossierLabel(m.dossier):'—')+'</span></td>'
-      +'<td><span class="ref"'+(overdue?' style="color:var(--bad-t)"':'')+'>'+(m.date||'—')+(overdue?' · overdue':'')+'</span></td>'
+      +'<td><span class="ref"'+(overdue?' style="color:var(--bad-t)"':'')+'>'+(dtToDisplay(m.date)||'—')+(overdue?' · overdue':'')+'</span></td>'
       +'<td class="ctr">'+stamp(m.status||'Not Scheduled')+'</td>'
       +'<td class="ctr">'+stamp(m.mom||'N/A')+'</td>'
       +'<td><span class="ref">'+(m['mom-ref']||'—')+'</span></td>'
@@ -4057,7 +4067,7 @@ window.openINSP=function(){
 };
 window.closeINSP=function(){
   document.getElementById('ov-insp').classList.remove('on');
-  document.querySelectorAll('#ov-insp .fi,#ov-insp .ft').forEach(function(e){e.value='';});
+  document.querySelectorAll('#ov-insp .fi,#ov-insp .ft').forEach(function(e){e.value='';if(e.dataset)e.dataset.iso='';});
   document.querySelectorAll('#ov-insp .fs').forEach(function(e){e.selectedIndex=0;});
   document.getElementById('i-eid').value='';pickClear('i-agency');
   var ih=document.getElementById('i-agency-hint');if(ih)ih.style.display='none';
@@ -4079,7 +4089,7 @@ window.saveINSP=function(){
 };
 window.editINSP=function(id){
   var m=(DB.inspectors||[]).find(function(x){return x.id===id;});if(!m)return;
-  var sv=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
+  var sv=function(f,v){var e=document.getElementById(f);if(e)dtSet(e,v);};
   sv('i-eid',id);sv('i-name',m.name);pickSet('i-agency',m.agency);sv('i-disc',m.disc);
   sv('i-cert',m.cert);sv('i-cert-exp',m.certExp);sv('i-status',m.status||'Approved');sv('i-ref',m.ref);
   sv('i-phone',m.phone);sv('i-email',m.email);sv('i-notes',m.notes);
@@ -4375,7 +4385,7 @@ window.chkBack=function(){CHK_VIEW='list';CHK_CUR=null;goTo('chk');};
 window.openCHKNew=function(){
   document.getElementById('c-vendor').value='';
   document.getElementById('c-cat').value='C3';
-  document.getElementById('c-date').value=ymd(new Date());
+  dtSet(document.getElementById('c-date'),ymd(new Date()));
   document.getElementById('c-notes').value='';
   document.getElementById('ov-chk').classList.add('on');
 };
@@ -4385,7 +4395,7 @@ window.saveCHKNew=function(){
   var v=document.getElementById('c-vendor').value.trim();
   if(!v)return alert('Enter the vendor name');
   var r={id:Date.now(),vendor:v,cat:document.getElementById('c-cat').value,
-    date:document.getElementById('c-date').value,notes:document.getElementById('c-notes').value.trim(),items:{}};
+    date:dtGet(document.getElementById('c-date')),notes:document.getElementById('c-notes').value.trim(),items:{}};
   DB.checklists=DB.checklists||[];
   DB.checklists.push(r);
   persist('checklists',r).then(stampSaved);
@@ -4516,6 +4526,73 @@ window.resetCHK=function(){
    ================================================================ */
 var CAL_VIEW=new Date();CAL_VIEW.setDate(1);
 var CAL_COL={pa:['run','Survey'],mir:['ok','Inspection'],iso:['bad','Expiry'],deadline:['act','Deadline'],manual:['na','Task'],meeting:['na','Meeting'],inspection:['ok','Inspection'],delivery:['ok','Delivery']};
+/* Stored dates stay ISO so sorting and comparison keep working; only
+   what you read and type is dd/mm/yyyy. */
+function dtToDisplay(iso){
+  if(!iso)return '';
+  var m=String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m?(m[3]+'/'+m[2]+'/'+m[1]):String(iso);
+}
+/* a real calendar check, so 31 February is refused rather than rolled */
+function dtBuild(y,mo,d){
+  if(!(y>=1900&&y<=2200)||!(mo>=1&&mo<=12)||!(d>=1&&d<=31))return null;
+  var t=new Date(Date.UTC(y,mo-1,d));
+  if(t.getUTCFullYear()!==y||t.getUTCMonth()!==mo-1||t.getUTCDate()!==d)return null;
+  return y+'-'+('0'+mo).slice(-2)+'-'+('0'+d).slice(-2);
+}
+function dtParse(txt){
+  var t=String(txt||'').trim();
+  if(!t)return '';
+  var m;
+  if((m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)))return dtBuild(+m[1],+m[2],+m[3]);
+  /* day first, the way Aconex prints it */
+  if((m=t.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})$/))){
+    var d=+m[1],mo=+m[2],y=m[3];
+    if(y.length===2)y='20'+y;
+    return dtBuild(+y,mo,d);
+  }
+  if((m=t.match(/^(\d{1,2})[\/\-. ]([A-Za-z]{3,})[\/\-. ](\d{2,4})$/))){
+    var names=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    var mi=names.indexOf(m[2].slice(0,3).toLowerCase());
+    if(mi<0)return null;
+    var yy=m[3].length===2?('20'+m[3]):m[3];
+    return dtBuild(+yy,mi+1,+m[1]);
+  }
+  return null;
+}
+/* the field carries the display text; the ISO value rides alongside it */
+window.dtInput=function(el){
+  var iso=dtParse(el.value);
+  el.classList.toggle('bad', el.value.trim()!=='' && iso===null);
+  el.dataset.iso=(iso===null?'':(iso||''));
+};
+window.dtBlur=function(el){
+  var iso=dtParse(el.value);
+  if(iso){el.value=dtToDisplay(iso);el.dataset.iso=iso;el.classList.remove('bad');}
+  else if(!el.value.trim()){el.dataset.iso='';el.classList.remove('bad');}
+};
+window.dtPick=function(nat){
+  var el=nat.parentNode.querySelector('.fi.dt');
+  if(!el||!nat.value)return;
+  el.value=dtToDisplay(nat.value);el.dataset.iso=nat.value;el.classList.remove('bad');
+};
+function dtGet(el){
+  if(!el)return '';
+  if(el.classList&&el.classList.contains('dt')){
+    var iso=dtParse(el.value);
+    return iso||'';
+  }
+  return el.value;
+}
+function dtSet(el,iso){
+  if(!el)return;
+  if(el.classList&&el.classList.contains('dt')){
+    el.value=dtToDisplay(iso||'');el.dataset.iso=iso||'';el.classList.remove('bad');
+    var nat=el.parentNode.querySelector('.dt-native');if(nat)nat.value=iso||'';
+    return;
+  }
+  el.value=iso||'';
+}
 function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function collectCalEvents(){
   var ev=[];
@@ -4569,7 +4646,7 @@ window.calToday=function(){CAL_VIEW=new Date();CAL_VIEW.setDate(1);rCAL();};
 window.calDayClick=function(ds){
   var events=collectCalEvents().filter(function(e){return e.date===ds;});
   var det=document.getElementById('cal-day-detail');
-  var head='<div class="panel-h"><span>'+ds+(events.length?' · '+events.length+' event'+(events.length===1?'':'s'):'')+'</span><button class="btn btn-sm" onclick="openCalEvent(null,\''+ds+'\')">Add event</button></div>';
+  var head='<div class="panel-h"><span>'+dtToDisplay(ds)+(events.length?' · '+events.length+' event'+(events.length===1?'':'s'):'')+'</span><button class="btn btn-sm" onclick="openCalEvent(null,\''+ds+'\')">Add event</button></div>';
   if(!events.length){det.innerHTML='<div class="panel">'+head+'<div class="empty">No events on this day.</div></div>';return;}
   det.innerHTML='<div class="panel">'+head+events.map(function(e){
     var click=!e.sys?' onclick="openCalEvent(\''+e.id+'\')"':'';
@@ -4586,14 +4663,14 @@ window.openCalEvent=function(id,preset){
     var e=(DB.events||[]).find(function(x){return x.id===+id;});
     if(e){
       document.getElementById('cal-ev-title').value=e.title||'';
-      document.getElementById('cal-ev-date').value=e.date||'';
+      dtSet(document.getElementById('cal-ev-date'),e.date);
       document.getElementById('cal-ev-type').value=e.type||'manual';
       document.getElementById('cal-ev-notes').value=e.notes||'';
     }
     del.style.display='';
   }else{
     document.getElementById('cal-ev-title').value='';
-    document.getElementById('cal-ev-date').value=preset||'';
+    dtSet(document.getElementById('cal-ev-date'),preset);
     document.getElementById('cal-ev-type').value='manual';
     document.getElementById('cal-ev-notes').value='';
     del.style.display='none';
@@ -4604,7 +4681,7 @@ window.closeCalEvent=function(){document.getElementById('ov-cal').classList.remo
 document.getElementById('ov-cal').addEventListener('click',function(e){if(e.target===this)closeCalEvent();});
 document.getElementById('ov-cmt').addEventListener('click',function(e){if(e.target===this)closeCMT();});
 window.saveCalEvent=function(){
-  var title=document.getElementById('cal-ev-title').value.trim(), date=document.getElementById('cal-ev-date').value;
+  var title=document.getElementById('cal-ev-title').value.trim(), date=dtGet(document.getElementById('cal-ev-date'));
   if(!title)return alert('Enter an event title');
   if(!date)return alert('Select a date');
   var eid=document.getElementById('cal-eid').value;
@@ -4854,7 +4931,7 @@ window.paWaiverCheck=function(){
 window.openPA=function(id){
   fillPAVendors();
   var sel=document.getElementById('pa-vendor');
-  var g=function(f,v){var e=document.getElementById(f);if(e)e.value=v||'';};
+  var g=function(f,v){var e=document.getElementById(f);if(e)dtSet(e,v);};
   if(id){
     var m=(DB.pqd||[]).find(function(x){return x.id===id;});
     if(!m)return;
@@ -4881,7 +4958,7 @@ window.savePA=function(){
   if(!id)return alert('Choose a vendor');
   var m=(DB.pqd||[]).find(function(x){return x.id===id;});
   if(!m)return alert('That vendor could not be found');
-  var g=function(f){var e=document.getElementById(f);return e?e.value:'';};
+  var g=function(f){var e=document.getElementById(f);return e?dtGet(e):'';};
   /* mutate in place so nothing else on the vendor record is touched */
   m.prepa=g('pa-prepa');m.pa=g('pa-status');m.paDate=g('pa-date');m.paRef=g('pa-ref');
   m.paQms=g('pa-qms');m.paQmsAssessor=g('pa-qms-assessor');m.paQmsResult=g('pa-qms-result');m.paQmsRef=g('pa-qms-ref');
@@ -5526,7 +5603,13 @@ function rbCols(){
     return picked.indexOf(a)-picked.indexOf(b);
   });
 }
-function rbValue(c,r){return c[3]?c[3](r):(r[c[0]]==null?'':r[c[0]]);}
+var RB_DATE_KEYS=['date','paDate','isoDate','qualDate','certExp','last','due','fatDate','prefab','fab','delivery','sent-date','vendorPaDate','pidDate','pimDate'];
+function rbValue(c,r){
+  var v=c[3]?c[3](r):(r[c[0]]==null?'':r[c[0]]);
+  /* dates leave the system the way Aconex prints them */
+  if(RB_DATE_KEYS.indexOf(c[0])>=0&&/^\d{4}-\d{2}-\d{2}$/.test(String(v)))return dtToDisplay(v);
+  return v;
+}
 function rbCount(){
   var e=document.getElementById('rb-count');
   if(e)e.textContent=rbRows().length+' rows · '+rbCols().length+' columns';
