@@ -1144,6 +1144,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
       <span class="dlbl" style="margin:0">COLUMNS</span>
       <span class="link" onclick="rbAll(true)">select all</span>
       <span class="link" onclick="rbAll(false)">clear</span>
+      <span id="rb-groups" style="display:inline-flex;gap:9px"></span>
       <span class="spacer"></span>
       <span class="count" id="rb-count"></span>
     </div>
@@ -5263,6 +5264,9 @@ var RB_COL_GROUP={
     prepa:'assessment',pa:'assessment',paDate:'assessment',paRef:'assessment',paQmsAssessor:'assessment',
     paQmsResult:'assessment',paQmsRef:'assessment',paTechAssessor:'assessment',paTechResult:'assessment',paTechRef:'assessment',paResult:'assessment'},
   materials:{vendorPqd:'vendors',vendorMatch:'vendors',vendorCat:'vendors',vendorIso:'vendors',vendorOrigin:'vendors',vendorPa:'assessment',
+    vendorPaDate:'assessment',vendorPaRef:'assessment',vendorQms:'assessment',vendorQmsAssessor:'assessment',
+    vendorQmsResult:'assessment',vendorQmsRef:'assessment',vendorTech:'assessment',vendorTechAssessor:'assessment',
+    vendorTechResult:'assessment',vendorTechRef:'assessment',vendorPaResult:'assessment',
     pidNo:'dossiers',pidStatus:'dossiers',itpNo:'itp',itpStatus:'itp',
     tpiAgency:'tpi',tpiInspector:'tpi',fatDate:'fat',fatRemark:'fat'},
   mir:{irnNo:'irn',irnStatus:'irn'},
@@ -5301,7 +5305,18 @@ var RB_SOURCES={
       ['date','Submitted',1],['mts','Submittal status',1],['insp','Inspection requirement',1],
       ['tpia','Third-party inspection',0],['leed','LEED',0],['saso','SASO',0],
       ['vendorPqd','Vendor PQD',0,function(m){return vendorForMat(m).pqd||'';}],
-      ['vendorPa','Vendor assessment',0,function(m){return vendorForMat(m).pa||'';}],
+      ['vendorPa','Vendor assessment',0,function(m){var v=vendorForMat(m);return v.name?(paInScope(v)?(v.pa||'Pending'):'N/A'):'';}],
+      ['vendorPaDate','Survey date',0,function(m){return vendorForMat(m).paDate||'';}],
+      ['vendorPaRef','Assessment Aconex reference',0,function(m){return vendorForMat(m).paRef||'';}],
+      ['vendorQms','QMS report',0,function(m){return vendorForMat(m).paQms||'';}],
+      ['vendorQmsAssessor','QMS assessor',0,function(m){return vendorForMat(m).paQmsAssessor||'';}],
+      ['vendorQmsResult','QMS result',0,function(m){return vendorForMat(m).paQmsResult||'';}],
+      ['vendorQmsRef','QMS report Aconex reference',0,function(m){return vendorForMat(m).paQmsRef||'';}],
+      ['vendorTech','Technical report',0,function(m){return vendorForMat(m).paTech||'';}],
+      ['vendorTechAssessor','Technical assessor',0,function(m){return vendorForMat(m).paTechAssessor||'';}],
+      ['vendorTechResult','Technical result',0,function(m){return vendorForMat(m).paTechResult||'';}],
+      ['vendorTechRef','Technical report Aconex reference',0,function(m){return vendorForMat(m).paTechRef||'';}],
+      ['vendorPaResult','Assessment result',0,function(m){return vendorForMat(m).paResult||'';}],
       ['vendorMatch','Vendor record',0,function(m){var v=vendorForMat(m);return v.name||'not on record';}],
       ['vendorCat','Vendor category',0,function(m){return vendorForMat(m).cat||'';}],
       ['vendorIso','Vendor ISO',0,function(m){var v=vendorForMat(m);return v.name?((v.isoDate&&isExp(v.isoDate))?'Expired':(v.iso||'')):'';}],
@@ -5429,6 +5444,16 @@ function rbRender(){
     return '<div class="colopt'+(on?' on':'')+'" data-c="'+c[0]+'" onclick="rbToggle(this)" style="padding:7px 9px">'
       +'<span class="box"></span>'+c[1]+'</div>';
   }).join('');
+  /* whole groups can be switched on at once — the assessment block is
+     eleven columns, and clicking them one by one is a chore */
+  var gseen=[];
+  RB_SOURCES[RB_SRC].cols.forEach(function(c){
+    var g=rbGroupOf(c[0]);
+    if(g&&g!==(RB_GROUP[RB_SRC]||'')&&gseen.indexOf(g)<0)gseen.push(g);
+  });
+  document.getElementById('rb-groups').innerHTML=gseen.map(function(g){
+    return '<span class="link" onclick="rbGroup(\''+g.replace(/'/g,"")+'\')">+ '+g.toLowerCase()+'</span>';
+  }).join('');
   var fs=RB_SOURCES[RB_SRC].filters||[];
   document.getElementById('rb-filters').innerHTML=fs.length
     ? fs.map(function(f){
@@ -5453,6 +5478,18 @@ window.rbAll=function(on){
   document.querySelectorAll('#rb-cols .colopt').forEach(function(el){el.classList.toggle('on',on);});
   RB_PICK[RB_SRC]=on?RB_SOURCES[RB_SRC].cols.map(function(c){return c[0];}):[];
   rbCount();
+};
+window.rbGroup=function(g){
+  var chosen=(RB_PICK[RB_SRC]||[]).slice();
+  var keys=RB_SOURCES[RB_SRC].cols.filter(function(c){return rbGroupOf(c[0])===g;}).map(function(c){return c[0];});
+  var allOn=keys.every(function(k){return chosen.indexOf(k)>=0;});
+  keys.forEach(function(k){
+    var i=chosen.indexOf(k);
+    if(allOn){if(i>=0)chosen.splice(i,1);}
+    else if(i<0)chosen.push(k);
+  });
+  RB_PICK[RB_SRC]=chosen;
+  rbRender();
 };
 window.rbFilter=function(k,v){if(v)RB_FILT[k]=v;else delete RB_FILT[k];rbCount();};
 window.rbReset=function(){try{localStorage.removeItem(rbPrefKey());}catch(e){}delete RB_PICK[RB_SRC];RB_FILT={};rbRender();};
