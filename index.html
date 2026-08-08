@@ -380,7 +380,9 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
   </div>
 </div>
 
-<div class="ls" id="ls" style="display:none"><div class="spin"></div><div style="font-family:var(--mono);font-size:11px;color:var(--t-3)">PQCS</div></div>
+<div class="ls" id="ls" style="display:none"><div class="spin"></div>
+  <div style="font-size:15px;letter-spacing:.02em">PQCS</div>
+  <div id="ls-note" style="font-family:var(--mono);font-size:11px;color:var(--t-3)">Loading…</div></div>
 <div class="toast" id="toast"><span id="tm">Saved</span></div>
 <div class="fmenu" id="fmenu" onclick="event.stopPropagation()"></div>
 
@@ -1417,14 +1419,18 @@ window.sbAssign=async function(uid){
 };
 
 /* ---------- data access ---------- */
+/* Twelve tables used to be fetched one after another, so the wait was
+   the sum of them all. Fetched together it is the slowest single one. */
 async function sbLoadAll(){
-  DB={pqd:[],mat:[],mir:[],events:[],fat:[],checklists:[],inspectors:[],dossiers:[],tpi:[],pfm:[],itp:[],irn:[],postdoss:[]};
-  for(var i=0;i<SB_TABLES.length;i++){
-    var t=SB_TABLES[i];
-    var r=await sb.from(t).select('id,data').eq('project_id',CUR_PROJECT);
-    if(r.error){console.error(t,r.error);continue;}
-    DB[t]=((r.data)||[]).map(function(row){var o=row.data||{};o._rowid=row.id;return o;});
-  }
+  SB_TABLES.forEach(function(t){DB[t]=[];});
+  var results=await Promise.all(SB_TABLES.map(function(t){
+    return sb.from(t).select('id,data').eq('project_id',CUR_PROJECT)
+      .then(function(r){return {t:t,r:r};});
+  }));
+  results.forEach(function(x){
+    if(x.r.error){console.error(x.t,x.r.error);return;}
+    DB[x.t]=((x.r.data)||[]).map(function(row){var o=row.data||{};o._rowid=row.id;return o;});
+  });
 }
 async function sbUpsert(table,obj){
   var payload={project_id:CUR_PROJECT,user_id:CUR_USER.id,data:obj,updated_at:new Date().toISOString()};
@@ -1437,28 +1443,36 @@ async function sbUpsert(table,obj){
   }
 }
 async function sbDelete(table,rowid){if(!rowid)return;var r=await sb.from(table).delete().eq('id',rowid);if(r.error)console.error('delete',table,r.error);}
-async function sbLoadComponents(){
-  var all=[],from=0,size=1000;
-  while(true){
-    var r=await sb.from('components').select('sr,name,section,trade,priority,criticality').order('sr').range(from,from+size-1);
-    if(r.error){console.error('components',r.error);break;}
-    all=all.concat(r.data||[]);
-    if(!r.data||r.data.length<size)break;
-    from+=size;
+/* Both reference tables run to thousands of rows and page a thousand at
+   a time. The first page tells us the total, so the rest are fetched in
+   one go rather than in a chain. */
+async function pagedFetch(table,cols,orderCol){
+  var size=1000;
+  var q=sb.from(table).select(cols,{count:'exact'});
+  if(orderCol)q=q.order(orderCol);
+  var first=await q.range(0,size-1);
+  if(first.error){console.error(table,first.error);return [];}
+  var all=(first.data||[]).slice();
+  var total=first.count||all.length;
+  if(total>all.length){
+    var pages=[];
+    for(var from=size;from<total;from+=size){
+      var qq=sb.from(table).select(cols);
+      if(orderCol)qq=qq.order(orderCol);
+      pages.push(qq.range(from,from+size-1));
+    }
+    var rest=await Promise.all(pages);
+    rest.forEach(function(r){if(!r.error)all=all.concat(r.data||[]);});
   }
+  return all;
+}
+async function sbLoadComponents(){
+  var all=await pagedFetch('components','sr,name,section,trade,priority,criticality','sr');
   COMP_DATA=all.map(function(x){return {n:x.name||'',c:x.criticality||'',t:x.trade||'',p:x.priority||'',s:x.section||'',sr:x.sr};});
   window.COMP_DATA=COMP_DATA;
 }
 async function sbLoadAVL(){
-  var all=[],from=0,size=1000;
-  while(true){
-    var r=await sb.from('avl').select('list,mfr,disc,mat,cat,country,seg,status').range(from,from+size-1);
-    if(r.error){console.error('avl',r.error);break;}
-    all=all.concat(r.data||[]);
-    if(!r.data||r.data.length<size)break;
-    from+=size;
-  }
-  window.AVL_DATA=all;
+  window.AVL_DATA=await pagedFetch('avl','list,mfr,disc,mat,cat,country,seg,status',null);
 }
 function persist(table,obj){
   if(table&&obj)return saveOne(table,obj);
@@ -4077,6 +4091,10 @@ window.rINSP=function(){
 var AVL_DISC_FILLED=false;
 window.rAVL=function(){
   var data=window.AVL_DATA||[];
+  if(!data.length){
+    var tb0=document.getElementById('avl-tb');
+    if(tb0)tb0.innerHTML='<tr><td colspan="8" class="empty">Loading the approved vendor list…</td></tr>';
+  }
   var sel=document.getElementById('avl-disc');
   if(sel&&!AVL_DISC_FILLED){
     var ds={};data.forEach(function(r){if(r.disc)ds[r.disc]=1;});
@@ -4127,6 +4145,10 @@ window.sComp=function(v){compSr=(v||'').toLowerCase();rComp();};
 window.fComp=function(t,v){if(t==='cat')compCat=v;else compTrade=v;rComp();};
 function rComp(){
   var items=COMP_DATA||[];
+  if(!items.length){
+    var tb0=document.getElementById('tb-comp');
+    if(tb0)tb0.innerHTML='<tr><td colspan="6" class="empty">Loading components…</td></tr>';
+  }
   if(compSr)items=items.filter(function(x){return x.n.toLowerCase().indexOf(compSr)>=0;});
   if(compCat)items=items.filter(function(x){return x.c===compCat;});
   if(compTrade)items=items.filter(function(x){return (x.t||'').indexOf(compTrade)>=0;});
@@ -5298,19 +5320,35 @@ function refreshCounts(){
   set('nb-comp',(COMP_DATA||[]).length);
   set('nb-avl',(window.AVL_DATA||[]).length);
 }
+function loadNote(txt){var e=document.getElementById('ls-note');if(e)e.textContent=txt;}
+/* The vendor list and the component list are references — thousands of
+   rows you do not need to read the dashboard. The screen opens on your
+   own records and those two arrive behind it. */
 async function bootApp(){
   var na=document.getElementById('ni-admin');
   if(na)na.style.display=(CUR_PROFILE&&CUR_PROFILE.role==='admin')?'':'none';
+  document.getElementById('ls').style.display='flex';
+  loadNote('Loading this project…');
+
+  try{await sbLoadAll();}catch(e){console.error('data load failed',e);}
+
   document.getElementById('ls').style.display='none';
   document.getElementById('app').style.display='flex';
-  try{await sbLoadAVL();}catch(e){console.error('vendor list load failed',e);}
-  try{await sbLoadComponents();}catch(e){console.error('components load failed',e);}
-  try{await sbLoadAll();}catch(e){console.error('data load failed',e);}
   document.getElementById('date-c').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
   document.getElementById('sb-foot').textContent='PQCS · '+(CUR_USER&&CUR_USER.email?CUR_USER.email:'');
   stampSaved();
   refreshCounts();
   goTo('dash',document.querySelector('.ni[data-p=dash]'));
+
+  /* references catch up in the background and refresh what depends on them */
+  Promise.all([
+    sbLoadAVL().catch(function(e){console.error('vendor list load failed',e);}),
+    sbLoadComponents().catch(function(e){console.error('components load failed',e);})
+  ]).then(function(){
+    refreshCounts();
+    if(CUR_PAGE==='avl')rAVL();
+    if(CUR_PAGE==='comp')rComp();
+  });
 }
 function sbWaitForLib(tries){
   tries=tries||0;
