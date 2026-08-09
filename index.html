@@ -429,7 +429,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
       <div class="ni" data-p="pid" onclick="goTo('pid',this)"><svg viewBox="0 0 24 24"><path d="M4 4h11l5 5v11a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5M8 13h8M8 17h5"/></svg><span>Pre-inspection dossier</span><span class="ni-n" id="nb-pid">0</span></div>
       <div class="ni" data-p="tpi" onclick="goTo('tpi',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/><path d="M17 3l2 2 3-3"/></svg><span>TPI assignment</span><span class="ni-n" id="nb-tpi">0</span></div>
       <div class="ni" data-p="pfm" onclick="goTo('pfm',this)"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg><span>Pre-fabrication meeting</span><span class="ni-n" id="nb-pfm">0</span></div>
-      <div class="ni" data-p="itp" onclick="goTo('itp',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><rect x="3" y="5" width="11" height="14" rx="2"/><path d="M6 9h5M6 13h3"/></svg><span>ITP / FAT procedure</span><span class="ni-n" id="nb-itp">0</span></div>
+      <div class="ni" data-p="itp" onclick="goTo('itp',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><rect x="3" y="5" width="11" height="14" rx="2"/><path d="M6 9h5M6 13h3"/></svg><span>ITP</span><span class="ni-n" id="nb-itp">0</span></div>
+      <div class="ni" data-p="fatproc" onclick="goTo('fatproc',this)"><svg viewBox="0 0 24 24"><path d="M4 4h11l5 5v11a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5M8 14h8M8 17h5"/><circle cx="9" cy="10" r="1"/></svg><span>FAT procedure</span><span class="ni-n" id="nb-fatproc">0</span></div>
       <div class="ni" data-p="fat" onclick="goTo('fat',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L21 5"/><path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h10"/></svg><span>FAT / final inspection</span><span class="ni-n" id="nb-fat">0</span></div>
       <div class="ni" data-p="mir" onclick="goTo('mir',this)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3M8 11h6M11 8v6"/></svg><span>Material inspection</span><span class="ni-n" id="nb-mir">0</span></div>
       <div class="ni" data-p="irn" onclick="goTo('irn',this)"><svg viewBox="0 0 24 24"><path d="M4 4h16v5H4z"/><path d="M6 9v11h12V9"/><path d="M10 13h4"/></svg><span>Inspection release note</span><span class="ni-n" id="nb-irn">0</span></div>
@@ -599,6 +600,18 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
             <th>REVISION</th><th style="min-width:120px">ACONEX REF</th><th>SUBMITTED</th>
             <th class="ctr">STATUS</th><th class="ctr">HOLD POINTS</th><th></th>
           </tr></thead><tbody id="tb-itp"></tbody>
+        </table></div>
+      </div>
+
+      <!-- ============ FAT PROCEDURE ============ -->
+      <div id="pg-fatproc" style="display:none">
+        <div class="tw"><table>
+          <thead><tr>
+            <th class="pin1 pin-edge" style="min-width:120px">NO.</th><th style="min-width:230px">TITLE</th>
+            <th style="min-width:200px">MATERIAL</th><th style="min-width:140px">VENDOR</th>
+            <th>REVISION</th><th style="min-width:120px">ACONEX REF</th><th>SUBMITTED</th>
+            <th class="ctr">STATUS</th><th class="ctr">TESTS</th><th></th>
+          </tr></thead><tbody id="tb-fatproc"></tbody>
         </table></div>
       </div>
 
@@ -1022,7 +1035,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 <!-- ===================== ITP MODAL ===================== -->
 <div class="ov" id="ov-itp">
  <div class="modal" style="max-width:560px">
-  <div class="m-head"><h2 id="itp-title">ITP and FAT procedure</h2><button class="ib" onclick="closeITP()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="m-head"><h2 id="itp-title">Inspection and test plan</h2><button class="ib" onclick="closeITP()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
   <div class="m-body"><input type="hidden" id="n-eid">
    <span class="m-sec">PLAN</span>
    <div class="fg">
@@ -1038,12 +1051,39 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input type="hidden" id="n-vendor"><div class="pick-list" id="n-vendor-list"></div></div>
      <div><label class="fl">Submitted date</label><span class="dwrapf"><input class="fi dt" id="n-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Status</label><select class="fs" id="n-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
-     <div><label class="fl">Type</label><select class="fs" id="n-type"><option>ITP</option><option>FAT procedure</option><option>ITP and FAT procedure</option></select></div>
-     <div><label class="fl">Hold and witness points</label><input class="fi" id="n-points" type="number" min="0" placeholder="0"></div>
+     <div class="fg-f"><label class="fl">Hold and witness points</label><input class="fi" id="n-points" type="number" min="0" placeholder="0"></div>
      <div class="fg-f"><label class="fl">Aconex reference</label><input class="fi" id="n-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="n-notes" rows="2"></textarea></div>
    </div></div>
   <div class="m-foot"><button class="btn" onclick="closeITP()">Cancel</button><button class="btn btn-p" id="itp-save-btn" onclick="saveITP()">Save ITP</button></div>
+ </div>
+</div>
+
+<!-- ===================== FAT PROCEDURE MODAL ===================== -->
+<div class="ov" id="ov-fatproc">
+ <div class="modal" style="max-width:560px">
+  <div class="m-head"><h2 id="fatproc-title">FAT procedure</h2><button class="ib" onclick="closeFPR()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="m-body"><input type="hidden" id="fp-eid">
+   <span class="m-sec">PROCEDURE</span>
+   <div class="fg">
+     <div><label class="fl">Procedure number</label><input class="fi" id="fp-no"></div>
+     <div><label class="fl">Revision</label><input class="fi" id="fp-rev" placeholder="Rev 00"></div>
+     <div class="fg-f"><label class="fl">Title</label><input class="fi" id="fp-title" placeholder="Factory acceptance test procedure for…"></div>
+     <div class="fg-f pick"><label class="fl">Material</label>
+       <input class="fi" id="fp-mat-q" placeholder="Search material submittals…" autocomplete="off" oninput="pickOpen('fp-mat')" onfocus="pickOpen('fp-mat')">
+       <input type="hidden" id="fp-mat"><div class="pick-list" id="fp-mat-list"></div>
+       <div class="hint" id="fp-mat-hint" style="display:none"></div></div>
+     <div class="fg-f pick"><label class="fl">Vendor</label>
+       <input class="fi" id="fp-vendor-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('fp-vendor')" onfocus="pickOpen('fp-vendor')">
+       <input type="hidden" id="fp-vendor"><div class="pick-list" id="fp-vendor-list"></div></div>
+     <div><label class="fl">Submitted date</label><span class="dwrapf"><input class="fi dt" id="fp-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
+     <div><label class="fl">Status</label><select class="fs" id="fp-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
+     <div><label class="fl">Number of tests</label><input class="fi" id="fp-tests" type="number" min="0" placeholder="0"></div>
+     <div><label class="fl">Test standard</label><input class="fi" id="fp-standard" placeholder="Specification or code the test follows"></div>
+     <div class="fg-f"><label class="fl">Aconex reference</label><input class="fi" id="fp-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
+     <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="fp-notes" rows="2"></textarea></div>
+   </div></div>
+  <div class="m-foot"><button class="btn" onclick="closeFPR()">Cancel</button><button class="btn btn-p" id="fatproc-save-btn" onclick="saveFPR()">Save procedure</button></div>
  </div>
 </div>
 
@@ -1312,8 +1352,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 var SB_URL="https://qwfvpwoqvpjkwxwrwtak.supabase.co";
 var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3ZnZwd29xdnBqa3d4d3J3dGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNjUzOTYsImV4cCI6MjA5Njc0MTM5Nn0.YhciQCnFNZSuZzgx0qcYRHP3Anqa3x3ppQnrUGOTqVg";
 var sb=null, CUR_PROJECT=null, CUR_USER=null, CUR_PROFILE=null;
-var SB_TABLES=['pqd','mat','mir','events','fat','checklists','inspectors','dossiers','tpi','pfm','itp','irn','postdoss'];
-var DB={pqd:[],mat:[],mir:[],events:[],fat:[],checklists:[],inspectors:[],dossiers:[],tpi:[],pfm:[],itp:[],irn:[],postdoss:[]};
+var SB_TABLES=['pqd','mat','mir','events','fat','checklists','inspectors','dossiers','tpi','pfm','itp','fatproc','irn','postdoss'];
+var DB={pqd:[],mat:[],mir:[],events:[],fat:[],checklists:[],inspectors:[],dossiers:[],tpi:[],pfm:[],itp:[],fatproc:[],irn:[],postdoss:[]};
 var COMP_DATA=[]; window.AVL_DATA=[];
 
 /* ---------- toast ---------- */
@@ -1650,9 +1690,9 @@ function flagFor(u){return u>=80?'<span class="flag f-bad"></span>':(u>=24?'<spa
 /* ================================================================
    3. NAVIGATION AND PER-PAGE TOOLBARS
    ================================================================ */
-var PAGES=['find','dash','trace','pqd','pa','mat','pid','tpi','pfm','itp','fat','mir','irn','post','dlog','insp','avl','comp','proc','chk','pasum','rpt','cal','admin'];
-var TITLES={find:'Search',dash:'Dashboard',trace:'Traceability',pqd:'Pre-qualification',pa:'Physical assessment',mat:'Material submittal',pid:'Pre-inspection dossier',tpi:'Third-party inspection assignment',pfm:'Pre-fabrication meeting',itp:'ITP and FAT procedure',fat:'FAT and final inspection',mir:'Material inspection request',irn:'Inspection release note',post:'Post-inspection dossier',dlog:'Material delivery log',insp:'Approved inspectors',avl:'Approved vendor list',comp:'Components and category',proc:'Procedure',chk:'Document review',pasum:'Physical assessment',rpt:'Reports',cal:'Calendar',admin:'Admin'};
-var ADD_LABEL={pqd:'New vendor',pa:'Schedule assessment',mat:'New submittal',pid:'New dossier',tpi:'New assignment',pfm:'New meeting',itp:'New ITP',fat:'New FAT item',mir:'New inspection request',irn:'New release note',post:'New dossier',insp:'New inspector',chk:'New review',cal:'New event'};
+var PAGES=['find','dash','trace','pqd','pa','mat','pid','tpi','pfm','itp','fatproc','fat','mir','irn','post','dlog','insp','avl','comp','proc','chk','pasum','rpt','cal','admin'];
+var TITLES={find:'Search',dash:'Dashboard',trace:'Traceability',pqd:'Pre-qualification',pa:'Physical assessment',mat:'Material submittal',pid:'Pre-inspection dossier',tpi:'Third-party inspection assignment',pfm:'Pre-fabrication meeting',itp:'Inspection and test plan',fatproc:'FAT procedure',fat:'FAT and final inspection',mir:'Material inspection request',irn:'Inspection release note',post:'Post-inspection dossier',dlog:'Material delivery log',insp:'Approved inspectors',avl:'Approved vendor list',comp:'Components and category',proc:'Procedure',chk:'Document review',pasum:'Physical assessment',rpt:'Reports',cal:'Calendar',admin:'Admin'};
+var ADD_LABEL={pqd:'New vendor',pa:'Schedule assessment',mat:'New submittal',pid:'New dossier',tpi:'New assignment',pfm:'New meeting',itp:'New ITP',fatproc:'New procedure',fat:'New FAT item',mir:'New inspection request',irn:'New release note',post:'New dossier',insp:'New inspector',chk:'New review',cal:'New event'};
 var PA_VIEW='pipeline', paFilterVal='open';
 var pidFilterVal='open', PID_MATS=[];
 var traceOnlyGaps=false;
@@ -1743,6 +1783,9 @@ function buildTools(page){
   }else if(page==='itp'){
     h+=searchBox('itp-q','Number, title, material, vendor…','rITP()');
     h+='<div class="spacer"></div><span class="count" id="itp-count"></span>';
+  }else if(page==='fatproc'){
+    h+=searchBox('fatproc-q','Number, title, material, vendor…','rFPR()');
+    h+='<div class="spacer"></div><span class="count" id="fatproc-count"></span>';
   }else if(page==='irn'){
     h+=searchBox('irn-q','Number, material, inspection request…','rIRN()');
     h+='<div class="spacer"></div><span class="count" id="irn-count"></span>';
@@ -1840,6 +1883,7 @@ window.goTo=function(page,el){
   if(page==='pfm')rPFM();
   if(page==='itp')rITP();
   if(page==='irn')rIRN();
+  if(page==='fatproc')rFPR();
   if(page==='post')rPOST();
   if(page==='fat')rFAT();
   if(page==='pa'||page==='pasum'){
@@ -1864,7 +1908,7 @@ window.goTo=function(page,el){
 };
 window.topAdd=function(){
   var open={pqd:openM,pa:openPA,mat:openMAT,pid:openPID,tpi:openTPI,pfm:openPFM,itp:openITP,
-            fat:openFAT,mir:openMIR,irn:openIRN,post:openPOST,insp:openINSP,chk:openCHKNew,cal:openCalEvent};
+            fatproc:openFPR,fat:openFAT,mir:openMIR,irn:openIRN,post:openPOST,insp:openINSP,chk:openCHKNew,cal:openCalEvent};
   var f=open[CUR_PAGE];
   if(f)f();
 };
@@ -1953,6 +1997,16 @@ function findAll(q){
       go:"goTo('post');setTimeout(function(){editPOST("+d.id+")},120)"});
   });
 
+  (DB.fatproc||[]).forEach(function(x){
+    var hay=findHay([x.no,x.title,x.ref,x.vendor,x.standard,x.notes,refLabelFor(x.mat).name]);
+    if(!findMatches(hay,terms))return;
+    out.push({group:'FAT procedures',title:(x.no?x.no+' \u2014 ':'')+(x.title||'Procedure'),ref:x.ref,
+      meta:[x.rev,x.vendor,dtToDisplay(x.date)].filter(Boolean).join(' \u00b7 '),
+      sub:x.mat?refLabelFor(x.mat).name:'',
+      stamps:[x.status||'Pending'],
+      go:"goTo('fatproc');setTimeout(function(){editFPR("+x.id+")},120)"});
+  });
+
   (DB.inspectors||[]).forEach(function(x){
     var hay=findHay([x.name,x.agency,x.disc,x.cert,x.ref,x.phone,x.email,x.notes]);
     if(!findMatches(hay,terms))return;
@@ -1981,7 +2035,7 @@ function findAll(q){
   return out;
 }
 
-var FIND_ORDER=['Vendors','Material submittals','Inspection requests','Dossiers','Post-inspection dossiers','FAT','Inspectors','Document reviews','Approved vendor list','Components'];
+var FIND_ORDER=['Vendors','Material submittals','Inspection requests','Dossiers','Post-inspection dossiers','FAT procedures','FAT','Inspectors','Document reviews','Approved vendor list','Components'];
 var FIND_CAP={'Approved vendor list':25,'Components':25};
 
 window.rFIND=function(){
@@ -2057,8 +2111,13 @@ function alertsFor(){
   });
   (DB.itp||[]).forEach(function(x){
     var st=x.status||'Pending';
-    if(st!=='Approved'&&st!=='Approved with Comments')
+    if(st.indexOf('Approved')!==0)
       out.push({p:32,t:(st==='Rejected'?'bad':'act'),s:st,n:(x.no?'ITP '+x.no:'ITP'),d:x.title||'',c:null,date:x.date,go:"goTo('itp');setTimeout(function(){editITP("+x.id+")},120)"});
+  });
+  (DB.fatproc||[]).forEach(function(x){
+    var st=x.status||'Pending';
+    if(st.indexOf('Approved')!==0)
+      out.push({p:31,t:(st==='Rejected'?'bad':'act'),s:st,n:(x.no?'FAT procedure '+x.no:'FAT procedure'),d:x.title||'',c:null,date:x.date,go:"goTo('fatproc');setTimeout(function(){editFPR("+x.id+")},120)"});
   });
   (DB.postdoss||[]).forEach(function(d){
     if(postOverdue(d))
@@ -2854,7 +2913,7 @@ var PICK_SRC={
   'f-subco':'subco','i-agency':'agency','d-vendor':'vendor',
   't-mat':'material','t-inspector':'inspector','t-agency':'agency',
   'p-dossier':'dossier','p-vendor':'vendor',
-  'n-mat':'material','n-vendor':'vendor',
+  'n-mat':'material','n-vendor':'vendor','fp-mat':'material','fp-vendor':'vendor',
   'r-mir':'mir','o-vendor':'vendor',
   'fat-tpia':'agency','fat-inspector':'inspector',
   'pa-tech-assessor':'inspector','pa-qms-assessor':'inspector',
@@ -2948,7 +3007,7 @@ function linkHint(id){
   var v=document.getElementById(id).value;
   if(!v){box.style.display='none';return;}
   var html='';
-  if(id==='t-mat'||id==='n-mat'){
+  if(id==='t-mat'||id==='n-mat'||id==='fp-mat'){
     var m=matRecords().find(function(x){return (x.aconex||x.name)===v;});
     if(m)html=stamp(m.mts||'Pending')+' '+inspStamp(m.insp)+' <span class="dim">'+[(m.catCor||m.catSub),m.company,m.mfr].filter(Boolean).join(' \u00b7 ')+'</span>';
   }else if(id==='r-mir'){
@@ -3021,7 +3080,7 @@ window.pickChoose=function(id,val){
     document.getElementById(id).value=val;
     document.getElementById(id+'-q').value=val;
     if(id==='m-co')showCoInfo(val);
-    if(id==='t-mat'||id==='n-mat')linkHint(id);
+    if(id==='t-mat'||id==='n-mat'||id==='fp-mat')linkHint(id);
     if(id==='r-mir')linkHint(id);
   }else if(kind==='inspector'){
     document.getElementById(id).value=val;
@@ -3806,7 +3865,7 @@ window.rPOST=function(){
    ================================================================ */
 var TRACE_STEPS=[
   ['pqd','Pre-qual'],['pa','Assessment'],['mat','Submittal'],['pid','Dossier'],
-  ['tpi','TPI'],['pfm','Meeting'],['itp','ITP'],['fat','FAT'],['mir','MIR'],['irn','IRN'],['post','Post']
+  ['tpi','TPI'],['pfm','Meeting'],['itp','ITP'],['fatproc','FAT proc'],['fat','FAT'],['mir','MIR'],['irn','IRN'],['post','Post']
 ];
 function traceRow(m){
   var ref=m.aconex||m.name;
@@ -3814,6 +3873,7 @@ function traceRow(m){
   var ds=(DB.dossiers||[]).filter(function(d){return pidMatsOf(d).indexOf(ref)>=0;});
   var tp=(DB.tpi||[]).filter(function(x){return x.mat===ref;});
   var it=(DB.itp||[]).filter(function(x){return x.mat===ref;});
+  var fp=(DB.fatproc||[]).filter(function(x){return x.mat===ref;});
   var ft=(DB.fat||[]).filter(function(x){return x.matRef===ref;});
   var mr=(DB.mir||[]).filter(function(x){return mirRefsOf(x).indexOf(ref)>=0;});
   var pf=(DB.pfm||[]).filter(function(p){return ds.some(function(d){return String(d.id)===String(p.dossier);});});
@@ -3831,6 +3891,7 @@ function traceRow(m){
     tpi:{v:tp.length?(tp[0].status||'Pending'):null,need:(m.tpia==='Required')},
     pfm:{v:pf.length?(pf[0].status||'Not Scheduled'):null,need:(cat==='C3')},
     itp:{v:it.length?(it[0].status||'Pending'):null,need:(cat==='C3'||needsFat)},
+    fatproc:{v:fp.length?(fp[0].status||'Pending'):null,need:needsFat},
     fat:{v:ft.length?(ft[0].remark||'Pending'):null,need:needsFat},
     mir:{v:mr.length?(mr[0].status||'Pending'):null,need:true},
     irn:{v:ir.length?(ir[0].status||'Pending'):null,need:mr.length>0},
@@ -4012,16 +4073,16 @@ crud({key:'PFM',prefix:'p',ov:'pfm',table:'pfm',titleId:'pfm-title',
   }});
 
 crud({key:'ITP',prefix:'n',ov:'itp',table:'itp',titleId:'itp-title',
-  newTitle:'ITP and FAT procedure',
+  newTitle:'Inspection and test plan',
   editTitle:function(m){return 'ITP'+(m.no?' No. '+m.no:'');},
-  fields:['no','rev','title','mat','vendor','date','status','type','points','ref','notes'],
+  fields:['no','rev','title','mat','vendor','date','status','points','ref','notes'],
   picks:['n-mat','n-vendor'],hints:['n-mat'],
   valid:function(r){return !!(r.no||r.title);},validMsg:'Enter the ITP number or its title',
   savedMsg:'ITP saved',deletedMsg:'ITP deleted',delMsg:'Delete this ITP?',
   searchId:'itp-q',countId:'itp-count',bodyId:'tb-itp',cols:10,
   noun:'plan',nounPlural:'plans',
   emptyMsg:'No inspection and test plans yet.',
-  hay:function(m){return [m.no,m.title,m.vendor,m.ref,m.type,m.notes,refLabelFor(m.mat).name];},
+  hay:function(m){return [m.no,m.title,m.vendor,m.ref,m.notes,refLabelFor(m.mat).name];},
   sort:function(a,b){return String(b.date||'').localeCompare(String(a.date||''));},
   row:function(m){
     return '<td class="pin1 pin-edge"><span class="ref">'+(m.no||'—')+'</span></td>'
@@ -4033,6 +4094,30 @@ crud({key:'ITP',prefix:'n',ov:'itp',table:'itp',titleId:'itp-title',
       +'<td><span class="ref">'+(m.date||'—')+'</span></td>'
       +'<td class="ctr">'+stamp(m.status||'Pending')+'</td>'
       +'<td class="ctr"><span class="ref">'+(m.points||'—')+'</span></td>';
+  }});
+
+crud({key:'FPR',prefix:'fp',ov:'fatproc',table:'fatproc',titleId:'fatproc-title',
+  newTitle:'FAT procedure',
+  editTitle:function(m){return 'FAT procedure'+(m.no?' '+m.no:'');},
+  fields:['no','rev','title','mat','vendor','date','status','tests','standard','ref','notes'],
+  picks:['fp-mat','fp-vendor'],hints:['fp-mat'],
+  valid:function(r){return !!(r.no||r.title);},validMsg:'Enter the procedure number or its title',
+  savedMsg:'Procedure saved',deletedMsg:'Procedure deleted',delMsg:'Delete this procedure?',
+  searchId:'fatproc-q',countId:'fatproc-count',bodyId:'tb-fatproc',cols:10,
+  noun:'procedure',nounPlural:'procedures',
+  emptyMsg:'No factory acceptance test procedures yet.',
+  hay:function(m){return [m.no,m.title,m.vendor,m.ref,m.standard,m.notes,refLabelFor(m.mat).name];},
+  sort:function(a,b){return String(b.date||'').localeCompare(String(a.date||''));},
+  row:function(m){
+    return '<td class="pin1 pin-edge"><span class="ref">'+(m.no||'\u2014')+'</span></td>'
+      +'<td><span class="nm" style="max-width:220px">'+(m.title||'\u2014')+'</span></td>'
+      +'<td><span class="nm" style="max-width:190px">'+(m.mat?refLabelFor(m.mat).name:'\u2014')+'</span></td>'
+      +'<td><span class="nm" style="max-width:130px">'+(m.vendor||'\u2014')+'</span></td>'
+      +'<td><span class="ref">'+(m.rev||'\u2014')+'</span></td>'
+      +'<td><span class="ref" title="'+String(m.ref||'').replace(/"/g,'&quot;')+'">'+(m.ref?shortRef(m.ref):'\u2014')+'</span></td>'
+      +'<td><span class="ref">'+(dtToDisplay(m.date)||'\u2014')+'</span></td>'
+      +'<td class="ctr">'+stamp(m.status||'Pending')+'</td>'
+      +'<td class="ctr"><span class="ref">'+(m.tests||'\u2014')+'</span></td>';
   }});
 
 crud({key:'IRN',prefix:'r',ov:'irn',table:'irn',titleId:'irn-title',
@@ -4765,11 +4850,18 @@ window.genLookAhead=function(){
     }});
   mk('5','Post-inspection dossier',postR);
 
+  var fprR=[];(DB.fatproc||[]).forEach(function(x){
+    if((x.status||'Pending').indexOf('Approved')!==0){
+      var cells=days.map(function(d){return x.date&&fmt(d)===x.date?'x':'';});
+      if(cells.some(Boolean))fprR.push({name:(x.no?x.no+' \u2014 ':'')+(x.title||''),disc:'',sub:[x.status,x.vendor].filter(Boolean).join(' \u00b7 '),cells:cells});
+    }});
+  mk('6','FAT procedure',fprR);
+
   var fatR=[];(DB.fat||[]).forEach(function(m){
     var cells=days.map(function(d){return m.fatDate&&fmt(d)===m.fatDate?'x':'';});
     if(cells.some(Boolean))fatR.push({name:m.material+(m.mfr?' — '+m.mfr:''),disc:m.cat||'',sub:m.remark||'',cells:cells});
   });
-  mk('6','FAT and final inspection',fatR);
+  mk('7','FAT and final inspection',fatR);
 
   var mirR=[];(DB.mir||[]).forEach(function(m){
     var inWin=m.date&&days.some(function(d){return fmt(d)===m.date;});
@@ -4780,7 +4872,7 @@ window.genLookAhead=function(){
     if(rn2)sub+=' · release note '+(rn2.no||'issued');
     mirR.push({name:m.name,disc:'',sub:sub,cells:cells});
   });
-  mk('7','Material release',mirR);
+  mk('8','Material release',mirR);
 
   var t='<table style="min-width:940px"><thead><tr>'
     +'<th style="width:44px">S NO</th><th style="min-width:230px;text-align:left">DESCRIPTION</th><th style="width:52px">DISC</th>'
@@ -5339,6 +5431,7 @@ function vendorOf(name){
    so every lookup returns the whole list and the column stacks the
    values one per line inside a single cell. */
 function matRef(m){return m.aconex||m.name;}
+function fprAll(m){return (DB.fatproc||[]).filter(function(x){return x.mat===matRef(m);});}
 function itpAll(m){return (DB.itp||[]).filter(function(x){return x.mat===matRef(m);});}
 function tpiAll(m){return (DB.tpi||[]).filter(function(x){return x.mat===matRef(m);});}
 function fatAll(m){return (DB.fat||[]).filter(function(x){return x.matRef===matRef(m);});}
@@ -5387,7 +5480,7 @@ function vendorForMat(m){
 var RB_GROUP={
   vendors:'VENDOR', materials:'MATERIAL SUBMITTAL', dossiers:'PRE-INSPECTION DOSSIER',
   postdoss:'POST-INSPECTION DOSSIER', tpi:'TPI ASSIGNMENT', meetings:'PRE-FABRICATION MEETING',
-  itp:'ITP / FAT PROCEDURE', fat:'FAT / FINAL INSPECTION', mir:'INSPECTION REQUEST',
+  itp:'INSPECTION AND TEST PLAN', fatproc:'FAT PROCEDURE', fat:'FAT / FINAL INSPECTION', mir:'INSPECTION REQUEST',
   irn:'RELEASE NOTE', inspectors:'INSPECTOR', trace:'TRACEABILITY', assessment:'PHYSICAL ASSESSMENT'
 };
 var RB_COL_GROUP={
@@ -5400,6 +5493,7 @@ var RB_COL_GROUP={
     pidNo:'dossiers',pidTitle:'dossiers',pidRef:'dossiers',pidDate:'dossiers',pidStatus:'dossiers',
     pfmNo:'meetings',pfmDate:'meetings',pfmStatus:'meetings',pfmRef:'meetings',momRef:'meetings',
     itpNo:'itp',itpRev:'itp',itpRef:'itp',itpDate:'itp',itpStatus:'itp',itpPoints:'itp',
+    fprNo:'fatproc',fprRev:'fatproc',fprRef:'fatproc',fprDate:'fatproc',fprStatus:'fatproc',fprTests:'fatproc',fprStandard:'fatproc',
     tpiRef:'tpi',tpiAgency:'tpi',tpiInspector:'tpi',tpiScope:'tpi',tpiDate:'tpi',tpiStatus:'tpi',
     inspAgency:'inspectors',inspDisc:'inspectors',inspCert:'inspectors',inspCertExp:'inspectors',inspRef:'inspectors',
     fatDate:'fat',fatPrefab:'fat',fatFab:'fat',fatDelivery:'fat',fatTpia:'fat',fatInspector:'fat',fatRemark:'fat',
@@ -5416,7 +5510,7 @@ var RB_COL_GROUP={
   dossiers:{meeting:'meetings'},
   trace:{name:'materials',cat:'materials',company:'materials',
     pqd:'vendors',pa:'assessment',mat:'materials',pid:'dossiers',tpi:'tpi',pfm:'meetings',
-    itp:'itp',fat:'fat',mir:'mir',irn:'irn',post:'postdoss',gaps:'trace'}
+    itp:'itp',fatproc:'fatproc',fat:'fat',mir:'mir',irn:'irn',post:'postdoss',gaps:'trace'}
 };
 function rbGroupOf(colKey){
   var map=RB_COL_GROUP[RB_SRC]||{};
@@ -5480,6 +5574,13 @@ var RB_SOURCES={
       ['itpDate','ITP submitted',0,function(m){return stackDate(itpAll(m),function(x){return x.date;});}],
       ['itpStatus','ITP status',0,function(m){return stack(itpAll(m),function(x){return x.status;});}],
       ['itpPoints','Hold and witness points',0,function(m){return stack(itpAll(m),function(x){return x.points;});}],
+      ['fprNo','FAT procedure no.',0,function(m){return stack(fprAll(m),function(x){return x.no;});}],
+      ['fprRev','FAT procedure revision',0,function(m){return stack(fprAll(m),function(x){return x.rev;});}],
+      ['fprRef','FAT procedure Aconex reference',0,function(m){return stack(fprAll(m),function(x){return x.ref;});}],
+      ['fprDate','FAT procedure submitted',0,function(m){return stackDate(fprAll(m),function(x){return x.date;});}],
+      ['fprStatus','FAT procedure status',0,function(m){return stack(fprAll(m),function(x){return x.status;});}],
+      ['fprTests','FAT tests',0,function(m){return stack(fprAll(m),function(x){return x.tests;});}],
+      ['fprStandard','FAT test standard',0,function(m){return stack(fprAll(m),function(x){return x.standard;});}],
       ['tpiRef','TPI Aconex reference',0,function(m){return stack(tpiAll(m),function(x){return x.ref;});}],
       ['tpiAgency','TPI agency',0,function(m){return stack(tpiAll(m),function(x){return x.agency;});}],
       ['tpiInspector','TPI inspector',0,function(m){return stack(tpiAll(m),function(x){return x.inspector;});}],
@@ -5556,7 +5657,15 @@ var RB_SOURCES={
       ['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
       ['vendor','Vendor',1],['type','Type',1],['date','Submitted',1],['status','Status',1],
       ['points','Hold and witness points',0],['ref','Aconex reference',0],['notes','Notes',0]],
-    filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']],['type','Type',['ITP','FAT procedure','ITP and FAT procedure']]]},
+    filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
+
+  fatproc:{label:'FAT procedures',rows:function(){return (DB.fatproc||[]).slice();},
+    cols:[['no','Procedure no.',1],['title','Title',1],['rev','Revision',1],
+      ['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
+      ['vendor','Vendor',1],['date','Submitted',1],['status','Status',1],
+      ['tests','Number of tests',0],['standard','Test standard',0],
+      ['ref','Aconex reference',1],['notes','Notes',0]],
+    filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
 
   fat:{label:'FAT and final inspection',rows:function(){return (DB.fat||[]).slice();},
     cols:[['material','Material',1],['mfr','Manufacturer',1],['cat','Category',1],['loc','Location',1],
@@ -5596,7 +5705,7 @@ var RB_SOURCES={
              ['cat','Category',1,function(r){return r.m.catCor||r.m.catSub||'';}],
              ['company','Company',1,function(r){return r.m.company||'';}]];
       [['pqd','Pre-qualification'],['pa','Assessment'],['mat','Submittal'],['pid','Dossier'],
-       ['tpi','TPI'],['pfm','Meeting'],['itp','ITP'],['fat','FAT'],['mir','MIR'],['irn','IRN'],['post','Post-inspection']]
+       ['tpi','TPI'],['pfm','Meeting'],['itp','ITP'],['fatproc','FAT procedure'],['fat','FAT'],['mir','MIR'],['irn','IRN'],['post','Post-inspection']]
       .forEach(function(st){
         c.push([st[0],st[1],1,function(r){var x=r[st[0]];return x?(x.v||(x.need?'Missing':'')):'';}]);
       });
@@ -5840,7 +5949,7 @@ window.importDB=function(e){
     try{
       var d=JSON.parse(ev.target.result);
       if(confirm('This replaces all current data for this project. Continue?')){
-        DB.pqd=d.pqd||[];DB.mat=d.mat||[];DB.mir=d.mir||[];DB.fat=d.fat||[];DB.events=d.events||[];DB.checklists=d.checklists||[];DB.inspectors=d.inspectors||[];DB.dossiers=d.dossiers||[];DB.tpi=d.tpi||[];DB.pfm=d.pfm||[];DB.itp=d.itp||[];DB.irn=d.irn||[];DB.postdoss=d.postdoss||[];
+        DB.pqd=d.pqd||[];DB.mat=d.mat||[];DB.mir=d.mir||[];DB.fat=d.fat||[];DB.events=d.events||[];DB.checklists=d.checklists||[];DB.inspectors=d.inspectors||[];DB.dossiers=d.dossiers||[];DB.tpi=d.tpi||[];DB.pfm=d.pfm||[];DB.itp=d.itp||[];DB.fatproc=d.fatproc||[];DB.irn=d.irn||[];DB.postdoss=d.postdoss||[];
         persist().then(function(){stampSaved();refreshCounts();goTo(CUR_PAGE);toast('Data restored');});
       }
     }catch(x){alert('That file could not be read.');}
@@ -5971,7 +6080,8 @@ function refreshCounts(){
   var dc=pidCounts();set('nb-pid',dc.open+dc.meeting);
   set('nb-tpi',(DB.tpi||[]).length);
   set('nb-pfm',(DB.pfm||[]).filter(function(x){return x.status!=='Done';}).length);
-  set('nb-itp',(DB.itp||[]).filter(function(x){return (x.status||'Pending')!=='Approved';}).length);
+  set('nb-itp',(DB.itp||[]).filter(function(x){return (x.status||'Pending').indexOf('Approved')!==0;}).length);
+  set('nb-fatproc',(DB.fatproc||[]).filter(function(x){return (x.status||'Pending').indexOf('Approved')!==0;}).length);
   set('nb-irn',(DB.irn||[]).length);
   set('nb-post',(DB.postdoss||[]).filter(function(x){return (x.status||'Pending').indexOf('Approved')!==0;}).length);
   set('nb-mir',(DB.mir||[]).length);
