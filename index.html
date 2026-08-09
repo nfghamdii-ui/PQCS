@@ -605,7 +605,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
           <thead><tr>
             <th class="pin1 pin-edge" style="min-width:130px">ACONEX REF</th><th style="min-width:240px">MATERIAL</th>
             <th style="min-width:170px">AGENCY</th><th style="min-width:160px">INSPECTOR</th>
-            <th>SCOPE</th><th>ASSIGNED</th><th class="ctr">STATUS</th><th>NOTES</th><th></th>
+            <th>ASSIGNED</th><th class="ctr">STATUS</th><th>NOTES</th><th></th>
           </tr></thead><tbody id="tb-tpi"></tbody>
         </table></div>
       </div>
@@ -628,7 +628,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
             <th class="pin1 pin-edge" style="min-width:120px">NO.</th><th style="min-width:230px">TITLE</th>
             <th style="min-width:200px">MATERIAL</th><th style="min-width:140px">VENDOR</th>
             <th>REVISION</th><th style="min-width:120px">ACONEX REF</th><th>SUBMITTED</th>
-            <th class="ctr">STATUS</th><th class="ctr">HOLD POINTS</th><th></th>
+            <th class="ctr">STATUS</th><th></th>
           </tr></thead><tbody id="tb-itp"></tbody>
         </table></div>
       </div>
@@ -640,7 +640,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
             <th class="pin1 pin-edge" style="min-width:120px">NO.</th><th style="min-width:230px">TITLE</th>
             <th style="min-width:200px">MATERIAL</th><th style="min-width:140px">VENDOR</th>
             <th>REVISION</th><th style="min-width:120px">ACONEX REF</th><th>SUBMITTED</th>
-            <th class="ctr">STATUS</th><th class="ctr">TESTS</th><th></th>
+            <th class="ctr">STATUS</th><th></th>
           </tr></thead><tbody id="tb-fatproc"></tbody>
         </table></div>
       </div>
@@ -663,8 +663,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
           <thead><tr>
             <th class="pin1 pin-edge" style="min-width:120px">NO.</th><th style="min-width:220px">MATERIAL</th>
             <th>TEST DATE</th><th>ISSUED</th><th style="min-width:150px">AGENCY</th><th style="min-width:140px">INSPECTOR</th>
-            <th class="ctr">RESULT</th><th class="ctr">STATUS</th><th style="min-width:120px">ACONEX REF</th>
-            <th style="min-width:160px">PUNCH ITEMS</th><th></th>
+            <th class="ctr">RESULT</th><th class="ctr">STATUS</th><th style="min-width:120px">ACONEX REF</th><th></th>
           </tr></thead><tbody id="tb-fatrep"></tbody>
         </table></div>
       </div>
@@ -687,7 +686,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
           <thead><tr>
             <th class="pin1 pin-edge" style="min-width:120px">IRN NO.</th><th style="min-width:240px">MATERIAL</th>
             <th style="min-width:150px">INSPECTION REQUEST</th><th>ISSUED</th>
-            <th class="ctr">STATUS</th><th class="ctr">TO EMPLOYER</th><th style="min-width:120px">ACONEX REF</th><th style="min-width:190px">EXCEPTIONS</th><th></th>
+            <th class="ctr">STATUS</th><th style="min-width:120px">ACONEX REF</th><th></th>
           </tr></thead><tbody id="tb-irn"></tbody>
         </table></div>
       </div>
@@ -757,9 +756,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
         <div class="tw"><table>
           <thead><tr>
             <th class="pin1 pin-edge" style="min-width:240px">INSPECTOR</th>
-            <th style="min-width:180px">AGENCY</th><th style="min-width:150px">DISCIPLINE</th>
-            <th>CERTIFICATE</th><th>EXPIRY</th><th class="ctr">STATUS</th>
-            <th style="min-width:150px">CONTACT</th><th class="ctr">ASSIGNMENTS</th><th></th>
+            <th style="min-width:190px">AGENCY</th><th class="ctr">STATUS</th>
+            <th style="min-width:130px">ACONEX REF</th><th class="ctr">ASSIGNMENTS</th><th></th>
           </tr></thead>
           <tbody id="tb-insp"></tbody>
         </table></div>
@@ -1037,14 +1035,6 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    </div></div>
 
    <span class="m-sec">CONTENTS — the procedure lists what the dossier must carry, 2.2.21</span>
-   <div class="fg">
-     <div><label class="fl">Quality narrative</label><select class="fs" id="o-narrative"><option>Pending</option><option>Included</option><option>N/A</option></select></div>
-     <div><label class="fl">Approved waivers</label><select class="fs" id="o-waivers"><option>N/A</option><option>Pending</option><option>Included</option></select></div>
-     <div><label class="fl">Inspection reports</label><select class="fs" id="o-reports"><option>Pending</option><option>Included</option><option>N/A</option></select></div>
-     <div><label class="fl">Supplier quality records</label><select class="fs" id="o-records"><option>Pending</option><option>Included</option><option>N/A</option></select></div>
-     <div><label class="fl">Non-conformance reports</label><select class="fs" id="o-ncr"><option>N/A</option><option>Pending</option><option>Included</option></select></div>
-     <div><label class="fl">Shipping release</label><select class="fs" id="o-release"><option>Pending</option><option>Included</option><option>N/A</option></select></div>
-     <div class="fg-f"><label class="fl">Outstanding punch items</label><textarea class="ft" id="o-punch" rows="2"></textarea></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="o-notes" rows="2"></textarea></div>
    </div></div>
   <div class="m-foot"><button class="btn" onclick="closePOST()">Cancel</button><button class="btn btn-p" id="post-save-btn" onclick="savePOST()">Save dossier</button></div>
@@ -1074,7 +1064,6 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input type="hidden" id="t-agency"><div class="pick-list" id="t-agency-list"></div></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="t-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div><label class="fl">Assigned on</label><span class="dwrapf"><input class="fi dt" id="t-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
-     <div class="fg-f"><label class="fl">Scope of inspection</label><input class="fi" id="t-scope" placeholder="Witness, hold point, full-time surveillance…"></div>
      <div><label class="fl">Status</label><select class="fs" id="t-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Rejected</option></select></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="t-notes" rows="2"></textarea></div>
    </div></div>
@@ -1099,11 +1088,9 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input class="fi" id="p-vendor-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('p-vendor')" onfocus="pickOpen('p-vendor')">
        <input type="hidden" id="p-vendor"><div class="pick-list" id="p-vendor-list"></div></div>
      <div><label class="fl">Meeting status</label><select class="fs" id="p-status"><option>Not Scheduled</option><option>Scheduled</option><option>Done</option><option>N/A</option></select></div>
-     <div><label class="fl">Location</label><input class="fi" id="p-loc"></div>
      <div><label class="fl">Minutes status</label><select class="fs" id="p-mom"><option>N/A</option><option>Pending</option><option>Submitted</option><option>Approved</option></select></div>
      <div><label class="fl">Minutes reference</label><input class="fi" id="p-mom-ref"></div>
      <div class="fg-f"><label class="fl">Aconex reference</label><input class="fi" id="p-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
-     <div class="fg-f"><label class="fl">Attendees</label><input class="fi" id="p-attend"></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="p-notes" rows="2"></textarea></div>
    </div></div>
   <div class="m-foot"><button class="btn" onclick="closePFM()">Cancel</button><button class="btn btn-p" id="pfm-save-btn" onclick="savePFM()">Save meeting</button></div>
@@ -1133,7 +1120,6 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input type="hidden" id="n-vendor"><div class="pick-list" id="n-vendor-list"></div></div>
      <div><label class="fl">Submitted date</label><span class="dwrapf"><input class="fi dt" id="n-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Status</label><select class="fs" id="n-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
-     <div class="fg-f"><label class="fl">Hold and witness points</label><input class="fi" id="n-points" type="number" min="0" placeholder="0"></div>
      <div class="fg-f"><label class="fl">Aconex reference</label><input class="fi" id="n-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="n-notes" rows="2"></textarea></div>
    </div></div>
@@ -1164,8 +1150,6 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input type="hidden" id="fp-vendor"><div class="pick-list" id="fp-vendor-list"></div></div>
      <div><label class="fl">Submitted date</label><span class="dwrapf"><input class="fi dt" id="fp-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Status</label><select class="fs" id="fp-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
-     <div><label class="fl">Number of tests</label><input class="fi" id="fp-tests" type="number" min="0" placeholder="0"></div>
-     <div><label class="fl">Test standard</label><input class="fi" id="fp-standard" placeholder="Specification or code the test follows"></div>
      <div class="fg-f"><label class="fl">Aconex reference</label><input class="fi" id="fp-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="fp-notes" rows="2"></textarea></div>
    </div></div>
@@ -1198,9 +1182,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input class="fi" id="ip-inspector" placeholder="Search approved inspectors…" autocomplete="off" oninput="pickOpen('ip-inspector')" onfocus="pickOpen('ip-inspector')">
        <div class="pick-list" id="ip-inspector-list"></div></div>
      <div><label class="fl">Result</label><select class="fs" id="ip-result"><option>Pending</option><option>Pass</option><option>Pass with comments</option><option>Failed</option></select></div>
-     <div><label class="fl">Related ITP</label><input class="fi" id="ip-itp" placeholder="ITP number this visit belongs to"></div>
      <div class="fg-f"><label class="fl">Aconex reference</label><input class="fi" id="ip-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
-     <div class="fg-f"><label class="fl">Findings</label><textarea class="ft" id="ip-findings" rows="2" placeholder="What was observed, and anything raised"></textarea></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="ip-notes" rows="2"></textarea></div>
    </div></div>
   <div class="m-foot"><button class="btn" onclick="closeIPI()">Cancel</button><button class="btn btn-p" id="ipi-save-btn" onclick="saveIPI()">Save inspection</button></div>
@@ -1233,9 +1215,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div><label class="fl">Result</label><select class="fs" id="fr-result"><option>Pending</option><option>Pass</option><option>Pass with comments</option><option>Failed</option></select></div>
      <div><label class="fl">Report status</label><select class="fs" id="fr-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
      <div><label class="fl">Issued date</label><span class="dwrapf"><input class="fi dt" id="fr-issued" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
-     <div><label class="fl">Re-test required</label><select class="fs" id="fr-retest"><option>No</option><option>Yes</option></select></div>
      <div class="fg-f"><label class="fl">Aconex reference</label><input class="fi" id="fr-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
-     <div class="fg-f"><label class="fl">Punch items and exceptions</label><textarea class="ft" id="fr-punch" rows="2"></textarea></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="fr-notes" rows="2"></textarea></div>
    </div></div>
   <div class="m-foot"><button class="btn" onclick="closeFR()">Cancel</button><button class="btn btn-p" id="fatrep-save-btn" onclick="saveFR()">Save report</button></div>
@@ -1268,9 +1248,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div><label class="fl">Result</label><select class="fs" id="ir-result"><option>Pending</option><option>Pass</option><option>Pass with comments</option><option>Failed</option></select></div>
      <div><label class="fl">Report status</label><select class="fs" id="ir-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
      <div><label class="fl">Issued date</label><span class="dwrapf"><input class="fi dt" id="ir-issued" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
-     <div><label class="fl">Inspection type</label><select class="fs" id="ir-type"><option>Final inspection</option><option>Pre-shipment</option><option>Site inspection</option></select></div>
      <div class="fg-f"><label class="fl">Aconex reference</label><input class="fi" id="ir-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
-     <div class="fg-f"><label class="fl">Punch items and exceptions</label><textarea class="ft" id="ir-punch" rows="2"></textarea></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="ir-notes" rows="2"></textarea></div>
    </div></div>
   <div class="m-foot"><button class="btn" onclick="closeIR()">Cancel</button><button class="btn btn-p" id="ir-save-btn" onclick="saveIR()">Save report</button></div>
@@ -1296,10 +1274,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <div class="hint" id="r-mir-hint" style="display:none"></div></div>
      <div class="fg-f"><label class="fl">Material</label><input class="fi" id="r-material"></div>
      <div><label class="fl">Status</label><select class="fs" id="r-status"><option>Pending</option><option>Issued</option><option>Approved</option><option>Rejected</option></select></div>
-     <div><label class="fl">Copy to employer</label><select class="fs" id="r-sent"><option>Pending</option><option>Sent</option><option>N/A</option></select></div>
-     <div><label class="fl">Sent on</label><span class="dwrapf"><input class="fi dt" id="r-sent-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="r-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
-     <div class="fg-f"><label class="fl">Exceptions and punch items</label><textarea class="ft" id="r-exceptions" rows="2" placeholder="Every exception carried at release"></textarea></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="r-notes" rows="2"></textarea></div>
    </div></div>
   <div class="m-foot"><button class="btn" onclick="closeIRN()">Cancel</button><button class="btn btn-p" id="irn-save-btn" onclick="saveIRN()">Save release note</button></div>
@@ -1327,7 +1302,6 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input type="hidden" id="d-vendor">
        <div class="pick-list" id="d-vendor-list"></div></div>
      <div><label class="fl">Dossier status</label><select class="fs" id="d-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
-     <div><label class="fl">Fabrication start</label><span class="dwrapf"><input class="fi dt" id="d-fab" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
    </div>
 
    <span class="m-sec">MATERIALS COVERED — a dossier may cover more than one</span>
@@ -1361,13 +1335,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input type="hidden" id="i-agency">
        <div class="pick-list" id="i-agency-list"></div>
        <div class="hint" id="i-agency-hint" style="display:none"></div></div>
-     <div class="fg-f"><label class="fl">Discipline or scope</label><input class="fi" id="i-disc" placeholder="Mechanical, welding, electrical, coatings…"></div>
-     <div><label class="fl">Certificate number</label><input class="fi" id="i-cert"></div>
-     <div><label class="fl">Certificate expiry</label><span class="dwrapf"><input class="fi dt" id="i-cert-exp" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Status</label><select class="fs" id="i-status"><option>Approved</option><option>Pending</option><option>Suspended</option></select></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="i-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
-     <div><label class="fl">Phone</label><input class="fi" id="i-phone"></div>
-     <div><label class="fl">Email</label><input class="fi" id="i-email"></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="i-notes" rows="2"></textarea></div>
    </div>
   </div>
@@ -2202,7 +2171,7 @@ function findAll(q){
   });
 
   (DB.postdoss||[]).forEach(function(d){
-    var hay=findHay([d.no,d.title,d.ref,d.vendor,d.punch,d.notes].concat(d.mats||[]));
+    var hay=findHay([d.no,d.title,d.ref,d.vendor,d.notes].concat(d.mats||[]));
     if(!findMatches(hay,terms))return;
     out.push({group:'Post-inspection dossiers',title:(d.no?'No. '+d.no+' — ':'')+(d.title||'Dossier'),ref:d.ref,
       meta:[d.vendor,d.date,(d.mats||[]).length?((d.mats||[]).length+' material'+((d.mats||[]).length===1?'':'s')):''].filter(Boolean).join(' · '),
@@ -2258,12 +2227,11 @@ function findAll(q){
   });
 
   (DB.inspectors||[]).forEach(function(x){
-    var hay=findHay([x.name,x.agency,x.disc,x.cert,x.ref,x.phone,x.email,x.notes]);
+    var hay=findHay([x.name,x.agency,x.ref,x.notes]);
     if(!findMatches(hay,terms))return;
-    out.push({group:'Inspectors',title:x.name,ref:x.cert,
-      meta:[x.agency,x.disc,x.certExp?('certificate to '+x.certExp):''].filter(Boolean).join(' \u00b7 '),
-      sub:[x.phone,x.email].filter(Boolean).join(' \u00b7 '),
-      stamps:[(x.certExp&&isExp(x.certExp))?'Expired':(x.status||'Approved')],
+    out.push({group:'Inspectors',title:x.name,ref:x.ref,
+      meta:x.agency||'',sub:'',
+      stamps:[x.status||'Approved'],
       go:"goTo('insp');setTimeout(function(){editINSP("+x.id+")},120)"});
   });
 
@@ -3213,11 +3181,9 @@ function pickAgencyRows(q){
 function pickInspectorRows(q){
   return (DB.inspectors||[]).filter(function(x){
     if(x.status==='Suspended')return false;
-    return !q||[x.name,x.agency,x.disc,x.cert].join(' ').toLowerCase().indexOf(q)>=0;
+    return !q||[x.name,x.agency].join(' ').toLowerCase().indexOf(q)>=0;
   }).slice(0,60).map(function(x){
-    var expired=x.certExp&&isExp(x.certExp);
-    return {value:x.name,title:x.name,
-      sub:[x.agency,x.disc,expired?'certificate expired '+x.certExp:''].filter(Boolean).join(' \u00b7 ')};
+    return {value:x.name,title:x.name,sub:x.agency||''};
   });
 }
 function pickMaterialRows(q){
@@ -3904,7 +3870,7 @@ window.savePID=function(){
   if(!no&&!title)return alert('Enter the dossier number or its title');
   var eid=document.getElementById('d-eid').value, g=function(id){var e=document.getElementById(id);return e?e.value:'';};
   var m={id:eid?+eid:Date.now(),no:no,title:title,ref:g('d-ref'),date:g('d-date'),vendor:g('d-vendor'),
-    status:g('d-status'),fabStart:g('d-fab'),mats:PID_MATS.slice(),notes:g('d-notes')};
+    status:g('d-status'),mats:PID_MATS.slice(),notes:g('d-notes')};
   DB.dossiers=DB.dossiers||[];
   if(eid){var i=DB.dossiers.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.dossiers[i]._rowid)m._rowid=DB.dossiers[i]._rowid;DB.dossiers[i]=m;}}
   else DB.dossiers.push(m);
@@ -3916,7 +3882,7 @@ window.editPID=function(id){
   var m=(DB.dossiers||[]).find(function(x){return x.id===id;});if(!m)return;
   var sv=function(f,v){var e=document.getElementById(f);if(e)dtSet(e,v);};
   sv('d-eid',id);sv('d-no',m.no);sv('d-title',m.title);sv('d-ref',m.ref);sv('d-date',m.date);
-  pickSet('d-vendor',m.vendor);sv('d-status',m.status||'Pending');sv('d-fab',m.fabStart);
+  pickSet('d-vendor',m.vendor);sv('d-status',m.status||'Pending');
   sv('d-notes',m.notes);renderPidMeetingLink(m);
   PID_MATS=pidMatsOf(m);renderPidChips();
   document.getElementById('pid-title').textContent='Dossier'+(m.no?' No. '+m.no:'');
@@ -4052,9 +4018,7 @@ window.savePOST=function(){
   if(!no&&!title)return alert('Enter the dossier number or its title');
   var eid=document.getElementById('o-eid').value;
   var m={id:eid?+eid:Date.now(),no:no,title:title,ref:g('ref'),date:g('date'),vendor:g('vendor'),
-    last:g('last'),status:g('status'),mats:POST_MATS.slice(),
-    narrative:g('narrative'),waivers:g('waivers'),reports:g('reports'),records:g('records'),
-    ncr:g('ncr'),release:g('release'),punch:g('punch'),notes:g('notes')};
+    last:g('last'),status:g('status'),mats:POST_MATS.slice(),notes:g('notes')};
   DB.postdoss=DB.postdoss||[];
   if(eid){var i=DB.postdoss.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.postdoss[i]._rowid)m._rowid=DB.postdoss[i]._rowid;DB.postdoss[i]=m;}}
   else DB.postdoss.push(m);
@@ -4066,8 +4030,7 @@ window.editPOST=function(id){
   var m=(DB.postdoss||[]).find(function(x){return x.id===id;});if(!m)return;
   var sv=function(f,v){var e=document.getElementById('o-'+f);if(e)dtSet(e,v);};
   document.getElementById('o-eid').value=id;
-  ['no','title','ref','date','last','status','narrative','waivers','reports','records','ncr','release','punch','notes']
-    .forEach(function(f){sv(f,m[f]);});
+  ['no','title','ref','date','last','status','notes'].forEach(function(f){sv(f,m[f]);});
   pickSet('o-vendor',m.vendor);
   POST_MATS=(m.mats||[]).slice();renderPostChips();
   document.getElementById('post-title').textContent='Post-inspection dossier'+(m.no?' No. '+m.no:'');
@@ -4293,21 +4256,20 @@ function crud(cfg){
 crud({key:'TPI',prefix:'t',ov:'tpi',table:'tpi',titleId:'tpi-title',
   newTitle:'Third-party inspection assignment',
   editTitle:function(m){return 'Assignment'+(m.ref?' · '+m.ref:'');},
-  fields:['mat','inspector','agency','ref','date','scope','status','notes'],
+  fields:['mat','inspector','agency','ref','date','status','notes'],
   picks:['t-mat','t-agency'],hints:['t-mat'],
   valid:function(r){return !!(r.mat||r.inspector);},validMsg:'Choose the material or the inspector',
   savedMsg:'Assignment saved',deletedMsg:'Assignment deleted',delMsg:'Delete this assignment?',
-  searchId:'tpi-q',countId:'tpi-count',bodyId:'tb-tpi',cols:9,
+  searchId:'tpi-q',countId:'tpi-count',bodyId:'tb-tpi',cols:8,
   noun:'assignment',nounPlural:'assignments',
   emptyMsg:'No assignments yet. Record the material first, then assign its inspector here.',
-  hay:function(m){return [m.ref,m.inspector,m.agency,m.scope,m.notes,refLabelFor(m.mat).name];},
+  hay:function(m){return [m.ref,m.inspector,m.agency,m.notes,refLabelFor(m.mat).name];},
   sort:function(a,b){return String(b.date||'').localeCompare(String(a.date||''));},
   row:function(m){
     return '<td class="pin1 pin-edge"><span class="ref" title="'+String(m.ref||'').replace(/"/g,'&quot;')+'">'+(m.ref?shortRef(m.ref):'—')+'</span></td>'
       +'<td><span class="nm" style="max-width:230px">'+(m.mat?refLabelFor(m.mat).name:'—')+'</span></td>'
       +'<td><span class="nm" style="max-width:160px">'+(m.agency||'—')+'</span></td>'
       +'<td><span class="nm" style="max-width:150px">'+(m.inspector||'—')+'</span></td>'
-      +'<td><span class="dim">'+(m.scope||'—')+'</span></td>'
       +'<td><span class="ref">'+(m.date||'—')+'</span></td>'
       +'<td class="ctr">'+stamp(m.status||'Pending')+'</td>'
       +'<td><span class="dim">'+(m.notes||'—')+'</span></td>';
@@ -4316,14 +4278,14 @@ crud({key:'TPI',prefix:'t',ov:'tpi',table:'tpi',titleId:'tpi-title',
 crud({key:'PFM',prefix:'p',ov:'pfm',table:'pfm',titleId:'pfm-title',
   newTitle:'Pre-fabrication meeting',
   editTitle:function(m){return 'Meeting'+(m.no?' No. '+m.no:'');},
-  fields:['no','date','subject','dossier','vendor','status','loc','mom','mom-ref','ref','attend','notes'],
+  fields:['no','date','subject','dossier','vendor','status','mom','mom-ref','ref','notes'],
   picks:['p-dossier','p-vendor'],
   valid:function(r){return !!(r.no||r.subject);},validMsg:'Enter the meeting number or its subject',
   savedMsg:'Meeting saved',deletedMsg:'Meeting deleted',delMsg:'Delete this meeting?',
   searchId:'pfm-q',countId:'pfm-count',bodyId:'tb-pfm',cols:10,
   noun:'meeting',nounPlural:'meetings',
   emptyMsg:'No meetings yet.',
-  hay:function(m){return [m.no,m.subject,m.vendor,m.ref,m['mom-ref'],m.attend,m.notes,dossierLabel(m.dossier)];},
+  hay:function(m){return [m.no,m.subject,m.vendor,m.ref,m['mom-ref'],m.notes,dossierLabel(m.dossier)];},
   sort:function(a,b){return String(b.date||'').localeCompare(String(a.date||''));},
   row:function(m){
     var today=ymd(new Date());
@@ -4343,11 +4305,11 @@ crud({key:'PFM',prefix:'p',ov:'pfm',table:'pfm',titleId:'pfm-title',
 crud({key:'ITP',prefix:'n',ov:'itp',table:'itp',titleId:'itp-title',
   newTitle:'Inspection and test plan',
   editTitle:function(m){return 'ITP'+(m.no?' No. '+m.no:'');},
-  fields:['no','rev','title','mat','vendor','date','status','points','ref','notes'],
+  fields:['no','rev','title','mat','vendor','date','status','ref','notes'],
   picks:['n-mat','n-vendor'],hints:['n-mat'],
   valid:function(r){return !!(r.no||r.title);},validMsg:'Enter the ITP number or its title',
   savedMsg:'ITP saved',deletedMsg:'ITP deleted',delMsg:'Delete this ITP?',
-  searchId:'itp-q',countId:'itp-count',bodyId:'tb-itp',cols:10,
+  searchId:'itp-q',countId:'itp-count',bodyId:'tb-itp',cols:9,
   noun:'plan',nounPlural:'plans',
   emptyMsg:'No inspection and test plans yet.',
   hay:function(m){return [m.no,m.title,m.vendor,m.ref,m.notes,refLabelFor(m.mat).name];},
@@ -4360,21 +4322,20 @@ crud({key:'ITP',prefix:'n',ov:'itp',table:'itp',titleId:'itp-title',
       +'<td><span class="ref">'+(m.rev||'—')+'</span></td>'
       +'<td><span class="ref" title="'+String(m.ref||'').replace(/"/g,'&quot;')+'">'+(m.ref?shortRef(m.ref):'—')+'</span></td>'
       +'<td><span class="ref">'+(m.date||'—')+'</span></td>'
-      +'<td class="ctr">'+stamp(m.status||'Pending')+'</td>'
-      +'<td class="ctr"><span class="ref">'+(m.points||'—')+'</span></td>';
+      +'<td class="ctr">'+stamp(m.status||'Pending')+'</td>';
   }});
 
 crud({key:'FPR',prefix:'fp',ov:'fatproc',table:'fatproc',titleId:'fatproc-title',
   newTitle:'FAT procedure',
   editTitle:function(m){return 'FAT procedure'+(m.no?' '+m.no:'');},
-  fields:['no','rev','title','mat','vendor','date','status','tests','standard','ref','notes'],
+  fields:['no','rev','title','mat','vendor','date','status','ref','notes'],
   picks:['fp-mat','fp-vendor'],hints:['fp-mat'],
   valid:function(r){return !!(r.no||r.title);},validMsg:'Enter the procedure number or its title',
   savedMsg:'Procedure saved',deletedMsg:'Procedure deleted',delMsg:'Delete this procedure?',
-  searchId:'fatproc-q',countId:'fatproc-count',bodyId:'tb-fatproc',cols:10,
+  searchId:'fatproc-q',countId:'fatproc-count',bodyId:'tb-fatproc',cols:9,
   noun:'procedure',nounPlural:'procedures',
   emptyMsg:'No factory acceptance test procedures yet.',
-  hay:function(m){return [m.no,m.title,m.vendor,m.ref,m.standard,m.notes,refLabelFor(m.mat).name];},
+  hay:function(m){return [m.no,m.title,m.vendor,m.ref,m.notes,refLabelFor(m.mat).name];},
   sort:function(a,b){return String(b.date||'').localeCompare(String(a.date||''));},
   row:function(m){
     return '<td class="pin1 pin-edge"><span class="ref">'+(m.no||'\u2014')+'</span></td>'
@@ -4384,21 +4345,20 @@ crud({key:'FPR',prefix:'fp',ov:'fatproc',table:'fatproc',titleId:'fatproc-title'
       +'<td><span class="ref">'+(m.rev||'\u2014')+'</span></td>'
       +'<td><span class="ref" title="'+String(m.ref||'').replace(/"/g,'&quot;')+'">'+(m.ref?shortRef(m.ref):'\u2014')+'</span></td>'
       +'<td><span class="ref">'+(dtToDisplay(m.date)||'\u2014')+'</span></td>'
-      +'<td class="ctr">'+stamp(m.status||'Pending')+'</td>'
-      +'<td class="ctr"><span class="ref">'+(m.tests||'\u2014')+'</span></td>';
+      +'<td class="ctr">'+stamp(m.status||'Pending')+'</td>';
   }});
 
 crud({key:'IPI',prefix:'ip',ov:'ipi',table:'ipi',titleId:'ipi-title',
   newTitle:'In-process inspection',
   editTitle:function(m){return 'Visit'+(m.no?' '+m.no:'')+(m.stage?' \u00b7 '+m.stage:'');},
-  fields:['no','date','mat','stage','agency','inspector','result','itp','ref','findings','notes'],
+  fields:['no','date','mat','stage','agency','inspector','result','ref','notes'],
   picks:['ip-mat','ip-agency'],hints:['ip-mat'],
   valid:function(r){return !!(r.mat||r.stage);},validMsg:'Choose the material or name the stage',
   savedMsg:'Inspection saved',deletedMsg:'Inspection deleted',delMsg:'Delete this inspection visit?',
-  searchId:'ipi-q',countId:'ipi-count',bodyId:'tb-ipi',cols:10,
+  searchId:'ipi-q',countId:'ipi-count',bodyId:'tb-ipi',cols:9,
   noun:'visit',nounPlural:'visits',
   emptyMsg:'No in-process inspections yet. These are the visits made while the material is being made.',
-  hay:function(m){return [m.no,m.stage,m.agency,m.inspector,m.ref,m.itp,m.findings,m.notes,refLabelFor(m.mat).name];},
+  hay:function(m){return [m.no,m.stage,m.agency,m.inspector,m.ref,m.notes,refLabelFor(m.mat).name];},
   sort:function(a,b){return String(b.date||'').localeCompare(String(a.date||''));},
   row:function(m){
     var bad=(m.result==='Failed');
@@ -4410,18 +4370,17 @@ crud({key:'IPI',prefix:'ip',ov:'ipi',table:'ipi',titleId:'ipi-title',
       +'<td><span class="nm" style="max-width:140px">'+(m.agency||'\u2014')+'</span></td>'
       +'<td><span class="nm" style="max-width:130px">'+(m.inspector||'\u2014')+'</span></td>'
       +'<td class="ctr">'+stamp(m.result||'Pending')+'</td>'
-      +'<td><span class="ref" title="'+String(m.ref||'').replace(/"/g,'&quot;')+'">'+(m.ref?shortRef(m.ref):'\u2014')+'</span></td>'
-      +'<td><span class="dim">'+(m.findings||'\u2014')+'</span></td>';
+      +'<td><span class="ref" title="'+String(m.ref||'').replace(/"/g,'&quot;')+'">'+(m.ref?shortRef(m.ref):'\u2014')+'</span></td>';
   }});
 
 crud({key:'FR',prefix:'fr',ov:'fatrep',table:'fatrep',titleId:'fatrep-title',
   newTitle:'FAT report',
   editTitle:function(m){return 'FAT report'+(m.no?' '+m.no:'');},
-  fields:['no','date','mat','agency','inspector','result','status','issued','retest','ref','punch','notes'],
+  fields:['no','date','mat','agency','inspector','result','status','issued','ref','notes'],
   picks:['fr-mat','fr-agency'],hints:['fr-mat'],
   valid:function(r){return !!(r.no||r.mat);},validMsg:'Enter the report number or choose the material',
   savedMsg:'Report saved',deletedMsg:'Report deleted',delMsg:'Delete this report?',
-  searchId:'fatrep-q',countId:'fatrep-count',bodyId:'tb-fatrep',cols:11,
+  searchId:'fatrep-q',countId:'fatrep-count',bodyId:'tb-fatrep',cols:10,
   noun:'report',nounPlural:'reports',
   emptyMsg:'No FAT reports yet.',
   hay:function(m){return [m.no,m.agency,m.inspector,m.ref,m.punch,m.notes,m.retest,refLabelFor(m.mat).name];},
@@ -4437,18 +4396,17 @@ crud({key:'FR',prefix:'fr',ov:'fatrep',table:'fatrep',titleId:'fatrep-title',
       +'<td><span class="nm" style="max-width:130px">'+(m.inspector||'\u2014')+'</span></td>'
       +'<td class="ctr">'+stamp(m.result||'Pending')+'</td>'
       +'<td class="ctr">'+stamp(m.status||'Pending')+'</td>'
-      +'<td><span class="ref" title="'+String(m.ref||'').replace(/"/g,'&quot;')+'">'+(m.ref?shortRef(m.ref):'\u2014')+'</span></td>'
-      +'<td><span class="dim">'+(m.punch||'\u2014')+'</span></td>';
+      +'<td><span class="ref" title="'+String(m.ref||'').replace(/"/g,'&quot;')+'">'+(m.ref?shortRef(m.ref):'\u2014')+'</span></td>';
   }});
 
 crud({key:'IR',prefix:'ir',ov:'ir',table:'ir',titleId:'ir-title',
   newTitle:'Inspection report',
   editTitle:function(m){return 'Inspection report'+(m.no?' '+m.no:'');},
-  fields:['no','date','mat','agency','inspector','result','status','issued','type','ref','punch','notes'],
+  fields:['no','date','mat','agency','inspector','result','status','issued','ref','notes'],
   picks:['ir-mat','ir-agency'],hints:['ir-mat'],
   valid:function(r){return !!(r.no||r.mat);},validMsg:'Enter the report number or choose the material',
   savedMsg:'Report saved',deletedMsg:'Report deleted',delMsg:'Delete this report?',
-  searchId:'ir-q',countId:'ir-count',bodyId:'tb-ir',cols:11,
+  searchId:'ir-q',countId:'ir-count',bodyId:'tb-ir',cols:10,
   noun:'report',nounPlural:'reports',
   emptyMsg:'No inspection reports yet.',
   hay:function(m){return [m.no,m.agency,m.inspector,m.ref,m.punch,m.notes,m.type,refLabelFor(m.mat).name];},
@@ -4471,14 +4429,14 @@ crud({key:'IR',prefix:'ir',ov:'ir',table:'ir',titleId:'ir-title',
 crud({key:'IRN',prefix:'r',ov:'irn',table:'irn',titleId:'irn-title',
   newTitle:'Inspection release note',
   editTitle:function(m){return 'Release note'+(m.no?' '+m.no:'');},
-  fields:['no','date','mir','material','status','sent','sent-date','ref','exceptions','notes'],
+  fields:['no','date','mir','material','status','ref','notes'],
   picks:['r-mir'],hints:['r-mir'],
   valid:function(r){return !!(r.no||r.material);},validMsg:'Enter the release note number or the material',
   savedMsg:'Release note saved',deletedMsg:'Release note deleted',delMsg:'Delete this release note?',
-  searchId:'irn-q',countId:'irn-count',bodyId:'tb-irn',cols:9,
+  searchId:'irn-q',countId:'irn-count',bodyId:'tb-irn',cols:7,
   noun:'release note',nounPlural:'release notes',
   emptyMsg:'No release notes yet.',
-  hay:function(m){return [m.no,m.material,m.ref,m.exceptions,m.notes,mirLabel(m.mir)];},
+  hay:function(m){return [m.no,m.material,m.ref,m.notes,mirLabel(m.mir)];},
   sort:function(a,b){return String(b.date||'').localeCompare(String(a.date||''));},
   row:function(m){
     /* the procedure gives forty-eight hours to copy the employer */
@@ -4518,9 +4476,7 @@ window.saveINSP=function(){
   var n=document.getElementById('i-name').value.trim();
   if(!n)return alert('Enter the inspector name');
   var eid=document.getElementById('i-eid').value, g=function(id){var e=document.getElementById(id);return e?e.value:'';};
-  var m={id:eid?+eid:Date.now(),name:n,agency:g('i-agency'),disc:g('i-disc'),
-    cert:g('i-cert'),certExp:g('i-cert-exp'),status:g('i-status'),ref:g('i-ref'),
-    phone:g('i-phone'),email:g('i-email'),notes:g('i-notes')};
+  var m={id:eid?+eid:Date.now(),name:n,agency:g('i-agency'),status:g('i-status'),ref:g('i-ref'),notes:g('i-notes')};
   DB.inspectors=DB.inspectors||[];
   if(eid){var i=DB.inspectors.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.inspectors[i]._rowid)m._rowid=DB.inspectors[i]._rowid;DB.inspectors[i]=m;}}
   else DB.inspectors.push(m);
@@ -4531,9 +4487,8 @@ window.saveINSP=function(){
 window.editINSP=function(id){
   var m=(DB.inspectors||[]).find(function(x){return x.id===id;});if(!m)return;
   var sv=function(f,v){var e=document.getElementById(f);if(e)dtSet(e,v);};
-  sv('i-eid',id);sv('i-name',m.name);pickSet('i-agency',m.agency);sv('i-disc',m.disc);
-  sv('i-cert',m.cert);sv('i-cert-exp',m.certExp);sv('i-status',m.status||'Approved');sv('i-ref',m.ref);
-  sv('i-phone',m.phone);sv('i-email',m.email);sv('i-notes',m.notes);
+  sv('i-eid',id);sv('i-name',m.name);pickSet('i-agency',m.agency);
+  sv('i-status',m.status||'Approved');sv('i-ref',m.ref);sv('i-notes',m.notes);
   document.getElementById('insp-title').textContent='Edit inspector';
   document.getElementById('ov-insp').classList.add('on');
 };
@@ -4551,28 +4506,24 @@ window.rINSP=function(){
   var q=qe?qe.value.toLowerCase().trim():'', st=se?se.value:'';
   var list=(DB.inspectors||[]).filter(function(x){
     if(st&&(x.status||'Approved')!==st)return false;
-    if(q&&[x.name,x.agency,x.disc,x.cert,x.email].join(' ').toLowerCase().indexOf(q)<0)return false;
+    if(q&&[x.name,x.agency,x.ref,x.notes].join(' ').toLowerCase().indexOf(q)<0)return false;
     return true;
   }).sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
   var c=document.getElementById('insp-count');
   if(c)c.textContent=list.length+' inspector'+(list.length===1?'':'s');
   var tb=document.getElementById('tb-insp');if(!tb)return;
-  if(!list.length){tb.innerHTML='<tr><td colspan="9" class="empty">No inspectors yet. Record the agency under Vendors first, then add its inspectors here.</td></tr>';return;}
+  if(!list.length){tb.innerHTML='<tr><td colspan="6" class="empty">No inspectors yet. Record the agency under Vendors first, then add its inspectors here.</td></tr>';return;}
   tb.innerHTML=list.map(function(x){
-    var expired=x.certExp&&isExp(x.certExp);
     var st2=x.status||'Approved';
-    var flag=(st2==='Suspended'||expired)?'<span class="flag f-bad"></span>':(st2==='Pending'?'<span class="flag f-act"></span>':'<span class="flag"></span>');
+    var flag=(st2==='Suspended')?'<span class="flag f-bad"></span>':(st2==='Pending'?'<span class="flag f-act"></span>':'<span class="flag"></span>');
     var onList=(DB.pqd||[]).some(function(v){return v.name===x.agency;});
     var n=inspAssignments(x.name);
     return '<tr class="hov" onclick="editINSP('+x.id+')">'
       +'<td class="pin1 pin-edge">'+flag+'<span class="nm" style="max-width:210px">'+x.name+'</span></td>'
       +'<td><span class="nm" style="max-width:170px"'+(onList?'':' title="Not recorded under Vendors"')+'>'+(x.agency||'—')
         +(x.agency&&!onList?' <span style="color:var(--act-t)">*</span>':'')+'</span></td>'
-      +'<td><span class="dim">'+(x.disc||'—')+'</span></td>'
-      +'<td><span class="ref">'+(x.cert||'—')+'</span></td>'
-      +'<td><span class="ref"'+(expired?' style="color:var(--bad-t)"':'')+'>'+(x.certExp||'—')+(expired?' · expired':'')+'</span></td>'
-      +'<td class="ctr">'+stamp(expired?'Expired':st2)+'</td>'
-      +'<td><span class="dim">'+[x.phone,x.email].filter(Boolean).join(' · ')+'</span></td>'
+      +'<td class="ctr">'+stamp(st2)+'</td>'
+      +'<td><span class="ref">'+(x.ref||'—')+'</span></td>'
       +'<td class="ctr"><span class="ref">'+(n||'—')+'</span></td>'
       +ibs('editINSP','delINSP',x.id,x._rowid)+'</tr>';
   }).join('');
@@ -5062,7 +5013,7 @@ function collectCalEvents(){
     var label=(d.no?'No. '+d.no:'')+(d.vendor?' · '+d.vendor:'');
     if(d.date&&d.status!=='Approved')ev.push({date:d.date,type:'deadline',title:'Dossier '+label,sys:true});
 
-    if(d.fabStart)ev.push({date:d.fabStart,type:'deadline',title:'Fabrication starts '+label,sys:true});
+
   });
   (DB.events||[]).forEach(function(e){ev.push({date:e.date,type:e.type||'manual',title:e.title,notes:e.notes,sys:false,id:e.id});});
   return ev;
@@ -5926,7 +5877,7 @@ var PASTE_FILL={
   'ov-tpi':    {mat:'t-mat', agency:'t-agency', inspector:'t-inspector'},
   'ov-itp':    {mat:'n-mat', vendor:'n-vendor'},
   'ov-fatproc':{mat:'fp-mat', vendor:'fp-vendor'},
-  'ov-ipi':    {mat:'ip-mat', agency:'ip-agency', inspector:'ip-inspector', itpNo:'ip-itp'},
+  'ov-ipi':    {mat:'ip-mat', agency:'ip-agency', inspector:'ip-inspector'},
   'ov-fat':    {matRaw:'fat-mat', material:'fat-material', mfr:'fat-mfr', cat:'fat-cat',
                 agencyPlain:'fat-tpia', inspector:'fat-inspector', country:'fat-loc'},
   'ov-fatrep': {mat:'fr-mat', agency:'fr-agency', inspector:'fr-inspector'},
@@ -6058,8 +6009,7 @@ var RB_SOURCES={
   vendors:{label:'Vendors',rows:function(){return (DB.pqd||[]).filter(function(v){return v.engage!=='Discontinued';});},
     cols:[
       ['name','Vendor',1],['aconex','Aconex reference',1],['cat','Category',1],['dis','Discipline',1],
-      ['origin','Origin',0,function(m){return vendorOrigin(m)==='Unknown'?'':vendorOrigin(m);}],
-      ['loc','Location',0],['type','Entity type',0],['scope','Scope of work',1],['subco','Brought by',0],
+      ['origin','Origin',0,function(m){return vendorOrigin(m)==='Unknown'?'':vendorOrigin(m);}],['type','Entity type',0],['scope','Scope of work',1],['subco','Brought by',0],
       ['date','Submitted',0],['pqd','PQD status',1],['avl','Vendor list',0,function(m){return avlNorm(m.avl);}],
       ['prepa','Pre-PA',0,function(m){return effStage(m,'prepa');}],
       ['pa','Assessment',1,function(m){return effStage(m,'pa');}],
@@ -6111,14 +6061,11 @@ var RB_SOURCES={
       ['itpRef','ITP Aconex reference',0,function(m){return stack(itpAll(m),function(x){return x.ref;});}],
       ['itpDate','ITP submitted',0,function(m){return stackDate(itpAll(m),function(x){return x.date;});}],
       ['itpStatus','ITP status',0,function(m){return stack(itpAll(m),function(x){return x.status;});}],
-      ['itpPoints','Hold and witness points',0,function(m){return stack(itpAll(m),function(x){return x.points;});}],
       ['fprNo','FAT procedure no.',0,function(m){return stack(fprAll(m),function(x){return x.no;});}],
       ['fprRev','FAT procedure revision',0,function(m){return stack(fprAll(m),function(x){return x.rev;});}],
       ['fprRef','FAT procedure Aconex reference',0,function(m){return stack(fprAll(m),function(x){return x.ref;});}],
       ['fprDate','FAT procedure submitted',0,function(m){return stackDate(fprAll(m),function(x){return x.date;});}],
       ['fprStatus','FAT procedure status',0,function(m){return stack(fprAll(m),function(x){return x.status;});}],
-      ['fprTests','FAT tests',0,function(m){return stack(fprAll(m),function(x){return x.tests;});}],
-      ['fprStandard','FAT test standard',0,function(m){return stack(fprAll(m),function(x){return x.standard;});}],
       ['ipiCount','In-process visits',0,function(m){return ipiAll(m).length||'';}],
       ['ipiNo','In-process visit no.',0,function(m){return stack(ipiAll(m),function(x){return x.no;});}],
       ['ipiDate','In-process date',0,function(m){return stackDate(ipiAll(m),function(x){return x.date;});}],
@@ -6126,30 +6073,22 @@ var RB_SOURCES={
       ['ipiInspector','In-process inspector',0,function(m){return stack(ipiAll(m),function(x){return x.inspector;});}],
       ['ipiResult','In-process result',0,function(m){return stack(ipiAll(m),function(x){return x.result;});}],
       ['ipiRef','In-process Aconex reference',0,function(m){return stack(ipiAll(m),function(x){return x.ref;});}],
-      ['ipiFindings','In-process findings',0,function(m){return stack(ipiAll(m),function(x){return x.findings;});}],
       ['frNo','FAT report no.',0,function(m){return stack(frAll(m),function(x){return x.no;});}],
       ['frDate','FAT report test date',0,function(m){return stackDate(frAll(m),function(x){return x.date;});}],
       ['frResult','FAT report result',0,function(m){return stack(frAll(m),function(x){return x.result;});}],
       ['frStatus','FAT report status',0,function(m){return stack(frAll(m),function(x){return x.status;});}],
       ['frRef','FAT report Aconex reference',0,function(m){return stack(frAll(m),function(x){return x.ref;});}],
-      ['frPunch','FAT report punch items',0,function(m){return stack(frAll(m),function(x){return x.punch;});}],
       ['irNo','Inspection report no.',0,function(m){return stack(irAll(m),function(x){return x.no;});}],
       ['irDate','Inspection report date',0,function(m){return stackDate(irAll(m),function(x){return x.date;});}],
-      ['irType','Inspection report type',0,function(m){return stack(irAll(m),function(x){return x.type;});}],
       ['irResult','Inspection report result',0,function(m){return stack(irAll(m),function(x){return x.result;});}],
       ['irStatus','Inspection report status',0,function(m){return stack(irAll(m),function(x){return x.status;});}],
       ['irRef','Inspection report Aconex reference',0,function(m){return stack(irAll(m),function(x){return x.ref;});}],
-      ['irPunch','Inspection report punch items',0,function(m){return stack(irAll(m),function(x){return x.punch;});}],
       ['tpiRef','TPI Aconex reference',0,function(m){return stack(tpiAll(m),function(x){return x.ref;});}],
       ['tpiAgency','TPI agency',0,function(m){return stack(tpiAll(m),function(x){return x.agency;});}],
       ['tpiInspector','TPI inspector',0,function(m){return stack(tpiAll(m),function(x){return x.inspector;});}],
-      ['tpiScope','TPI scope',0,function(m){return stack(tpiAll(m),function(x){return x.scope;});}],
       ['tpiDate','TPI assigned',0,function(m){return stackDate(tpiAll(m),function(x){return x.date;});}],
       ['tpiStatus','TPI status',0,function(m){return stack(tpiAll(m),function(x){return x.status;});}],
       ['inspAgency','Inspector agency on record',0,function(m){return stack(inspectorAll(m),function(x){return x.agency;});}],
-      ['inspDisc','Inspector discipline',0,function(m){return stack(inspectorAll(m),function(x){return x.disc;});}],
-      ['inspCert','Inspector certificate',0,function(m){return stack(inspectorAll(m),function(x){return x.cert;});}],
-      ['inspCertExp','Inspector certificate expiry',0,function(m){return stackDate(inspectorAll(m),function(x){return x.certExp;});}],
       ['inspRef','Inspector Aconex reference',0,function(m){return stack(inspectorAll(m),function(x){return x.ref;});}],
       ['fatDate','FAT date',0,function(m){return stackDate(fatAll(m),function(f){return f.fatDate;});}],
       ['fatPrefab','Pre-fabrication date',0,function(m){return stackDate(fatAll(m),function(f){return f.prefab;});}],
@@ -6183,7 +6122,7 @@ var RB_SOURCES={
 
   dossiers:{label:'Pre-inspection dossiers',rows:function(){return (DB.dossiers||[]).slice();},
     cols:[['no','Dossier no.',1],['title','Title',1],['ref','Aconex reference',1],['vendor','Vendor',1],
-      ['date','Submitted',1],['status','Status',1],['fabStart','Fabrication start',0],
+      ['date','Submitted',1],['status','Status',1],
       ['mats','Materials',1,function(d){return pidMatsOf(d).map(function(r){return refLabelFor(r).name;}).join('; ');}],
       ['meeting','Meeting',0,function(d){var p=meetingsFor(d)[0];return p?(p.status||''):'';}],
       ['notes','Notes',0]],
@@ -6193,36 +6132,32 @@ var RB_SOURCES={
     cols:[['no','Dossier no.',1],['title','Title',1],['ref','Aconex reference',1],['vendor','Vendor',1],
       ['last','Last quantity accepted',1],['due','Due',1,function(d){return postDue(d)||'';}],
       ['date','Submitted',1],['status','Status',1],
-      ['mats','Materials',0,function(d){return (d.mats||[]).map(function(r){return refLabelFor(r).name;}).join('; ');}],
-      ['narrative','Narrative',0],['reports','Inspection reports',0],['records','Supplier records',0],
-      ['ncr','NCRs',0],['release','Shipping release',0],['punch','Punch items',0],['notes','Notes',0]],
+      ['mats','Materials',0,function(d){return (d.mats||[]).map(function(r){return refLabelFor(r).name;}).join('; ');}],['notes','Notes',0]],
     filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
 
   tpi:{label:'TPI assignments',rows:function(){return (DB.tpi||[]).slice();},
     cols:[['ref','Aconex reference',1],['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
-      ['agency','Agency',1],['inspector','Inspector',1],['scope','Scope',1],['date','Assigned',1],
+      ['agency','Agency',1],['inspector','Inspector',1],['date','Assigned',1],
       ['status','Status',1],['notes','Notes',0]],
     filters:[['status','Status',['Pending','Submitted','Approved','Rejected']]]},
 
   meetings:{label:'Pre-fabrication meetings',rows:function(){return (DB.pfm||[]).slice();},
     cols:[['no','Meeting no.',1],['subject','Subject',1],['vendor','Vendor',1],['date','Date',1],
-      ['status','Status',1],['loc','Location',0],['mom','Minutes',1],['mom-ref','Minutes reference',0],
-      ['ref','Aconex reference',0],['attend','Attendees',0],
+      ['status','Status',1],['mom','Minutes',1],['mom-ref','Minutes reference',0],
+      ['ref','Aconex reference',0],
       ['dossier','Dossier',0,function(m){return dossierLabel(m.dossier);}],['notes','Notes',0]],
     filters:[['status','Status',['Not Scheduled','Scheduled','Done','N/A']]]},
 
   itp:{label:'ITP and FAT procedures',rows:function(){return (DB.itp||[]).slice();},
     cols:[['no','ITP no.',1],['title','Title',1],['rev','Revision',1],
       ['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
-      ['vendor','Vendor',1],['type','Type',1],['date','Submitted',1],['status','Status',1],
-      ['points','Hold and witness points',0],['ref','Aconex reference',0],['notes','Notes',0]],
+      ['vendor','Vendor',1],['type','Type',1],['date','Submitted',1],['status','Status',1],['ref','Aconex reference',0],['notes','Notes',0]],
     filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
 
   fatproc:{label:'FAT procedures',rows:function(){return (DB.fatproc||[]).slice();},
     cols:[['no','Procedure no.',1],['title','Title',1],['rev','Revision',1],
       ['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
       ['vendor','Vendor',1],['date','Submitted',1],['status','Status',1],
-      ['tests','Number of tests',0],['standard','Test standard',0],
       ['ref','Aconex reference',1],['notes','Notes',0]],
     filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
 
@@ -6230,25 +6165,22 @@ var RB_SOURCES={
     cols:[['no','Visit',1],['date','Date',1],
       ['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
       ['stage','Stage or hold point',1],['agency','Agency',1],['inspector','Inspector',1],
-      ['result','Result',1],['itp','Related ITP',0],['ref','Aconex reference',1],
-      ['findings','Findings',1],['notes','Notes',0]],
+      ['result','Result',1],['ref','Aconex reference',1],['notes','Notes',0]],
     filters:[['result','Result',['Pending','Pass','Pass with comments','Failed']]]},
 
   fatrep:{label:'FAT reports',rows:function(){return (DB.fatrep||[]).slice();},
     cols:[['no','Report no.',1],['date','Test date',1],
       ['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
       ['agency','Agency',1],['inspector','Inspector',1],['result','Result',1],['status','Report status',1],
-      ['issued','Issued',1],['retest','Re-test required',0],['ref','Aconex reference',1],
-      ['punch','Punch items',1],['notes','Notes',0]],
+      ['issued','Issued',1],['ref','Aconex reference',1],['notes','Notes',0]],
     filters:[['result','Result',['Pending','Pass','Pass with comments','Failed']],['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
 
   ir:{label:'Inspection reports',rows:function(){return (DB.ir||[]).slice();},
     cols:[['no','Report no.',1],['date','Inspection date',1],
-      ['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
-      ['type','Inspection type',1],['agency','Agency',1],['inspector','Inspector',1],
+      ['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],['agency','Agency',1],['inspector','Inspector',1],
       ['result','Result',1],['status','Report status',1],['issued','Issued',1],
-      ['ref','Aconex reference',1],['punch','Punch items',1],['notes','Notes',0]],
-    filters:[['result','Result',['Pending','Pass','Pass with comments','Failed']],['type','Type',['Final inspection','Pre-shipment','Site inspection']]]},
+      ['ref','Aconex reference',1],['notes','Notes',0]],
+    filters:[['result','Result',['Pending','Pass','Pass with comments','Failed']]]},
 
   fat:{label:'FAT and final inspection',rows:function(){return (DB.fat||[]).slice();},
     cols:[['material','Material',1],['mfr','Manufacturer',1],['cat','Category',1],['loc','Location',1],
@@ -6269,17 +6201,12 @@ var RB_SOURCES={
     filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']],['cat','Category',['C0','C1','C2','C3']]]},
 
   irn:{label:'Inspection release notes',rows:function(){return (DB.irn||[]).slice();},
-    cols:[['no','IRN no.',1],['material','Material',1],['date','Issued',1],['status','Status',1],
-      ['sent','Copy to employer',1],['sent-date','Sent on',0],['ref','Aconex reference',0],
-      ['mir','Inspection request',1,function(m){return mirLabel(m.mir);}],
-      ['exceptions','Exceptions',1],['notes','Notes',0]],
-    filters:[['status','Status',['Pending','Issued','Approved','Rejected']],['sent','Copy to employer',['Pending','Sent','N/A']]]},
+    cols:[['no','IRN no.',1],['material','Material',1],['date','Issued',1],['status','Status',1],['ref','Aconex reference',0],
+      ['mir','Inspection request',1,function(m){return mirLabel(m.mir);}],['notes','Notes',0]],
+    filters:[['status','Status',['Pending','Issued','Approved','Rejected']]]},
 
   inspectors:{label:'Approved inspectors',rows:function(){return (DB.inspectors||[]).slice();},
-    cols:[['name','Inspector',1],['agency','Agency',1],['disc','Discipline',1],['cert','Certificate',1],
-      ['certExp','Certificate expiry',1],['status','Status',1],['ref','Aconex reference',0],
-      ['phone','Phone',0],['email','Email',0],
-      ['assignments','Assignments',0,function(m){return inspAssignments(m.name)||'';}],['notes','Notes',0]],
+    cols:[['name','Inspector',1],['agency','Agency',1],['status','Status',1],['ref','Aconex reference',0],['notes','Notes',0]],
     filters:[['status','Status',['Approved','Pending','Suspended']]]},
 
   trace:{label:'Traceability — every step',rows:function(){return matRecords().map(traceRow);},
