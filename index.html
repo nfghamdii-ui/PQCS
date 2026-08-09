@@ -35,7 +35,13 @@ body{background:var(--bg);color:var(--t-1);font-family:var(--sans);font-size:14p
 a{color:inherit}
 
 /* ---------------- sidebar ---------------- */
-.sb{width:198px;flex-shrink:0;background:var(--sf-0);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow-y:auto}
+/* the sidebar carries long section names, so its width is yours to set */
+.sb{width:var(--sb-w,198px);flex-shrink:0;background:var(--sf-0);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow-y:auto;position:relative}
+.sb-grip{position:absolute;top:0;right:-3px;bottom:0;width:7px;cursor:col-resize;z-index:40}
+.sb-grip::after{content:"";position:absolute;left:3px;top:0;bottom:0;width:1px;background:transparent;transition:background .12s}
+.sb-grip:hover::after,.sb-grip.on::after{background:var(--line-3)}
+body.sb-dragging{cursor:col-resize;user-select:none}
+.ni span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sb-head{padding:16px 16px 15px;border-bottom:1px solid var(--line);flex-shrink:0}
 .sb-name{font-size:16px;font-weight:500;letter-spacing:.02em}
 .sb-proj{font-family:var(--mono);font-size:11px;color:var(--t-3);margin-top:4px;word-break:break-word}
@@ -312,7 +318,8 @@ th.thf.act .fcar{opacity:1;color:var(--act-t)}
 ::-webkit-scrollbar-thumb:hover{background:var(--t-4)}
 
 @media(max-width:900px){
-  .sb{width:56px}
+  .sb{width:56px!important}
+  .sb-grip{display:none}
   .sb-name,.sb-proj,.sb-save,.grp-lbl,.ni span,.ni-n,.sb-foot{display:none}
   .ni{justify-content:center;padding:10px 0}
   .fg{grid-template-columns:1fr}
@@ -400,6 +407,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 <div class="app" id="app" style="display:none">
 
   <nav class="sb">
+    <div class="sb-grip" id="sb-grip" title="Drag to resize · double-click to reset"></div>
     <div class="sb-head">
       <div class="sb-name">PQCS</div>
       <div class="sb-proj" id="proj-name">—</div>
@@ -4528,12 +4536,6 @@ var CAL_VIEW=new Date();CAL_VIEW.setDate(1);
 var CAL_COL={pa:['run','Survey'],mir:['ok','Inspection'],iso:['bad','Expiry'],deadline:['act','Deadline'],manual:['na','Task'],meeting:['na','Meeting'],inspection:['ok','Inspection'],delivery:['ok','Delivery']};
 /* Stored dates stay ISO so sorting and comparison keep working; only
    what you read and type is dd/mm/yyyy. */
-function dtToDisplay(iso){
-  if(!iso)return '';
-  var m=String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m?(m[3]+'/'+m[2]+'/'+m[1]):String(iso);
-}
-/* a real calendar check, so 31 February is refused rather than rolled */
 function dtBuild(y,mo,d){
   if(!(y>=1900&&y<=2200)||!(mo>=1&&mo<=12)||!(d>=1&&d<=31))return null;
   var t=new Date(Date.UTC(y,mo-1,d));
@@ -4561,6 +4563,17 @@ function dtParse(txt){
   return null;
 }
 /* the field carries the display text; the ISO value rides alongside it */
+function dtToDisplay(iso){
+  if(!iso)return '';
+  var t=String(iso).trim();
+  var m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m)return ('0'+m[3]).slice(-2)+'/'+('0'+m[2]).slice(-2)+'/'+m[1];
+  /* older records may hold a date in another shape; run it through the
+     same parser rather than printing it raw */
+  var p=dtParse(t);
+  return p?dtToDisplay(p):t;
+}
+/* a real calendar check, so 31 February is refused rather than rolled */
 window.dtInput=function(el){
   var iso=dtParse(el.value);
   el.classList.toggle('bad', el.value.trim()!=='' && iso===null);
@@ -5902,6 +5915,42 @@ function sbWaitForLib(tries){
   var e=document.getElementById('sb-err');
   if(e)e.textContent='Could not load the database library. Check your connection and refresh.';
 }
+/* width is remembered per browser, and a double-click puts it back */
+(function(){
+  var MIN=150, MAX=420, DEF=198;
+  function setW(w){
+    w=Math.max(MIN,Math.min(MAX,Math.round(w)));
+    document.documentElement.style.setProperty('--sb-w',w+'px');
+    return w;
+  }
+  try{
+    var saved=parseInt(localStorage.getItem('pqcs-sb-w')||'0',10);
+    if(saved)setW(saved);
+  }catch(e){}
+  var grip=document.getElementById('sb-grip');
+  if(!grip)return;
+  var dragging=false, last=0;
+  grip.addEventListener('mousedown',function(e){
+    e.preventDefault();dragging=true;
+    grip.classList.add('on');document.body.classList.add('sb-dragging');
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!dragging)return;
+    /* keep the applied width rather than reading it back, so the value
+       stored is always the one actually in use */
+    last=setW(e.clientX);
+  });
+  document.addEventListener('mouseup',function(){
+    if(!dragging)return;
+    dragging=false;grip.classList.remove('on');document.body.classList.remove('sb-dragging');
+    if(last){try{localStorage.setItem('pqcs-sb-w',String(last));}catch(e){}}
+  });
+  grip.addEventListener('dblclick',function(){
+    setW(DEF);
+    try{localStorage.setItem('pqcs-sb-w',String(DEF));}catch(e){}
+  });
+})();
+
 document.addEventListener('keydown',function(e){
   if(e.key==='Escape'){document.querySelectorAll('.ov.on').forEach(function(o){o.classList.remove('on');});return;}
   /* slash jumps to search from anywhere, unless you are typing */
