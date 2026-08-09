@@ -605,9 +605,9 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
       <div id="pg-tpi" style="display:none">
         <div class="tw"><table>
           <thead><tr>
-            <th class="pin1 pin-edge" style="min-width:130px">ACONEX REF</th><th style="min-width:240px">MATERIAL</th>
-            <th style="min-width:170px">AGENCY</th><th style="min-width:160px">INSPECTOR</th>
-            <th>ASSIGNED</th><th class="ctr">STATUS</th><th>NOTES</th><th></th>
+            <th class="pin1 pin-edge" style="min-width:260px">MATERIAL</th>
+            <th style="min-width:180px">INSPECTOR</th><th style="min-width:180px">AGENCY</th>
+            <th class="ctr">STATUS</th><th style="min-width:180px">NOTES</th><th></th>
           </tr></thead><tbody id="tb-tpi"></tbody>
         </table></div>
       </div>
@@ -1110,8 +1110,6 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div class="pick"><label class="fl">Agency</label>
        <input class="fi" id="t-agency-q" placeholder="Search agencies…" autocomplete="off" oninput="pickOpen('t-agency')" onfocus="pickOpen('t-agency')">
        <input type="hidden" id="t-agency"><div class="pick-list" id="t-agency-list"></div></div>
-     <div><label class="fl">Aconex reference</label><input class="fi" id="t-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
-     <div><label class="fl">Assigned on</label><span class="dwrapf"><input class="fi dt" id="t-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Status</label><select class="fs" id="t-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Rejected</option></select></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="t-notes" rows="2"></textarea></div>
    </div></div>
@@ -1995,7 +1993,7 @@ function buildTools(page){
     });
     h+='<div class="spacer"></div><span class="count" id="pid-count"></span>';
   }else if(page==='tpi'){
-    h+=searchBox('tpi-q','Reference, material, inspector, agency…','rTPI()');
+    h+=searchBox('tpi-q','Material, inspector or agency…','rTPI()');
     h+='<div class="spacer"></div><span class="count" id="tpi-count"></span>';
   }else if(page==='pfm'){
     h+=searchBox('pfm-q','Number, subject, vendor, dossier…','rPFM()');
@@ -4254,24 +4252,22 @@ function crud(cfg){
 
 crud({key:'TPI',prefix:'t',ov:'tpi',table:'tpi',titleId:'tpi-title',
   newTitle:'Third-party inspection assignment',
-  editTitle:function(m){return 'Assignment'+(m.ref?' · '+m.ref:'');},
-  fields:['mat','inspector','agency','ref','date','status','notes'],
+  editTitle:function(m){return 'Assignment'+(m.inspector?' · '+m.inspector:'');},
+  fields:['mat','inspector','agency','status','notes'],
   picks:['t-mat','t-agency'],hints:['t-mat'],
   valid:function(r){return !!(r.mat||r.inspector);},validMsg:'Choose the material or the inspector',
   savedMsg:'Assignment saved',deletedMsg:'Assignment deleted',delMsg:'Delete this assignment?',
-  searchId:'tpi-q',countId:'tpi-count',bodyId:'tb-tpi',cols:8,
+  searchId:'tpi-q',countId:'tpi-count',bodyId:'tb-tpi',cols:6,
   noun:'assignment',nounPlural:'assignments',
   emptyMsg:'No assignments yet. Record the material first, then assign its inspector here.',
-  hay:function(m){return [m.ref,m.inspector,m.agency,m.notes,refLabelFor(m.mat).name];},
-  sort:function(a,b){return String(b.date||'').localeCompare(String(a.date||''));},
+  hay:function(m){return [m.inspector,m.agency,m.notes,refLabelFor(m.mat).name];},
+  sort:function(a,b){return String(refLabelFor(a.mat).name).localeCompare(String(refLabelFor(b.mat).name));},
   row:function(m){
-    return '<td class="pin1 pin-edge"><span class="ref" title="'+String(m.ref||'').replace(/"/g,'&quot;')+'">'+(m.ref?shortRef(m.ref):'—')+'</span></td>'
-      +'<td><span class="nm" style="max-width:230px">'+(m.mat?refLabelFor(m.mat).name:'—')+'</span></td>'
-      +'<td><span class="nm" style="max-width:160px">'+(m.agency||'—')+'</span></td>'
-      +'<td><span class="nm" style="max-width:150px">'+(m.inspector||'—')+'</span></td>'
-      +'<td><span class="ref">'+(m.date||'—')+'</span></td>'
+    return '<td class="pin1 pin-edge"><span class="nm" style="max-width:250px">'+(m.mat?refLabelFor(m.mat).name:'\u2014')+'</span></td>'
+      +'<td><span class="nm" style="max-width:170px">'+(m.inspector||'\u2014')+'</span></td>'
+      +'<td><span class="nm" style="max-width:170px">'+(m.agency||'\u2014')+'</span></td>'
       +'<td class="ctr">'+stamp(m.status||'Pending')+'</td>'
-      +'<td><span class="dim">'+(m.notes||'—')+'</span></td>';
+      +'<td><span class="dim">'+(m.notes||'\u2014')+'</span></td>';
   }});
 
 crud({key:'PFM',prefix:'p',ov:'pfm',table:'pfm',titleId:'pfm-title',
@@ -5973,7 +5969,6 @@ function REG(){return [
   {k:'pfm',    label:'Pre-fabrication meeting',rows:(DB.pfm||[]),        ref:function(x){return x.ref;},    title:function(x){return (x.no?'No. '+x.no+' — ':'')+(x.subject||'');}},
   {k:'itp',    label:'Inspection and test plan',rows:(DB.itp||[]),       ref:function(x){return x.ref;},    title:function(x){return (x.no?x.no+' — ':'')+(x.title||'');}},
   {k:'fatproc',label:'FAT procedure',        rows:(DB.fatproc||[]),      ref:function(x){return x.ref;},    title:function(x){return (x.no?x.no+' — ':'')+(x.title||'');}},
-  {k:'tpi',    label:'TPI assignment',       rows:(DB.tpi||[]),          ref:function(x){return x.ref;},    title:function(x){return [x.inspector,x.agency].filter(Boolean).join(' · ');}},
   {k:'ipi',    label:'In-process inspection',rows:(DB.ipi||[]),          ref:function(x){return x.ref;},    title:function(x){return 'Visit'+(x.no?' '+x.no:'')+(x.stage?' · '+x.stage:'');}},
   {k:'fatrep', label:'FAT report',          rows:(DB.fatrep||[]),       ref:function(x){return x.ref;},    title:function(x){return (x.no||'')+(x.result?' · '+x.result:'');}},
   {k:'ir',     label:'Inspection report',    rows:(DB.ir||[]),           ref:function(x){return x.ref;},    title:function(x){return (x.no||'')+(x.result?' · '+x.result:'');}},
@@ -6153,7 +6148,7 @@ var RB_COL_GROUP={
     irNo:'ir',irDate:'ir',irType:'ir',irResult:'ir',irStatus:'ir',irRef:'ir',irPunch:'ir',
     ipiCount:'ipi',ipiNo:'ipi',ipiDate:'ipi',ipiStage:'ipi',ipiInspector:'ipi',ipiResult:'ipi',ipiRef:'ipi',ipiFindings:'ipi',
     fprNo:'fatproc',fprRev:'fatproc',fprRef:'fatproc',fprDate:'fatproc',fprStatus:'fatproc',fprTests:'fatproc',fprStandard:'fatproc',
-    tpiRef:'tpi',tpiAgency:'tpi',tpiInspector:'tpi',tpiScope:'tpi',tpiDate:'tpi',tpiStatus:'tpi',
+    tpiAgency:'tpi',tpiInspector:'tpi',tpiScope:'tpi',tpiStatus:'tpi',
     inspAgency:'inspectors',inspDisc:'inspectors',inspCert:'inspectors',inspCertExp:'inspectors',inspRef:'inspectors',
     fatDate:'fat',fatPrefab:'fat',fatFab:'fat',fatDelivery:'fat',fatTpia:'fat',fatInspector:'fat',fatRemark:'fat',
     mirNo:'mir',mirDate:'mir',mirStatus:'mir',
@@ -6252,10 +6247,8 @@ var RB_SOURCES={
       ['irResult','Inspection report result',0,function(m){return stack(irAll(m),function(x){return x.result;});}],
       ['irStatus','Inspection report status',0,function(m){return stack(irAll(m),function(x){return x.status;});}],
       ['irRef','Inspection report Aconex reference',0,function(m){return stack(irAll(m),function(x){return x.ref;});}],
-      ['tpiRef','TPI Aconex reference',0,function(m){return stack(tpiAll(m),function(x){return x.ref;});}],
       ['tpiAgency','TPI agency',0,function(m){return stack(tpiAll(m),function(x){return x.agency;});}],
       ['tpiInspector','TPI inspector',0,function(m){return stack(tpiAll(m),function(x){return x.inspector;});}],
-      ['tpiDate','TPI assigned',0,function(m){return stackDate(tpiAll(m),function(x){return x.date;});}],
       ['tpiStatus','TPI status',0,function(m){return stack(tpiAll(m),function(x){return x.status;});}],
       ['inspAgency','Inspector agency on record',0,function(m){return stack(inspectorAll(m),function(x){return x.agency;});}],
       ['inspRef','Inspector Aconex reference',0,function(m){return stack(inspectorAll(m),function(x){return x.ref;});}],
@@ -6305,8 +6298,8 @@ var RB_SOURCES={
     filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
 
   tpi:{label:'TPI assignments',rows:function(){return (DB.tpi||[]).slice();},
-    cols:[['ref','Aconex reference',1],['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
-      ['agency','Agency',1],['inspector','Inspector',1],['date','Assigned',1],
+    cols:[['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
+      ['agency','Agency',1],['inspector','Inspector',1],
       ['status','Status',1],['notes','Notes',0]],
     filters:[['status','Status',['Pending','Submitted','Approved','Rejected']]]},
 
@@ -6747,7 +6740,7 @@ function impPlan(rows){
     var insp=impClean(g('tpiName'));
     if(insp){
       row.make.push({reg:'tpi',label:'TPI assignment',
-        rec:{inspector:insp,status:impStatus(g('tpiStatus'),'Pending'),scope:'Third-party inspection'}});
+        rec:{inspector:insp,status:impStatus(g('tpiStatus'),'Pending')}});
       add('tpi');
     }
     impRefs(g('ir')).forEach(function(ref,i){
