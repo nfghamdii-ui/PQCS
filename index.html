@@ -150,7 +150,7 @@ tbody td{padding:9px 12px;border-bottom:1px solid var(--line);background:var(--s
 tbody tr:last-child td{border-bottom:none}
 tbody tr.hov:hover td{background:var(--sf-2);cursor:pointer}
 .pin1{position:sticky;left:0;z-index:15}
-.pin2{position:sticky;left:234px;z-index:15}
+.pin2{position:sticky;left:var(--pin2,234px);z-index:15}
 thead .pin1,thead .pin2{z-index:30}
 .pin2::after,.pin-edge::after{content:"";position:absolute;right:0;top:0;bottom:0;width:1px;background:var(--line-2)}
 .nm{font-size:13px;max-width:210px;overflow:hidden;text-overflow:ellipsis;display:inline-block;vertical-align:middle}
@@ -1942,6 +1942,7 @@ window.sortTable=function(tbodyId,i,ev){
   SORTS[tbodyId]={i:i,dir:dir};
   applySort(tbodyId);
   markSortHeads(tbodyId);
+  fixPins(tbodyId);
 };
 function applySort(tbodyId){
   var st=SORTS[tbodyId];if(!st)return;
@@ -1972,6 +1973,18 @@ function markSortHeads(tbodyId){
       : '<svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 4l3 3 3-3"/></svg>';
   });
 }
+/* The second pinned column has to start exactly where the first one
+   ends. A fixed offset leaves a gap whenever the first column renders
+   narrower than the guess, so it is measured from the table itself. */
+function fixPins(tbodyId){
+  var tb=document.getElementById(tbodyId);if(!tb)return;
+  var table=tb.closest('table');if(!table)return;
+  var first=table.querySelector('thead th.pin1');
+  if(!first)return;
+  var w=Math.round(first.getBoundingClientRect().width);
+  if(w>0)table.style.setProperty('--pin2',w+'px');
+}
+
 /* headings become sortable once, when the table first renders */
 function makeSortable(tbodyId){
   var tb=document.getElementById(tbodyId);if(!tb)return;
@@ -7245,6 +7258,9 @@ document.addEventListener('keydown',function(e){
     e.preventDefault();
     goTo('find',document.querySelector('.ni[data-p=find]'));
   }
+});
+window.addEventListener('resize',function(){
+  document.querySelectorAll('tbody[id]').forEach(function(tb){fixPins(tb.id);});
 });
 window.addEventListener('DOMContentLoaded',function(){sbWaitForLib(0);});
 if(document.readyState!=='loading')sbWaitForLib(0);
