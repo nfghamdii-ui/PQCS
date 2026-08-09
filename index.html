@@ -3330,18 +3330,41 @@ window.pickOpen=function(id){
   }
   list.classList.add('on');
 };
+/* A picker stores one thing and shows another: a dossier or an item is
+   stored by its id, a material by its reference. One label function
+   serves both setting and choosing, so no kind can slip through and
+   leave a bare id on screen. */
+function pickLabel(kind,val){
+  if(!val)return '';
+  if(kind==='dossier')return dossierLabel(val)||String(val);
+  if(kind==='mir')return mirLabel(val)||String(val);
+  if(kind==='lineitem'){
+    var li=(DB.items||[]).find(function(x){return String(x.id)===String(val);});
+    return li?itemLabel(li):String(val);
+  }
+  if(kind==='material'){
+    var mm=matRecords().find(function(x){return (x.aconex||x.name)===val;});
+    return mm?(mm.name+(mm.aconex?'  \u00b7  '+mm.aconex:'')):String(val);
+  }
+  return String(val);
+}
+function pickIsTwoBox(kind){
+  return kind==='vendor'||kind==='subco'||kind==='agency'
+      ||kind==='material'||kind==='dossier'||kind==='mir'||kind==='lineitem';
+}
 window.pickChoose=function(id,val){
-  var kind=PICK_SRC[id], isVendor=(kind==='vendor'||kind==='subco'||kind==='agency'||kind==='material'||kind==='dossier'||kind==='mir'||kind==='lineitem');
-  if(isVendor){
+  var kind=PICK_SRC[id];
+  if(pickIsTwoBox(kind)){
     document.getElementById(id).value=val;
-    document.getElementById(id+'-q').value=val;
+    var q=document.getElementById(id+'-q');
+    if(q)q.value=pickLabel(kind,val);
     if(id==='m-co')showCoInfo(val);
-    if(id==='t-mat'||id==='n-mat'||id==='fp-mat'||id==='ip-mat'||id==='fr-mat'||id==='ir-mat')linkHint(id);
-    if(id==='r-mir')linkHint(id);
+    if(id==='t-mat'||id==='n-mat'||id==='fp-mat'||id==='ip-mat'||id==='fr-mat'||id==='ir-mat'
+       ||id==='li-mat'||id==='dl-item'||id==='r-mir')linkHint(id);
   }else if(kind==='inspector'){
     document.getElementById(id).value=val;
     /* choosing an inspector fills the agency beside it, since one follows the other */
-    var ins=(DB.inspectors||[]).find(function(x){return x.name===val;});
+    var ins=(DB.inspectors||[]).find(function(x){return nameKey(x.name)===nameKey(val);});
     if(ins&&ins.agency&&id==='fat-inspector'){
       var ag=document.getElementById('fat-tpia');
       if(ag&&!ag.value)ag.value=ins.agency;
@@ -3351,20 +3374,14 @@ window.pickChoose=function(id,val){
     checkMfr(id.split('-')[0]);
   }
   document.getElementById(id+'-list').classList.remove('on');
-};
-function pickSet(id,val){
-  var k=PICK_SRC[id], isVendor=(k==='vendor'||k==='subco'||k==='agency'||k==='material'||k==='dossier'||k==='mir'||k==='lineitem');
-  if(k==='lineitem'&&val){
-    var li=(DB.items||[]).find(function(x){return String(x.id)===String(val);});
-    if(li){var e5=document.getElementById(id);if(e5)e5.value=val;
-      var q5=document.getElementById(id+'-q');if(q5)q5.value=itemLabel(li);return;}
+};function pickSet(id,val){
+  var kind=PICK_SRC[id];
+  var el=document.getElementById(id);
+  if(el)el.value=val||'';
+  if(pickIsTwoBox(kind)){
+    var q=document.getElementById(id+'-q');
+    if(q)q.value=pickLabel(kind,val);
   }
-  /* a picker stores an id or a reference; the visible box needs its label */
-  if(k==='mir'&&val){var lb=mirLabel(val);if(lb){var e2=document.getElementById(id);if(e2)e2.value=val;var q2=document.getElementById(id+'-q');if(q2)q2.value=lb;return;}}
-  if(k==='material'&&val){var mm=matRecords().find(function(x){return (x.aconex||x.name)===val;});
-    if(mm){var e3=document.getElementById(id);if(e3)e3.value=val;var q3=document.getElementById(id+'-q');if(q3)q3.value=mm.name+(mm.aconex?'  ·  '+mm.aconex:'');return;}}
-  var el=document.getElementById(id);if(el)el.value=val||'';
-  if(isVendor){var q=document.getElementById(id+'-q');if(q)q.value=val||'';}
 }
 function pickClear(id){pickSet(id,'');var l=document.getElementById(id+'-list');if(l)l.classList.remove('on');}
 document.addEventListener('click',function(e){
