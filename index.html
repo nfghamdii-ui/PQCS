@@ -448,6 +448,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
       <div class="ni" data-p="mir" onclick="goTo('mir',this)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3M8 11h6M11 8v6"/></svg><span>Material inspection</span><span class="ni-n" id="nb-mir">0</span></div>
       <div class="ni" data-p="irn" onclick="goTo('irn',this)"><svg viewBox="0 0 24 24"><path d="M4 4h16v5H4z"/><path d="M6 9v11h12V9"/><path d="M10 13h4"/></svg><span>Inspection release note</span><span class="ni-n" id="nb-irn">0</span></div>
       <div class="ni" data-p="post" onclick="goTo('post',this)"><svg viewBox="0 0 24 24"><path d="M4 4h11l5 5v11a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5"/><path d="M9 15l2 2 4-4"/></svg><span>Post-inspection dossier</span><span class="ni-n" id="nb-post">0</span></div>
+      <div class="ni" data-p="items" onclick="goTo('items',this)"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 11h18M8 7V4h8v3"/></svg><span>Line items</span><span class="ni-n" id="nb-items">0</span></div>
+      <div class="ni" data-p="deliv" onclick="goTo('deliv',this)"><svg viewBox="0 0 24 24"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span>Deliveries</span><span class="ni-n" id="nb-deliv">0</span></div>
       <div class="ni" data-p="dlog" onclick="goTo('dlog',this)"><svg viewBox="0 0 24 24"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span>Delivery log</span></div>
     </div>
 
@@ -566,7 +568,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
           <thead><tr>
             <th class="pin1" style="min-width:200px">MATERIAL</th><th class="pin2" style="min-width:120px">REFERENCE</th>
             <th>SUBMITTED</th><th>CAT SUB</th><th>CAT CORRECT</th><th style="min-width:150px">SUBMITTED BY</th><th style="min-width:150px">MANUFACTURER</th>
-            <th class="ctr">INSPECTION</th><th class="ctr">TPIA</th><th>PID NO.</th><th class="ctr">PID</th><th class="ctr">MEETING</th><th class="ctr">LEED</th><th class="ctr">SASO</th><th class="ctr">MTS</th><th>NOTES</th><th></th>
+            <th>PID NO.</th><th class="ctr">PID</th><th class="ctr">MEETING</th><th class="ctr">LEED</th><th class="ctr">SASO</th><th class="ctr">MTS</th><th style="min-width:110px">ITEMS</th><th>NOTES</th><th></th>
           </tr></thead>
           <tbody id="tb-mat"></tbody>
         </table></div>
@@ -699,6 +701,28 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
             <th style="min-width:160px">VENDOR</th><th style="min-width:180px">MATERIALS</th>
             <th>LAST QUANTITY</th><th>SUBMITTED</th><th class="ctr">DUE</th><th class="ctr">STATUS</th><th></th>
           </tr></thead><tbody id="tb-post"></tbody>
+        </table></div>
+      </div>
+
+      <!-- ============ LINE ITEMS ============ -->
+      <div id="pg-items" style="display:none">
+        <div class="tw"><table>
+          <thead><tr>
+            <th class="pin1 pin-edge" style="min-width:230px">ITEM</th>
+            <th style="min-width:220px">SUBMITTAL</th><th>ORDERED</th><th>UNIT</th>
+            <th>RECEIVED</th><th>REMAINING</th><th style="min-width:110px">PROGRESS</th><th></th>
+          </tr></thead><tbody id="tb-items"></tbody>
+        </table></div>
+      </div>
+
+      <!-- ============ DELIVERIES ============ -->
+      <div id="pg-deliv" style="display:none">
+        <div class="tw"><table>
+          <thead><tr>
+            <th class="pin1 pin-edge" style="min-width:230px">ITEM</th>
+            <th style="min-width:200px">SUBMITTAL</th><th style="min-width:160px">INSPECTION REQUEST</th>
+            <th>RECEIVED</th><th>DATE</th><th style="min-width:150px">NOTE</th><th></th>
+          </tr></thead><tbody id="tb-deliv"></tbody>
         </table></div>
       </div>
 
@@ -903,8 +927,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div class="fg-f"><label class="fl">Description</label><textarea class="ft" id="m-desc" rows="2"></textarea></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="m-aconex" placeholder="MBL-P4M-QC-MTS-00001"></div>
      <div><label class="fl">Submission date</label><span class="dwrapf"><input class="fi dt" id="m-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
-     <div><label class="fl">Category submitted</label><select class="fs" id="m-cat-sub" onchange="applyInspDefault()"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
-     <div><label class="fl">Correct category</label><select class="fs" id="m-cat-cor" onchange="applyInspDefault()"><option value="">Same as submitted</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
+     <div><label class="fl">Category submitted</label><select class="fs" id="m-cat-sub"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
+     <div><label class="fl">Correct category</label><select class="fs" id="m-cat-cor"><option value="">Same as submitted</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
      <div class="fg-f pick"><label class="fl">Submitted by — company on record</label>
        <input class="fi" id="m-co-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('m-co')" onfocus="pickOpen('m-co')">
        <input type="hidden" id="m-co">
@@ -915,13 +939,6 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <div class="pick-list" id="m-mfr-list"></div></div>
      <div><label class="fl">Country of manufacture</label><input class="fi" id="m-mfr-country" placeholder="Origin of the goods"></div>
      <div class="fg-f"><div class="hint" id="m-mfr-hint" style="display:none"></div></div>
-     <div><label class="fl">Inspection requirement</label>
-       <select class="fs" id="m-insp" onchange="markInspEdited()">
-         <option>None</option><option>Inspection on delivery</option><option>Final inspection</option><option>FAT</option><option>FAT and final inspection</option>
-       </select></div>
-     <div><label class="fl">Third-party inspection</label>
-       <select class="fs" id="m-tpia"><option>N/A</option><option>Required</option><option>Not required</option></select></div>
-     <div class="fg-f"><div class="hint" id="m-insp-hint" style="display:none"></div></div>
    </div>
 
    <span class="m-sec">PRE-INSPECTION DOSSIER</span>
@@ -933,14 +950,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    </div>
 
    <span class="m-sec">LINE ITEMS</span>
-   <div class="mbox"><table class="mini">
-     <thead><tr><th>ITEM</th><th style="width:96px">QTY</th><th style="width:86px">UNIT</th><th style="width:40px"></th></tr></thead>
-     <tbody id="m-items"></tbody>
-   </table></div>
-   <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">
-     <button type="button" class="btn btn-sm" onclick="addMItem()">Add item</button>
-     <button type="button" class="btn btn-sm" onclick="loadHVACItems()">Load duct items</button>
-   </div>
+   <div class="fg"><div class="fg-f"><div class="hint" id="m-items-link"></div></div></div>
 
    <span class="m-sec">STATUS</span>
    <div class="fg">
@@ -984,10 +994,6 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div id="mir-mat-chips" style="margin-top:9px"></div>
      <div id="mir-mat-preview" style="margin-top:10px"></div>
    </div></div>
-   <div class="mbox" style="margin-top:9px"><table class="mini">
-     <thead><tr><th>ITEM</th><th style="width:96px">ORDERED</th><th style="width:104px">RECEIVED</th><th style="width:106px">STATUS</th></tr></thead>
-     <tbody id="mir-items"><tr><td colspan="4" style="text-align:center;color:var(--t-3);padding:12px;font-size:11.5px">Select a submittal reference to load its items</td></tr></tbody>
-   </table></div>
 
    <span class="m-sec">CERTIFICATES AND STATUS</span>
    <div class="fg">
@@ -1038,6 +1044,48 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="o-notes" rows="2"></textarea></div>
    </div></div>
   <div class="m-foot"><button class="btn" onclick="closePOST()">Cancel</button><button class="btn btn-p" id="post-save-btn" onclick="savePOST()">Save dossier</button></div>
+ </div>
+</div>
+
+<!-- ===================== LINE ITEM MODAL ===================== -->
+<div class="ov" id="ov-items">
+ <div class="modal" style="max-width:520px">
+  <div class="m-head"><h2 id="items-title">Line item</h2><button class="ib" onclick="closeITM()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="m-body"><input type="hidden" id="li-eid">
+   <span class="m-sec">ITEM</span>
+   <div class="fg">
+     <div class="fg-f pick"><label class="fl">Material submittal</label>
+       <input class="fi" id="li-mat-q" placeholder="Search material submittals…" autocomplete="off" oninput="pickOpen('li-mat')" onfocus="pickOpen('li-mat')">
+       <input type="hidden" id="li-mat"><div class="pick-list" id="li-mat-list"></div>
+       <div class="hint" id="li-mat-hint" style="display:none"></div></div>
+     <div class="fg-f"><label class="fl">Item name</label><input class="fi" id="li-name" placeholder="Chiller unit, cable tray, duct fitting…"></div>
+     <div><label class="fl">Quantity ordered</label><input class="fi" id="li-qty" type="number" min="0" placeholder="0"></div>
+     <div><label class="fl">Unit</label><input class="fi" id="li-unit" placeholder="no, m, set"></div>
+     <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="li-notes" rows="2"></textarea></div>
+   </div></div>
+  <div class="m-foot"><button class="btn" onclick="closeITM()">Cancel</button><button class="btn btn-p" id="items-save-btn" onclick="saveITM()">Save item</button></div>
+ </div>
+</div>
+
+<!-- ===================== DELIVERY MODAL ===================== -->
+<div class="ov" id="ov-deliv">
+ <div class="modal" style="max-width:520px">
+  <div class="m-head"><h2 id="deliv-title">Delivery</h2><button class="ib" onclick="closeDLV()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="m-body"><input type="hidden" id="dl-eid">
+   <span class="m-sec">RECEIVED</span>
+   <div class="fg">
+     <div class="fg-f pick"><label class="fl">Line item</label>
+       <input class="fi" id="dl-item-q" placeholder="Search line items…" autocomplete="off" oninput="pickOpen('dl-item')" onfocus="pickOpen('dl-item')">
+       <input type="hidden" id="dl-item"><div class="pick-list" id="dl-item-list"></div>
+       <div class="hint" id="dl-item-hint" style="display:none"></div></div>
+     <div class="fg-f pick"><label class="fl">Inspection request</label>
+       <input class="fi" id="dl-mir-q" placeholder="Search inspection requests…" autocomplete="off" oninput="pickOpen('dl-mir')" onfocus="pickOpen('dl-mir')">
+       <input type="hidden" id="dl-mir"><div class="pick-list" id="dl-mir-list"></div></div>
+     <div><label class="fl">Quantity received</label><input class="fi" id="dl-qty" type="number" min="0" placeholder="0"></div>
+     <div><label class="fl">Date received</label><span class="dwrapf"><input class="fi dt" id="dl-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
+     <div class="fg-f"><label class="fl">Note</label><input class="fi" id="dl-note" placeholder="Batch, heat number, partial delivery…"></div>
+   </div></div>
+  <div class="m-foot"><button class="btn" onclick="closeDLV()">Cancel</button><button class="btn btn-p" id="deliv-save-btn" onclick="saveDLV()">Save delivery</button></div>
  </div>
 </div>
 
@@ -1523,8 +1571,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 var SB_URL="https://qwfvpwoqvpjkwxwrwtak.supabase.co";
 var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3ZnZwd29xdnBqa3d4d3J3dGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNjUzOTYsImV4cCI6MjA5Njc0MTM5Nn0.YhciQCnFNZSuZzgx0qcYRHP3Anqa3x3ppQnrUGOTqVg";
 var sb=null, CUR_PROJECT=null, CUR_USER=null, CUR_PROFILE=null;
-var SB_TABLES=['pqd','mat','mir','events','fat','checklists','inspectors','dossiers','tpi','pfm','itp','fatproc','ipi','fatrep','ir','irn','postdoss'];
-var DB={pqd:[],mat:[],mir:[],events:[],fat:[],checklists:[],inspectors:[],dossiers:[],tpi:[],pfm:[],itp:[],fatproc:[],ipi:[],fatrep:[],ir:[],irn:[],postdoss:[]};
+var SB_TABLES=['pqd','mat','mir','events','fat','checklists','inspectors','dossiers','tpi','pfm','itp','fatproc','ipi','fatrep','ir','irn','postdoss','items','deliv'];
+var DB={pqd:[],mat:[],mir:[],events:[],fat:[],checklists:[],inspectors:[],dossiers:[],tpi:[],pfm:[],itp:[],fatproc:[],ipi:[],fatrep:[],ir:[],irn:[],postdoss:[],items:[],deliv:[]};
 var COMP_DATA=[]; window.AVL_DATA=[];
 
 /* ---------- toast ---------- */
@@ -1861,12 +1909,13 @@ function flagFor(u){return u>=80?'<span class="flag f-bad"></span>':(u>=24?'<spa
 /* ================================================================
    3. NAVIGATION AND PER-PAGE TOOLBARS
    ================================================================ */
-var PAGES=['imp','find','dash','trace','pqd','pa','mat','pid','tpi','pfm','itp','fatproc','ipi','fat','fatrep','ir','mir','irn','post','dlog','insp','avl','comp','proc','chk','pasum','rpt','cal','admin'];
-var TITLES={imp:'Import',find:'Search',dash:'Dashboard',trace:'Traceability',pqd:'Pre-qualification',pa:'Physical assessment',mat:'Material submittal',pid:'Pre-inspection dossier',tpi:'Third-party inspection assignment',pfm:'Pre-fabrication meeting',itp:'Inspection and test plan',fatproc:'FAT procedure',ipi:'In-process inspection',fatrep:'FAT report',ir:'Inspection report',fat:'FAT and final inspection',mir:'Material inspection request',irn:'Inspection release note',post:'Post-inspection dossier',dlog:'Material delivery log',insp:'Approved inspectors',avl:'Approved vendor list',comp:'Components and category',proc:'Procedure',chk:'Document review',pasum:'Physical assessment',rpt:'Reports',cal:'Calendar',admin:'Admin'};
-var ADD_LABEL={pqd:'New vendor',pa:'Schedule assessment',mat:'New submittal',pid:'New dossier',tpi:'New assignment',pfm:'New meeting',itp:'New ITP',fatproc:'New procedure',ipi:'New visit',fatrep:'New FAT report',ir:'New report',fat:'New FAT item',mir:'New inspection request',irn:'New release note',post:'New dossier',insp:'New inspector',chk:'New review',cal:'New event'};
+var PAGES=['imp','find','dash','trace','pqd','pa','mat','pid','tpi','pfm','itp','fatproc','ipi','fat','fatrep','ir','mir','irn','post','items','deliv','dlog','insp','avl','comp','proc','chk','pasum','rpt','cal','admin'];
+var TITLES={imp:'Import',find:'Search',dash:'Dashboard',trace:'Traceability',pqd:'Pre-qualification',pa:'Physical assessment',mat:'Material submittal',pid:'Pre-inspection dossier',tpi:'Third-party inspection assignment',pfm:'Pre-fabrication meeting',itp:'Inspection and test plan',fatproc:'FAT procedure',ipi:'In-process inspection',fatrep:'FAT report',ir:'Inspection report',fat:'FAT and final inspection',mir:'Material inspection request',irn:'Inspection release note',post:'Post-inspection dossier',items:'Line items',deliv:'Deliveries',dlog:'Material delivery log',insp:'Approved inspectors',avl:'Approved vendor list',comp:'Components and category',proc:'Procedure',chk:'Document review',pasum:'Physical assessment',rpt:'Reports',cal:'Calendar',admin:'Admin'};
+var ADD_LABEL={pqd:'New vendor',pa:'Schedule assessment',mat:'New submittal',pid:'New dossier',tpi:'New assignment',pfm:'New meeting',itp:'New ITP',fatproc:'New procedure',ipi:'New visit',fatrep:'New FAT report',ir:'New report',fat:'New FAT item',mir:'New inspection request',irn:'New release note',post:'New dossier',items:'New item',deliv:'Record a delivery',insp:'New inspector',chk:'New review',cal:'New event'};
 var PA_VIEW='pipeline', paFilterVal='open';
 var pidFilterVal='open', PID_MATS=[];
 var traceOnlyGaps=false;
+var itemsOpenOnly=false;
 var CHK_VIEW='list', CHK_CUR=null, chkFilterVal='open';
 
 function matRecords(){return (DB.mat||[]).slice();}
@@ -1972,6 +2021,14 @@ function buildTools(page){
   }else if(page==='post'){
     h+=searchBox('post-q','Number, title, vendor, material…','rPOST()');
     h+='<div class="spacer"></div><span class="count" id="post-count"></span>';
+  }else if(page==='items'){
+    h+=searchBox('items-q','Item or submittal…','rITM()');
+    h+='<button class="chip'+(itemsOpenOnly?' on':'')+'" onclick="itemsFilter(true)">Outstanding</button>';
+    h+='<button class="chip'+(itemsOpenOnly?'':' on')+'" onclick="itemsFilter(false)">All</button>';
+    h+='<div class="spacer"></div><span class="count" id="items-count"></span>';
+  }else if(page==='deliv'){
+    h+=searchBox('deliv-q','Item, submittal or request…','rDLV()');
+    h+='<div class="spacer"></div><span class="count" id="deliv-count"></span>';
   }else if(page==='trace'){
     h+=searchBox('trace-q','Filter by material, vendor or reference…','rTRACE()');
     h+='<button class="chip'+(traceOnlyGaps?'':' on')+'" onclick="traceGaps(false)">All</button>';
@@ -2068,6 +2125,8 @@ window.goTo=function(page,el){
   if(page==='fatrep')rFR();
   if(page==='ir')rIR();
   if(page==='post')rPOST();
+  if(page==='items')rITM();
+  if(page==='deliv')rDLV();
   if(page==='fat')rFAT();
   if(page==='pa'||page==='pasum'){
     var showSum=(PA_VIEW==='summary');
@@ -2091,7 +2150,7 @@ window.goTo=function(page,el){
 };
 window.topAdd=function(){
   var open={pqd:openM,pa:openPA,mat:openMAT,pid:openPID,tpi:openTPI,pfm:openPFM,itp:openITP,
-            fatproc:openFPR,ipi:openIPI,fat:openFAT,fatrep:openFR,ir:openIR,mir:openMIR,irn:openIRN,post:openPOST,insp:openINSP,chk:openCHKNew,cal:openCalEvent};
+            fatproc:openFPR,ipi:openIPI,fat:openFAT,fatrep:openFR,ir:openIR,mir:openMIR,irn:openIRN,post:openPOST,items:openITM,deliv:openDLV,insp:openINSP,chk:openCHKNew,cal:openCalEvent};
   var f=open[CUR_PAGE];
   if(f)f();
 };
@@ -2121,7 +2180,7 @@ function findAll(q){
   });
 
   matRecords().forEach(function(m){
-    var hay=findHay([m.name,m.aconex,m.desc,m.company,m.mfr,m.mfrCountry,m.insp,m.tpia,m.catSub,m.catCor,m.notes].concat((m.items||[]).map(function(i){return i.name;})));
+    var hay=findHay([m.name,m.aconex,m.desc,m.company,m.mfr,m.mfrCountry,m.catSub,m.catCor,m.notes].concat((m.items||[]).map(function(i){return i.name;})));
     if(!findMatches(hay,terms))return;
     out.push({group:'Material submittals',title:m.name,ref:m.aconex,
       meta:[m.catCor||m.catSub,m.company,m.mfr?('made by '+m.mfr):'',m.date].filter(Boolean).join(' · '),
@@ -2767,31 +2826,6 @@ var CAT_RULES={
 /* The category suggests an inspection requirement, but it does not
    decide it: a C1 material can still carry a factory acceptance test,
    so the field is independent and any choice you make is kept. */
-var INSP_BY_CAT={'C0':'Inspection on delivery','C1':'Inspection on delivery','C2':'Final inspection','C3':'FAT'};
-var inspEdited=false;
-window.markInspEdited=function(){inspEdited=true;renderInspHint();};
-function applyInspDefault(){
-  var cat=document.getElementById('m-cat-sub'), sel=document.getElementById('m-insp');
-  if(!cat||!sel)return;
-  var c=(document.getElementById('m-cat-cor').value||cat.value);
-  if(!inspEdited&&INSP_BY_CAT[c])sel.value=INSP_BY_CAT[c];
-  renderInspHint();
-}
-function renderInspHint(){
-  var box=document.getElementById('m-insp-hint'), sel=document.getElementById('m-insp');
-  if(!box||!sel)return;
-  var c=(document.getElementById('m-cat-cor').value||document.getElementById('m-cat-sub').value);
-  var suggested=INSP_BY_CAT[c];
-  if(!suggested){box.style.display='none';return;}
-  box.style.display='';
-  if(sel.value===suggested){
-    box.innerHTML='<span class="dim">Usual requirement for '+c+'.</span>';
-  }else{
-    box.innerHTML='<span style="color:var(--t-2)">Set to '+sel.value+'</span> <span class="dim">— '+c+' would normally be '+suggested
-      +'. <span class="link" onclick="resetInsp()">use '+suggested+'</span></span>';
-  }
-}
-window.resetInsp=function(){inspEdited=false;applyInspDefault();};
 var STAGE_LABEL={prepa:'Pre-PA',pa:'Assessment',pid:'Dossier',pim:'Meeting',mom:'Minutes',post:'Post-inspection'};
 var stageEdited={};
 window.markStageEdited=function(k){stageEdited[k]=true;renderCatHint();};
@@ -2978,41 +3012,13 @@ window.showCoInfo=function(name){
   info.style.display='';
   txt.innerHTML=stamp(m.pqd||'Pending')+' &nbsp; '+stamp(m.pa||'Pending')+(m.cat?' &nbsp; <span class="ref">'+m.cat+'</span>':'');
 };
-window.addMItem=function(name,qty,unit){
-  var tb=document.getElementById('m-items');if(!tb)return;
-  var tr=document.createElement('tr');
-  tr.innerHTML='<td><input class="mi-name" placeholder="Item name"></td><td><input class="mi-qty" type="number" min="0" placeholder="0"></td>'
-    +'<td><input class="mi-unit" placeholder="pcs"></td>'
-    +'<td class="ctr"><button type="button" class="ib d" onclick="this.closest(\'tr\').remove()" aria-label="Remove"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></td>';
-  tb.appendChild(tr);
-  if(name!==undefined)tr.querySelector('.mi-name').value=name||'';
-  if(qty!==undefined)tr.querySelector('.mi-qty').value=(qty===0||qty)?qty:'';
-  if(unit!==undefined)tr.querySelector('.mi-unit').value=unit||'';
-};
-window.loadHVACItems=function(){
-  var items=['Spiral Straight Duct','Round Straight Duct','Round Bend 15° - Short Radius','Round Bend 30° - Short Radius','Round Bend 45° - Short Radius','Round Bend 60° - Short Radius','Round Bend 90° - Short Radius','Round Generic Bend- Short Radius','Bend 90° - Long Radius','Round T to Rec. (Eccentric)','Round T to Rec. (Centric)','Tee (Centric)','Tee (Eccentric)','Twin Bend 45°','Offset','Centric Reducer','Eccentric Reducer','Saddle 45°','Saddle 90°','Saddle Round to Rec. (Eccentric)','Saddle Round to Rec. (Centric)','Cross 45°','Conical Cross','Y 45°','Female Coupling','Male Coupling','Spin Collar','Dove Tail with Tabs','End Cap','Straight Duct-Coil','Straight Duct-Cut','Straight With Access Holes','Radius Elbow','Radius Elbow With Square Throat','Mitered Elbow With Turning Vanes','Elbow Mitered Without Vanes','Reducing Bend','Offset – Angled','Offset – Mitered','Offset – Radii Or Ogee','Duct Reducer – Concentric','Duct Reducer – Eccentric','Duct Reducer – Flat','Take Off 45','Straight Take Off 90','Y- Branch','Side Branch','Side Branch with Splitter Damper','TEE','Rectangular Cross','Trouser Piece','Rectangular To Round – Concentric','Rectangular To Round – Eccentric','Rectangular To Round – Flat','End Cap (Rectangular)','Flexible duct','VCD Single Blade Flange Type','VCD Multi Blade Flange Type Exposed (Parallel)','VCD Multi Blade Flange Type Concealed (Parallel)','VCD Single Blade Duct Type','VCD Duct Type - HAT Exposed (Parallel)','VCD Duct Type - HAT Concealed (Parallel)','VCD Low Leakage Single Blade Flange Type','VCD Low Leakage Multi Blade Flange Type- Exposed (Parallel)','VCD Low Leakage Single Blade Duct Type - HAT','VCD Low Leakage Multi Blade Duct Type - HAT Exposed (Parallel)','SQ Diffuser Box (Side Entry)','SQ Diffuser Box (Top Entry)','Round Diffuser Box (Side Entry)','Round Diffuser Box (Top Entry)','Diffuser Box (Closed)','Plenum Box - Slot Diffuser (Side Entry)','Plenum Box - Slot Diffuser (Top Entry)','Spin-In Damper','Rec. Access Door','Rec. Flush Access Door','Sand Trap Louver (Flush Mount Type)','Sand Trap Louver (Surface Mount Type)','Sand Trap Louver-High Efficient (Flush Mount Type)','Sand Trap Louver-High Efficient (Surface Mount Type)','Sand Trap Louver (Aluminum Profiles)','Aluminum Mesh Air Filter'];
-  var tb=document.getElementById('m-items');
-  if(tb)tb.querySelectorAll('tr').forEach(function(tr){if(!tr.querySelector('.mi-name').value.trim())tr.remove();});
-  items.forEach(function(n){addMItem(n,'','');});
-  toast(items.length+' duct items loaded');
-};
-function getMItems(){
-  var out=[];
-  document.querySelectorAll('#m-items tr').forEach(function(tr){
-    var nm=tr.querySelector('.mi-name').value.trim();if(!nm)return;
-    out.push({name:nm,qty:parseFloat(tr.querySelector('.mi-qty').value)||0,unit:tr.querySelector('.mi-unit').value.trim()});
-  });
-  return out;
-}
-function setMItems(items){var tb=document.getElementById('m-items');if(tb)tb.innerHTML='';(items||[]).forEach(function(it){addMItem(it.name,it.qty,it.unit);});}
-window.openMAT=function(){fillCo();buildMfrList();inspEdited=false;renderMatPidLink(null);document.getElementById('co-info').style.display='none';setMItems([]);addMItem();document.getElementById('ov-mat').classList.add('on');};
+window.openMAT=function(){fillCo();buildMfrList();renderMatPidLink(null);renderMatItemsLink(null);document.getElementById('co-info').style.display='none';document.getElementById('ov-mat').classList.add('on');};
 window.closeMAT=function(){
   document.getElementById('ov-mat').classList.remove('on');
   document.querySelectorAll('#ov-mat .fi,#ov-mat .ft').forEach(function(e){e.value='';if(e.dataset)e.dataset.iso='';});
   document.querySelectorAll('#ov-mat .fs').forEach(function(e){e.selectedIndex=0;});
-  document.getElementById('m-eid').value='';document.getElementById('m-items').innerHTML='';
-  pickClear('m-co');pickClear('m-mfr');inspEdited=false;
-  var ih=document.getElementById('m-insp-hint');if(ih)ih.style.display='none';
+  document.getElementById('m-eid').value='';
+  pickClear('m-co');pickClear('m-mfr');
   var mh=document.getElementById('m-mfr-hint');if(mh)mh.style.display='none';
   document.getElementById('co-info').style.display='none';
 };
@@ -3023,8 +3029,8 @@ window.saveMAT=function(){
   var eid=document.getElementById('m-eid').value, g=function(id){var e=document.getElementById(id);return e?e.value:'';};
   var catSub=g('m-cat-sub');
   var m={id:eid?+eid:Date.now(),name:n,desc:g('m-desc'),aconex:g('m-aconex'),date:g('m-date'),
-    catSub:catSub,catCor:g('m-cat-cor')||catSub,company:g('m-co'),mfr:g('m-mfr'),mfrCountry:g('m-mfr-country'),insp:g('m-insp'),tpia:g('m-tpia'),
-    leed:g('m-leed'),saso:g('m-saso'),mts:g('m-mts'),notes:g('m-notes'),items:getMItems()};
+    catSub:catSub,catCor:g('m-cat-cor')||catSub,company:g('m-co'),mfr:g('m-mfr'),mfrCountry:g('m-mfr-country'),
+    leed:g('m-leed'),saso:g('m-saso'),mts:g('m-mts'),notes:g('m-notes')};
   if(eid){var i=DB.mat.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.mat[i]._rowid)m._rowid=DB.mat[i]._rowid;DB.mat[i]=m;}}
   else DB.mat.push(m);
   var btn=document.getElementById('mat-save-btn');btn.disabled=true;
@@ -3039,9 +3045,7 @@ window.editMAT=function(id){
   sv('m-eid',id);sv('m-name',m.name);sv('m-desc',m.desc);sv('m-aconex',m.aconex);sv('m-date',m.date);
   sv('m-cat-sub',m.catSub);sv('m-cat-cor',(m.catCor&&m.catCor!==m.catSub)?m.catCor:'');
   pickSet('m-co',m.company);pickSet('m-mfr',m.mfr);sv('m-mfr-country',m.mfrCountry);checkMfr('m');
-  sv('m-insp',m.insp||'None');sv('m-tpia',m.tpia||'N/A');inspEdited=true;renderInspHint();
-  renderMatPidLink(m);sv('m-leed',m.leed||'N/A');sv('m-saso',m.saso||'N/A');sv('m-mts',m.mts||'Pending');sv('m-notes',m.notes);
-  setMItems(m.items&&m.items.length?m.items:[]);if(!m.items||!m.items.length)addMItem();
+  renderMatPidLink(m);renderMatItemsLink(m);sv('m-leed',m.leed||'N/A');sv('m-saso',m.saso||'N/A');sv('m-mts',m.mts||'Pending');sv('m-notes',m.notes);
   if(m.company)showCoInfo(m.company);else document.getElementById('co-info').style.display='none';
   document.getElementById('ov-mat').classList.add('on');
 };
@@ -3062,6 +3066,25 @@ function dossiersFor(m){
   var ref=m.aconex||m.name;
   return (DB.dossiers||[]).filter(function(d){return pidMatsOf(d).indexOf(ref)>=0;});
 }
+/* items live in their own register now; the form just points at them */
+function renderMatItemsLink(m){
+  var box=document.getElementById('m-items-link');if(!box)return;
+  if(!m){box.innerHTML='<span class="dim">Save the submittal first, then add its items under Line items.</span>';return;}
+  var its=itemsOf(m);
+  if(!its.length){
+    box.innerHTML='<span class="dim">No items recorded for this submittal. </span>'
+      +'<span class="link" onclick="closeMAT();goTo(\'items\');setTimeout(openITM,120)">Add one</span>';
+    return;
+  }
+  box.innerHTML=its.slice(0,6).map(function(x){
+    var total=parseFloat(x.qty)||0, got=itemReceived(x.id);
+    return '<div style="display:flex;align-items:center;gap:9px;padding:4px 0">'
+      +'<span style="flex:1;font-size:12px">'+x.name+'</span>'
+      +'<span class="ref">'+got+' of '+total+(x.unit?' '+x.unit:'')+'</span>'
+      +'<span class="stamp s-'+(total&&got>=total?'ok':got>0?'act':'na')+'">'
+      +(total&&got>=total?'Complete':got>0?'Partial':'Awaiting')+'</span></div>';
+  }).join('')+(its.length>6?'<div class="dim">and '+(its.length-6)+' more</div>':'');
+}
 function renderMatPidLink(m){
   var box=document.getElementById('m-pid-link');if(!box)return;
   var ds=m?dossiersFor(m):[];
@@ -3078,25 +3101,19 @@ function renderMatPidLink(m){
       +stamp(d.status||'Pending')+'</div>';
   }).join('');
 }
-function inspStamp(v){
-  v=v||'None';
-  if(v==='None')return '<span class="stamp s-na">None</span>';
-  var t=(v.indexOf('FAT')>=0)?'act':(v==='Final inspection')?'run':'ok';
-  return '<span class="stamp s-'+t+'" title="'+v+'">'+v+'</span>';
-}
 window.rMAT=function(){
   var qe=document.getElementById('mat-q'),se=document.getElementById('mat-st');
   var q=qe?qe.value.toLowerCase().trim():'', st=se?se.value:'';
   var ie=document.getElementById('mat-insp'), fi=ie?ie.value:'';
   var items=matRecords().filter(function(m){
     if(st&&m.mts!==st)return false;
-    if(fi&&(m.insp||'None')!==fi)return false;
+    if(fi&&('')!==fi)return false;
     if(q&&[m.name,m.company,m.mfr,m.mfrCountry,m.aconex,m.desc].join(' ').toLowerCase().indexOf(q)<0)return false;
     return true;
   });
   var c=document.getElementById('mat-count');if(c)c.textContent=items.length+' submittal'+(items.length===1?'':'s');
   var tb=document.getElementById('tb-mat');if(!tb)return;
-  if(!items.length){tb.innerHTML='<tr><td colspan="17" class="empty">No submittals yet.</td></tr>';return;}
+  if(!items.length){tb.innerHTML='<tr><td colspan="16" class="empty">No submittals yet.</td></tr>';return;}
   tb.innerHTML=items.map(function(m){
     var sub=m.catSub||'', cor=m.catCor||sub, diff=(m.catCor&&cor!==sub);
     var dsOf=dossiersFor(m);
@@ -3107,13 +3124,17 @@ window.rMAT=function(){
       +'<td>'+cB(sub)+'</td><td>'+cB(cor)+(diff?' <span style="color:var(--act-t);font-size:11px">changed</span>':'')+'</td>'
       +'<td><span class="nm" style="max-width:170px">'+(m.company||'—')+'</span></td>'
       +'<td><span class="nm" style="max-width:170px">'+(m.mfr||'—')+(m.mfrCountry?' <span class="dim">'+m.mfrCountry+'</span>':'')+'</span></td>'
-      +'<td class="ctr">'+inspStamp(m.insp)+'</td>'
-      +'<td class="ctr">'+stamp(m.tpia||'N/A')+'</td>'
       +'<td><span class="ref">'+(dsOf.length?dsOf.map(function(d){return d.no||'—';}).join(', '):'—')+'</span></td>'
       +'<td class="ctr">'+(dsOf.length?stamp(dsOf[0].status||'Pending'):'<span class="stamp s-na">None</span>')+'</td>'
       +'<td class="ctr">'+(function(){var p=dsOf.length?meetingsFor(dsOf[0])[0]:null;return p?stamp(p.status||'Not Scheduled'):'<span class="stamp s-na">N/A</span>';})()+'</td>'
       +'<td class="ctr">'+stamp(m.leed||'N/A')+'</td><td class="ctr">'+stamp(m.saso||'N/A')+'</td>'
       +'<td class="ctr">'+stamp(m.mts||'Pending')+'</td>'
+      +'<td>'+(function(){
+          var its=itemsOf(m);
+          if(!its.length)return '<span class="dim">—</span>';
+          var done=its.filter(function(x){return itemState(x)==='complete';}).length;
+          return '<span class="ref"'+(done<its.length?' style="color:var(--act-t)"':'')+'>'+done+' of '+its.length+'</span>';
+        })()+'</td>'
       +'<td><span class="dim">'+(m.notes||'—')+'</span></td>'
       +ibs('editMAT','delMAT',m.id,m._rowid)+'</tr>';
   }).join('');
@@ -3134,7 +3155,7 @@ var PICK_SRC={
   'n-mat':'material','n-vendor':'vendor','fp-mat':'material','fp-vendor':'vendor','ip-mat':'material','ip-agency':'agency','ip-inspector':'inspector',
   'fr-mat':'material','fr-agency':'agency','fr-inspector':'inspector',
   'ir-mat':'material','ir-agency':'agency','ir-inspector':'inspector',
-  'r-mir':'mir','o-vendor':'vendor',
+  'r-mir':'mir','o-vendor':'vendor','li-mat':'material','dl-item':'lineitem','dl-mir':'mir',
   'fat-tpia':'agency','fat-inspector':'inspector',
   'pa-tech-assessor':'inspector','pa-qms-assessor':'inspector',
   'm-mfr':'mfr','s-mfr':'mfr'
@@ -3191,7 +3212,7 @@ function pickMaterialRows(q){
     return !q||[m.name,m.aconex,m.mfr,m.company].join(' ').toLowerCase().indexOf(q)>=0;
   }).slice(0,60).map(function(m){
     return {value:(m.aconex||m.name),title:m.name,
-      sub:[m.aconex,(m.catCor||m.catSub),m.company,m.insp].filter(Boolean).join(' \u00b7 ')};
+      sub:[m.aconex,(m.catCor||m.catSub),m.company].filter(Boolean).join(' \u00b7 ')};
   });
 }
 function pickDossierRows(q){
@@ -3227,13 +3248,26 @@ function linkHint(id){
   var html='';
   if(id==='t-mat'||id==='n-mat'||id==='fp-mat'||id==='ip-mat'||id==='fr-mat'||id==='ir-mat'){
     var m=matRecords().find(function(x){return (x.aconex||x.name)===v;});
-    if(m)html=stamp(m.mts||'Pending')+' '+inspStamp(m.insp)+' <span class="dim">'+[(m.catCor||m.catSub),m.company,m.mfr].filter(Boolean).join(' \u00b7 ')+'</span>';
+    if(m)html=stamp(m.mts||'Pending')+' <span class="dim">'+[(m.catCor||m.catSub),m.company,m.mfr].filter(Boolean).join(' \u00b7 ')+'</span>';
   }else if(id==='r-mir'){
     var q=(DB.mir||[]).find(function(x){return String(x.id)===String(v);});
     if(q)html=stamp(q.status||'Pending')+' <span class="dim">'+[q.date,q.company].filter(Boolean).join(' \u00b7 ')+'</span>';
   }
   if(!html){box.style.display='none';return;}
   box.style.display='';box.innerHTML=html;
+}
+function itemLabel(li){
+  if(!li)return '';
+  return li.name+'  \u00b7  '+refLabelFor(li.mat).name;
+}
+function pickItemRows(q){
+  return (DB.items||[]).filter(function(x){
+    return !q||[x.name,x.unit,refLabelFor(x.mat).name].join(' ').toLowerCase().indexOf(q)>=0;
+  }).slice(0,60).map(function(x){
+    var got=itemReceived(x.id), total=parseFloat(x.qty)||0;
+    return {value:String(x.id),title:x.name,
+      sub:refLabelFor(x.mat).name+'  \u00b7  '+got+' of '+total+(x.unit?' '+x.unit:'')+' received'};
+  });
 }
 function pickMfrRows(q){
   var out=[],seen={};
@@ -3254,7 +3288,7 @@ function pickMfrRows(q){
 }
 window.pickOpen=function(id){
   var kind=PICK_SRC[id];if(!kind)return;
-  var isVendor=(kind==='vendor'||kind==='subco'||kind==='agency'||kind==='material'||kind==='dossier'||kind==='mir');
+  var isVendor=(kind==='vendor'||kind==='subco'||kind==='agency'||kind==='material'||kind==='dossier'||kind==='mir'||kind==='lineitem');
   var inp=document.getElementById(isVendor?(id+'-q'):id);
   var list=document.getElementById(id+'-list');
   if(!inp||!list)return;
@@ -3267,6 +3301,7 @@ window.pickOpen=function(id){
     :(kind==='material')?pickMaterialRows(q)
     :(kind==='dossier')?pickDossierRows(q)
     :(kind==='mir')?pickMirRows(q)
+    :(kind==='lineitem')?pickItemRows(q)
     :pickMfrRows(q);
   if(!rows.length){
     list.innerHTML='<div class="pick-none">'+(kind==='agency'
@@ -3293,7 +3328,7 @@ window.pickOpen=function(id){
   list.classList.add('on');
 };
 window.pickChoose=function(id,val){
-  var kind=PICK_SRC[id], isVendor=(kind==='vendor'||kind==='subco'||kind==='agency'||kind==='material'||kind==='dossier'||kind==='mir');
+  var kind=PICK_SRC[id], isVendor=(kind==='vendor'||kind==='subco'||kind==='agency'||kind==='material'||kind==='dossier'||kind==='mir'||kind==='lineitem');
   if(isVendor){
     document.getElementById(id).value=val;
     document.getElementById(id+'-q').value=val;
@@ -3315,7 +3350,12 @@ window.pickChoose=function(id,val){
   document.getElementById(id+'-list').classList.remove('on');
 };
 function pickSet(id,val){
-  var k=PICK_SRC[id], isVendor=(k==='vendor'||k==='subco'||k==='agency'||k==='material'||k==='dossier'||k==='mir');
+  var k=PICK_SRC[id], isVendor=(k==='vendor'||k==='subco'||k==='agency'||k==='material'||k==='dossier'||k==='mir'||k==='lineitem');
+  if(k==='lineitem'&&val){
+    var li=(DB.items||[]).find(function(x){return String(x.id)===String(val);});
+    if(li){var e5=document.getElementById(id);if(e5)e5.value=val;
+      var q5=document.getElementById(id+'-q');if(q5)q5.value=itemLabel(li);return;}
+  }
   /* a picker stores an id or a reference; the visible box needs its label */
   if(k==='mir'&&val){var lb=mirLabel(val);if(lb){var e2=document.getElementById(id);if(e2)e2.value=val;var q2=document.getElementById(id+'-q');if(q2)q2.value=lb;return;}}
   if(k==='material'&&val){var mm=matRecords().find(function(x){return (x.aconex||x.name)===val;});
@@ -3415,8 +3455,7 @@ function mirPreview(){
         +f('SUBMITTED',m.date)
         +fs('LEED',m.leed||'N/A')
         +fs('SASO',m.saso||'N/A')
-        +f('INSPECTION',m.insp||'None')
-        +f('THIRD PARTY',m.tpia||'N/A')
+        +f('INSPECTION','')
         +f('DOSSIER',(function(){var z=dossiersFor(m)[0];return z?((z.no?'No. '+z.no+' · ':'')+(z.status||'')):'none';})())
         +f('LINE ITEMS',items?String(items):'none')
       +'</div>'
@@ -3439,59 +3478,17 @@ window.addMirRef=function(ref){
   if(MIR_REFS.indexOf(ref)>=0){toast('Already linked');return;}
   MIR_REFS.push(ref);
   renderMirChips();mirPreview();
-  loadMIRItems(MIR_REFS,null);
 };
 window.removeMirRef=function(i){
   MIR_REFS.splice(i,1);
   renderMirChips();mirPreview();
-  loadMIRItems(MIR_REFS,null);
 };
 function findMatByRef(refVal){return matRecords().find(function(m){var x=matRefLabel(m);return (x.ref||x.name)===refVal;})||null;}
-window.loadMIRItems=function(refs,received){
-  var tb=document.getElementById('mir-items');if(!tb)return;
-  if(typeof refs==='string')refs=refs?[refs]:[];
-  refs=refs||[];
-  var rec={};(received||[]).forEach(function(r){rec[(r.ref||'')+'::'+r.name]=r.received;});
-  var html='', any=false;
-  refs.forEach(function(ref){
-    var mat=findMatByRef(ref), l=refLabelFor(ref);
-    var items=(mat&&mat.items&&mat.items.length)?mat.items:[];
-    html+='<tr><td colspan="4" style="background:var(--sf-0);padding:7px 10px"><span style="font-size:11.5px">'+l.name+'</span>'
-      +(l.ref?' <span class="ref">'+shortRef(l.ref)+'</span>':'')
-      +(items.length?'':' <span class="dim">· no line items</span>')+'</td></tr>';
-    items.forEach(function(it){
-      any=true;
-      var key=ref+'::'+it.name, rv=rec[key];rv=(rv===0||rv)?rv:'';
-      html+='<tr data-ref="'+String(ref).replace(/"/g,'&quot;')+'" data-name="'+String(it.name).replace(/"/g,'&quot;')+'" data-total="'+it.qty+'" data-unit="'+(it.unit||'')+'">'
-        +'<td style="font-size:11.5px;padding-left:18px">'+it.name+'</td><td class="dim">'+it.qty+(it.unit?' '+it.unit:'')+'</td>'
-        +'<td><input class="mir-rec" type="number" min="0" value="'+rv+'" oninput="updMIRStatus(this)"></td>'
-        +'<td class="mir-stcell" style="font-size:11px"></td></tr>';
-    });
-  });
-  if(!refs.length)html='<tr><td colspan="4" style="padding:12px;text-align:center;color:var(--t-3);font-size:11.5px">Link a submittal to load its items</td></tr>';
-  tb.innerHTML=html;
-  tb.querySelectorAll('.mir-rec').forEach(function(i){updMIRStatus(i);});
-};
-window.updMIRStatus=function(inp){
-  var tr=inp.closest('tr'), total=parseFloat(tr.getAttribute('data-total'))||0, r=parseFloat(inp.value)||0;
-  var cell=tr.querySelector('.mir-stcell');
-  if(r<=0)cell.innerHTML='<span class="dim">Not received</span>';
-  else if(total&&r>=total)cell.innerHTML='<span style="color:var(--ok-t)">Complete</span>';
-  else cell.innerHTML='<span style="color:var(--act-t)">Partial'+(total?' '+r+'/'+total:'')+'</span>';
-};
-function getMIRItems(){
-  var out=[];
-  document.querySelectorAll('#mir-items tr[data-name]').forEach(function(tr){
-    var r=parseFloat(tr.querySelector('.mir-rec').value);
-    out.push({ref:tr.getAttribute('data-ref')||'',name:tr.getAttribute('data-name'),total:parseFloat(tr.getAttribute('data-total'))||0,unit:tr.getAttribute('data-unit')||'',received:isNaN(r)?0:r});
-  });
-  return out;
-}
 window.openMIR=function(){
   fillMIRCo();MIR_REFS=[];
   document.getElementById('mir-mat').value='';document.getElementById('mir-mat-search').value='';
   document.getElementById('mir-mat-list').style.display='none';
-  renderMirChips();mirPreview();loadMIRItems([],null);renderMirIrnLink(null);
+  renderMirChips();mirPreview();renderMirIrnLink(null);
   document.getElementById('ov-mir').classList.add('on');
 };
 window.closeMIR=function(){
@@ -3500,7 +3497,7 @@ window.closeMIR=function(){
   document.querySelectorAll('#ov-mir .fi,#ov-mir .ft').forEach(function(e){e.value='';if(e.dataset)e.dataset.iso='';});
   document.querySelectorAll('#ov-mir .fs').forEach(function(e){e.selectedIndex=0;});
   document.getElementById('mir-mat-list').style.display='none';
-  document.getElementById('mir-mat').value='';MIR_REFS=[];renderMirChips();mirPreview();loadMIRItems([],null);
+  document.getElementById('mir-mat').value='';MIR_REFS=[];renderMirChips();mirPreview();
   pickClear('mir-co');
   document.getElementById('mir-eid').value='';
 };
@@ -3527,7 +3524,7 @@ window.saveMIR=function(){
   var eid=document.getElementById('mir-eid').value, g=function(id){var e=document.getElementById(id);return e?e.value:'';};
   var m={id:eid?+eid:Date.now(),name:n,num:g('mir-num'),aconex:g('mir-aconex'),date:g('mir-date'),
     cat:g('mir-cat'),company:g('mir-co'),leed:g('mir-leed'),saso:g('mir-saso'),status:g('mir-st'),
-    matRef:(MIR_REFS[0]||''),matRefs:MIR_REFS.slice(),recvItems:getMIRItems(),notes:g('mir-notes')};
+    matRef:(MIR_REFS[0]||''),matRefs:MIR_REFS.slice(),notes:g('mir-notes')};
   if(eid){var i=DB.mir.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.mir[i]._rowid)m._rowid=DB.mir[i]._rowid;DB.mir[i]=m;}}
   else DB.mir.push(m);
   var btn=document.getElementById('mir-save-btn');btn.disabled=true;
@@ -3545,7 +3542,7 @@ window.editMIR=function(id){
   MIR_REFS=mirRefsOf(m);
   document.getElementById('mir-mat').value=MIR_REFS[0]||'';
   document.getElementById('mir-mat-search').value='';
-  renderMirChips();mirPreview();loadMIRItems(MIR_REFS,m.recvItems||[]);
+  renderMirChips();mirPreview();
   sv('mir-notes',m.notes);
   document.getElementById('ov-mir').classList.add('on');
 };
@@ -3577,7 +3574,7 @@ window.rMIR=function(){
   });
   var c=document.getElementById('mir-count');if(c)c.textContent=items.length+' inspection'+(items.length===1?'':'s');
   var tb=document.getElementById('tb-mir');if(!tb)return;
-  if(!items.length){tb.innerHTML='<tr><td colspan="14" class="empty">No inspection records yet.</td></tr>';return;}
+  if(!items.length){tb.innerHTML='<tr><td colspan="12" class="empty">No inspection records yet.</td></tr>';return;}
   tb.innerHTML=items.map(function(m){
     var rn=(DB.irn||[]).find(function(r){return String(r.mir)===String(m.id);});
     return '<tr class="hov" onclick="editMIR('+m.id+')">'
@@ -3607,8 +3604,11 @@ function fatRemarkColor(v){
    you to remember, the ones still unscheduled are listed above the
    tracker and open a prefilled form in one click. */
 function fatNeedsInspection(m){
-  var v=m.insp||'None';
-  return v==='FAT'||v==='Final inspection'||v==='FAT and final inspection';
+  /* the inspection requirement moved out of the submittal, so a material
+     is chased here once an ITP or a FAT procedure exists for it */
+  var ref=matRef(m);
+  return (DB.itp||[]).some(function(x){return x.mat===ref;})
+      || (DB.fatproc||[]).some(function(x){return x.mat===ref;});
 }
 function fatRefOf(m){return m.aconex||m.name;}
 function fatPendingList(){
@@ -3626,7 +3626,6 @@ function renderFatPending(){
     +'<div class="panel">'
     +list.map(function(m){
       return '<div class="row" onclick="openFATFrom('+m.id+')">'
-        +inspStamp(m.insp)
         +'<div class="row-m"><div class="row-t">'+m.name+'</div>'
         +'<div class="row-s">'+[m.mfr||m.company,(m.catCor||m.catSub),m.aconex].filter(Boolean).join(' · ')+'</div></div>'
         +'<span class="meta">Schedule</span></div>';
@@ -3660,7 +3659,7 @@ window.fatMatOpen=function(){
   }else{
     list.innerHTML=rows.map(function(m,i){
       return '<div class="pick-opt" data-i="'+i+'"><div class="pick-t">'+m.name+'</div>'
-        +'<div class="pick-s">'+[m.aconex,(m.catCor||m.catSub),m.insp||'None',m.mfr||m.company].filter(Boolean).join(' \u00b7 ')+'</div></div>';
+        +'<div class="pick-s">'+[m.aconex,(m.catCor||m.catSub),m.mfr||m.company].filter(Boolean).join(' \u00b7 ')+'</div></div>';
     }).join('');
     list.querySelectorAll('.pick-opt').forEach(function(el){
       el.addEventListener('mousedown',function(ev){
@@ -3685,7 +3684,7 @@ function fatMatHint(){
   var m=matRecords().find(function(x){return fatRefOf(x)===ref;});
   if(!m){box.style.display='none';return;}
   box.style.display='';
-  box.innerHTML=stamp(m.mts||'Pending')+' '+inspStamp(m.insp)
+  box.innerHTML=stamp(m.mts||'Pending')
     +' <span class="dim">'+[(m.catCor||m.catSub),m.mfr,m.mfrCountry].filter(Boolean).join(' \u00b7 ')+'</span>';
 }
 window.openFAT=function(){document.getElementById('fat-eid').value='';document.getElementById('fat-title').textContent='FAT schedule item';document.getElementById('ov-fat').classList.add('on');};
@@ -4105,7 +4104,7 @@ function traceRow(m){
   var pf=(DB.pfm||[]).filter(function(p){return ds.some(function(d){return String(d.id)===String(p.dossier);});});
   var ir=(DB.irn||[]).filter(function(x){return mr.some(function(q){return String(q.id)===String(x.mir);});});
   var pd=(DB.postdoss||[]).filter(function(x){return (x.mats||[]).indexOf(ref)>=0;});
-  var needsFat=(m.insp&&m.insp!=='None'&&m.insp!=='Inspection on delivery');
+  var needsFat=(DB.fatproc||[]).some(function(x){return x.mat===ref;})||(DB.fat||[]).some(function(x){return x.matRef===ref;});
   var cat=(m.catCor||m.catSub);
   var heavy=(cat==='C2'||cat==='C3');
   return {
@@ -4114,14 +4113,14 @@ function traceRow(m){
     pa :{v:v?(paInScope(v)?(v.pa||'Pending'):'N/A'):null,need:heavy},
     mat:{v:m.mts||'Pending',need:true},
     pid:{v:ds.length?(ds[0].status||'Pending'):null,need:heavy},
-    tpi:{v:tp.length?(tp[0].status||'Pending'):null,need:(m.tpia==='Required')},
+    tpi:{v:tp.length?(tp[0].status||'Pending'):null,need:(cat==='C2'||cat==='C3')},
     pfm:{v:pf.length?(pf[0].status||'Not Scheduled'):null,need:(cat==='C3')},
     itp:{v:it.length?(it[0].status||'Pending'):null,need:(cat==='C3'||needsFat)},
     fatproc:{v:fp.length?(fp[0].status||'Pending'):null,need:needsFat},
     ipi:{v:ip.length?(ip.some(function(x){return x.result==='Failed';})?'Failed':(ip[ip.length-1].result||'Pending')):null,need:(cat==='C3')},
     fat:{v:ft.length?(ft[0].remark||'Pending'):null,need:needsFat},
-    fatrep:{v:fr.length?(fr.some(function(x){return x.result==='Failed';})?'Failed':(fr[0].status||'Pending')):null,need:(m.insp==='FAT'||m.insp==='FAT and final inspection')},
-    ir:{v:irp.length?(irp.some(function(x){return x.result==='Failed';})?'Failed':(irp[0].status||'Pending')):null,need:(m.insp==='Final inspection'||m.insp==='FAT and final inspection')},
+    fatrep:{v:fr.length?(fr.some(function(x){return x.result==='Failed';})?'Failed':(fr[0].status||'Pending')):null,need:needsFat},
+    ir:{v:irp.length?(irp.some(function(x){return x.result==='Failed';})?'Failed':(irp[0].status||'Pending')):null,need:(DB.ir||[]).length>0&&needsFat},
     mir:{v:mr.length?(mr[0].status||'Pending'):null,need:true},
     irn:{v:ir.length?(ir[0].status||'Pending'):null,need:mr.length>0},
     post:{v:pd.length?(pd[0].status||'Pending'):null,need:heavy}
@@ -4452,6 +4451,180 @@ crud({key:'IRN',prefix:'r',ov:'irn',table:'irn',titleId:'irn-title',
       +'<td><span class="dim">'+(m.exceptions||'—')+'</span></td>';
   }});
 
+/* ================================================================
+   LINE ITEMS AND DELIVERIES
+   Quantities left the submittal form because a shipment arrives in
+   parts: one item can be received several times, each against a
+   different inspection request, all under the same submittal. So an
+   item is a record of its own, and every arrival against it is another.
+   ================================================================ */
+function itemReceived(itemId){
+  var n=0;
+  (DB.deliv||[]).forEach(function(d){if(String(d.item)===String(itemId))n+=parseFloat(d.qty)||0;});
+  return n;
+}
+function itemState(x){
+  var got=itemReceived(x.id), total=parseFloat(x.qty)||0;
+  if(got<=0)return 'none';
+  if(total&&got>=total)return 'complete';
+  return 'partial';
+}
+function itemsOf(m){
+  var ref=matRef(m);
+  return (DB.items||[]).filter(function(x){return x.mat===ref;});
+}
+window.itemsFilter=function(v){itemsOpenOnly=v;goTo('items');};
+
+window.openITM=function(){
+  document.getElementById('li-eid').value='';
+  document.getElementById('items-title').textContent='Line item';
+  pickClear('li-mat');
+  document.getElementById('ov-items').classList.add('on');
+};
+window.closeITM=function(){
+  var ov=document.getElementById('ov-items');ov.classList.remove('on');
+  ov.querySelectorAll('.fi,.ft').forEach(function(e){e.value='';});
+  document.getElementById('li-eid').value='';pickClear('li-mat');
+  var h=document.getElementById('li-mat-hint');if(h)h.style.display='none';
+};
+document.getElementById('ov-items').addEventListener('click',function(e){if(e.target===this)closeITM();});
+window.saveITM=function(){
+  var g=function(f){var e=document.getElementById('li-'+f);return e?e.value:'';};
+  var name=g('name').trim();
+  if(!name)return alert('Enter the item name');
+  if(!g('mat'))return alert('Choose the material submittal it belongs to');
+  var eid=document.getElementById('li-eid').value;
+  var m={id:eid?+eid:Date.now(),mat:g('mat'),name:name,qty:g('qty'),unit:g('unit'),notes:g('notes')};
+  DB.items=DB.items||[];
+  if(eid){var i=DB.items.findIndex(function(x){return x.id===+eid;});
+    if(i>-1){if(DB.items[i]._rowid)m._rowid=DB.items[i]._rowid;DB.items[i]=m;}}
+  else DB.items.push(m);
+  var btn=document.getElementById('items-save-btn');btn.disabled=true;
+  persist('items',m).then(function(){btn.disabled=false;stampSaved();});
+  closeITM();rITM();refreshCounts();toast('Item saved');
+};
+window.editITM=function(id){
+  var m=(DB.items||[]).find(function(x){return x.id===id;});if(!m)return;
+  var sv=function(f,v){var e=document.getElementById('li-'+f);if(e)e.value=v||'';};
+  document.getElementById('li-eid').value=id;
+  pickSet('li-mat',m.mat);sv('name',m.name);sv('qty',m.qty);sv('unit',m.unit);sv('notes',m.notes);
+  linkHint('li-mat');
+  document.getElementById('items-title').textContent='Edit item';
+  document.getElementById('ov-items').classList.add('on');
+};
+window.delITM=function(id,rowid){
+  var n=(DB.deliv||[]).filter(function(d){return String(d.item)===String(id);}).length;
+  if(!confirm(n?('This item has '+n+' delivery record'+(n===1?'':'s')+'. Delete it anyway?'):'Delete this item?'))return;
+  var rec;
+  if(rowid!=null&&rowid!=='')rec=DB.items.find(function(x){return String(x._rowid)===String(rowid);});
+  if(!rec)rec=DB.items.find(function(x){return x.id===id;});
+  if(rec&&rec._rowid){sbDelete('items',rec._rowid);DB.items=DB.items.filter(function(x){return String(x._rowid)!==String(rec._rowid);});}
+  else{var i=DB.items.indexOf(rec);if(i>-1)DB.items.splice(i,1);}
+  rITM();refreshCounts();toast('Item deleted');
+};
+window.rITM=function(){
+  var qe=document.getElementById('items-q'), q=qe?qe.value.toLowerCase().trim():'';
+  var list=(DB.items||[]).filter(function(x){
+    if(itemsOpenOnly&&itemState(x)==='complete')return false;
+    return !q||[x.name,x.unit,refLabelFor(x.mat).name].join(' ').toLowerCase().indexOf(q)>=0;
+  });
+  var c=document.getElementById('items-count');
+  if(c)c.textContent=list.length+' item'+(list.length===1?'':'s');
+  var tb=document.getElementById('tb-items');if(!tb)return;
+  if(!list.length){
+    tb.innerHTML='<tr><td colspan="8" class="empty">No line items yet. Add them against a material submittal.</td></tr>';
+    return;
+  }
+  var bar={complete:'var(--ok-l)',partial:'var(--act-l)',none:'var(--t-3)'};
+  tb.innerHTML=list.map(function(x){
+    var total=parseFloat(x.qty)||0, got=itemReceived(x.id), rem=total-got, st=itemState(x);
+    var pct=total?Math.min(100,Math.round(got/total*100)):(got>0?100:0);
+    return '<tr class="hov" onclick="editITM('+x.id+')">'
+      +'<td class="pin1 pin-edge">'+(st==='complete'?'<span class="flag"></span>':'<span class="flag f-act"></span>')
+      +'<span class="nm" style="max-width:210px">'+x.name+'</span></td>'
+      +'<td><span class="nm" style="max-width:200px">'+refLabelFor(x.mat).name+'</span></td>'
+      +'<td><span class="ref">'+(total||'\u2014')+'</span></td>'
+      +'<td><span class="dim">'+(x.unit||'\u2014')+'</span></td>'
+      +'<td><span class="ref">'+got+'</span></td>'
+      +'<td><span class="ref"'+(rem>0?' style="color:var(--act-t)"':'')+'>'+(rem>0?rem:0)+'</span></td>'
+      +'<td><div class="bar"><div style="width:'+pct+'%;background:'+bar[st]+'"></div></div>'
+      +'<div class="ref" style="margin-top:3px">'+pct+'%</div></td>'
+      +ibs('editITM','delITM',x.id,x._rowid)+'</tr>';
+  }).join('');
+};
+
+window.openDLV=function(){
+  document.getElementById('dl-eid').value='';
+  document.getElementById('deliv-title').textContent='Delivery';
+  pickClear('dl-item');pickClear('dl-mir');
+  dtSet(document.getElementById('dl-date'),ymd(new Date()));
+  document.getElementById('ov-deliv').classList.add('on');
+};
+window.closeDLV=function(){
+  var ov=document.getElementById('ov-deliv');ov.classList.remove('on');
+  ov.querySelectorAll('.fi,.ft').forEach(function(e){e.value='';if(e.dataset)e.dataset.iso='';});
+  document.getElementById('dl-eid').value='';pickClear('dl-item');pickClear('dl-mir');
+  var h=document.getElementById('dl-item-hint');if(h)h.style.display='none';
+};
+document.getElementById('ov-deliv').addEventListener('click',function(e){if(e.target===this)closeDLV();});
+window.saveDLV=function(){
+  var g=function(f){var e=document.getElementById('dl-'+f);return e?dtGet(e):'';};
+  if(!g('item'))return alert('Choose the line item that arrived');
+  var eid=document.getElementById('dl-eid').value;
+  var m={id:eid?+eid:Date.now(),item:g('item'),mir:g('mir'),qty:g('qty'),date:g('date'),note:g('note')};
+  DB.deliv=DB.deliv||[];
+  if(eid){var i=DB.deliv.findIndex(function(x){return x.id===+eid;});
+    if(i>-1){if(DB.deliv[i]._rowid)m._rowid=DB.deliv[i]._rowid;DB.deliv[i]=m;}}
+  else DB.deliv.push(m);
+  var btn=document.getElementById('deliv-save-btn');btn.disabled=true;
+  persist('deliv',m).then(function(){btn.disabled=false;stampSaved();});
+  closeDLV();rDLV();refreshCounts();toast('Delivery saved');
+};
+window.editDLV=function(id){
+  var m=(DB.deliv||[]).find(function(x){return x.id===id;});if(!m)return;
+  document.getElementById('dl-eid').value=id;
+  pickSet('dl-item',m.item);pickSet('dl-mir',m.mir);
+  document.getElementById('dl-qty').value=m.qty||'';
+  dtSet(document.getElementById('dl-date'),m.date);
+  document.getElementById('dl-note').value=m.note||'';
+  document.getElementById('deliv-title').textContent='Edit delivery';
+  document.getElementById('ov-deliv').classList.add('on');
+};
+window.delDLV=function(id,rowid){
+  if(!confirm('Delete this delivery record?'))return;
+  var rec;
+  if(rowid!=null&&rowid!=='')rec=DB.deliv.find(function(x){return String(x._rowid)===String(rowid);});
+  if(!rec)rec=DB.deliv.find(function(x){return x.id===id;});
+  if(rec&&rec._rowid){sbDelete('deliv',rec._rowid);DB.deliv=DB.deliv.filter(function(x){return String(x._rowid)!==String(rec._rowid);});}
+  else{var i=DB.deliv.indexOf(rec);if(i>-1)DB.deliv.splice(i,1);}
+  rDLV();refreshCounts();toast('Delivery deleted');
+};
+window.rDLV=function(){
+  var qe=document.getElementById('deliv-q'), q=qe?qe.value.toLowerCase().trim():'';
+  var list=(DB.deliv||[]).filter(function(d){
+    var li=(DB.items||[]).find(function(x){return String(x.id)===String(d.item);})||{};
+    return !q||[li.name,d.note,refLabelFor(li.mat).name,mirLabel(d.mir)].join(' ').toLowerCase().indexOf(q)>=0;
+  }).sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
+  var c=document.getElementById('deliv-count');
+  if(c)c.textContent=list.length+' delivery record'+(list.length===1?'':'s');
+  var tb=document.getElementById('tb-deliv');if(!tb)return;
+  if(!list.length){
+    tb.innerHTML='<tr><td colspan="7" class="empty">No deliveries recorded yet.</td></tr>';
+    return;
+  }
+  tb.innerHTML=list.map(function(d){
+    var li=(DB.items||[]).find(function(x){return String(x.id)===String(d.item);})||{};
+    return '<tr class="hov" onclick="editDLV('+d.id+')">'
+      +'<td class="pin1 pin-edge"><span class="nm" style="max-width:210px">'+(li.name||'\u2014')+'</span></td>'
+      +'<td><span class="nm" style="max-width:180px">'+(li.mat?refLabelFor(li.mat).name:'\u2014')+'</span></td>'
+      +'<td><span class="ref">'+(d.mir?mirLabel(d.mir):'\u2014')+'</span></td>'
+      +'<td><span class="ref">'+(d.qty||'\u2014')+(li.unit?' '+li.unit:'')+'</span></td>'
+      +'<td><span class="ref">'+(dtToDisplay(d.date)||'\u2014')+'</span></td>'
+      +'<td><span class="dim">'+(d.note||'\u2014')+'</span></td>'
+      +ibs('editDLV','delDLV',d.id,d._rowid)+'</tr>';
+  }).join('');
+};
+
 /* ---------- inspectors ---------- */
 function inspAssignments(name){
   var n=0;
@@ -4608,42 +4781,39 @@ function rComp(){
 
 /* ---------- delivery log ---------- */
 window.rDLOG=function(){
-  var q=((document.getElementById('dlog-q')||{value:''}).value||'').toLowerCase().trim();
-  var fst=(document.getElementById('dlog-st')||{value:''}).value;
-  var recv={};
-  (DB.mir||[]).forEach(function(mir){
-    var fallback=(mirRefsOf(mir)[0]||'');
-    (mir.recvItems||[]).forEach(function(it){
-      var key=(it.ref||fallback)+'::'+it.name;
-      recv[key]=(recv[key]||0)+(parseFloat(it.received)||0);
-    });
+  /* a read-only roll-up: quantities live in the item and delivery
+     registers, and this page only shows where each item stands */
+  var qd=document.getElementById('dlog-q'), q=qd?qd.value.toLowerCase().trim():'';
+  var fs=document.getElementById('dlog-st'), f=fs?fs.value:'';
+  var rows=(DB.items||[]).map(function(x){
+    var total=parseFloat(x.qty)||0, got=itemReceived(x.id);
+    return {mat:refLabelFor(x.mat).name,ref:x.mat,item:x.name,unit:x.unit||'',
+            total:total,got:got,rem:total-got,
+            pct:total?Math.min(100,Math.round(got/total*100)):(got>0?100:0),
+            st:itemState(x)==='complete'?'complete':(got>0?'partial':'pending')};
+  }).filter(function(r){
+    if(f&&r.st!==f)return false;
+    return !q||(r.mat+' '+r.item+' '+r.ref).toLowerCase().indexOf(q)>=0;
   });
-  var rows=[];
-  matRecords().forEach(function(m){
-    var ref=m.aconex||m.name;
-    (m.items||[]).forEach(function(it){
-      var got=recv[ref+'::'+it.name]||0, total=parseFloat(it.qty)||0, rem=total-got;
-      var pct=total?Math.min(100,Math.round(got/total*100)):(got>0?100:0);
-      var st=got<=0?'pending':(total&&got>=total?'complete':'partial');
-      rows.push({mat:m.name,ref:ref,item:it.name,unit:it.unit||'',total:total,got:got,rem:rem,pct:pct,st:st});
-    });
-  });
-  if(fst)rows=rows.filter(function(r){return r.st===fst;});
-  if(q)rows=rows.filter(function(r){return (r.mat+' '+r.item+' '+r.ref).toLowerCase().indexOf(q)>=0;});
-  var c=document.getElementById('dlog-count');if(c)c.textContent=rows.length+' item'+(rows.length===1?'':'s');
-  var tb=document.getElementById('dlog-tb');if(!tb)return;
-  if(!rows.length){tb.innerHTML='<tr><td colspan="8" class="empty">No line items. Add items to a submittal, then receive them through an inspection.</td></tr>';return;}
-  var lbl={complete:'Approved',partial:'Pending',pending:'N/A'};
+  var c=document.getElementById('dlog-count');
+  if(c)c.textContent=rows.length+' item'+(rows.length===1?'':'s');
+  var tb=document.getElementById('dlog-tb');
+  if(!tb)return;
+  if(!rows.length){
+    tb.innerHTML='<tr><td colspan="8" class="empty">No line items yet. Add them under Line items, then record arrivals under Deliveries.</td></tr>';
+    return;
+  }
   var word={complete:'Complete',partial:'Partial',pending:'Not received'};
   var bar={complete:'var(--ok-l)',partial:'var(--act-l)',pending:'var(--t-3)'};
   tb.innerHTML=rows.map(function(r){
     return '<tr><td class="pin1"><span class="nm">'+r.mat+'</span></td>'
-      +'<td class="pin2"><span class="ref">'+(r.ref||'—')+'</span></td>'
+      +'<td class="pin2"><span class="ref">'+(shortRef(r.ref)||'\u2014')+'</span></td>'
       +'<td><span style="font-size:12.5px">'+r.item+'</span></td>'
       +'<td><span class="dim">'+r.total+(r.unit?' '+r.unit:'')+'</span></td>'
       +'<td><span class="ref">'+r.got+'</span></td>'
       +'<td><span class="ref" style="color:'+(r.rem>0?'var(--act-t)':'var(--t-3)')+'">'+(r.rem>0?r.rem:0)+'</span></td>'
-      +'<td><div class="bar"><div style="width:'+r.pct+'%;background:'+bar[r.st]+'"></div></div><div class="ref" style="margin-top:3px">'+r.pct+'%</div></td>'
+      +'<td><div class="bar"><div style="width:'+r.pct+'%;background:'+bar[r.st]+'"></div></div>'
+      +'<div class="ref" style="margin-top:3px">'+r.pct+'%</div></td>'
       +'<td class="ctr"><span class="stamp s-'+(r.st==='complete'?'ok':r.st==='partial'?'act':'na')+'">'+word[r.st]+'</span></td></tr>';
   }).join('');
 };
@@ -5635,11 +5805,11 @@ function cmtRows(){
     var p0=(d0.id?meetingsFor(d0)[0]:null)||{};
     return {
       name:m.name||'', cat:(m.catCor||m.catSub)||'',
-      tpiaName:f.tpia||(m.tpia==='Required'?'Required, not yet assigned':''),
+      tpiaName:f.tpia||(tpiAll(m)[0]||{}).agency||'',
       pidStatus:(d0.status||''), pidNo:(d0.no||''), pidRef:(d0.title||d0.ref||''), pidDate:(d0.date||''),
       pimStatus:(p0.status||''), pimRef:(p0['mom-ref']||p0.no||''), pimDate:(p0.date||''),
       aconex:m.aconex||'', mts:m.mts||'', company:m.company||'',
-      mfr:m.mfr||'', mfrCountry:m.mfrCountry||'', insp:m.insp||'None', date:m.date||'',
+      mfr:m.mfr||'', mfrCountry:m.mfrCountry||'', date:m.date||'',
       vendorPqd:v.pqd||'', pa:v.pa||'', iso:(v.isoDate&&isExp(v.isoDate))?'Expired':(v.iso||''),
       fatDate:f.fatDate||'', fatRemark:f.remark||'', delivery:f.delivery||'',
       leed:m.leed||'', saso:m.saso||'', notes:m.notes||''
@@ -6027,8 +6197,7 @@ var RB_SOURCES={
       ['name','Material',1],['aconex','Aconex reference',1],['desc','Description',0],
       ['catSub','Category submitted',0],['catCor','Category',1,function(m){return m.catCor||m.catSub||'';}],
       ['company','Submitted by',1],['mfr','Manufacturer',1],['mfrCountry','Country of manufacture',0],
-      ['date','Submitted',1],['mts','Submittal status',1],['insp','Inspection requirement',1],
-      ['tpia','Third-party inspection',0],['leed','LEED',0],['saso','SASO',0],
+      ['date','Submitted',1],['mts','Submittal status',1],['leed','LEED',0],['saso','SASO',0],
       ['vendorPqd','Vendor PQD',0,function(m){return vendorForMat(m).pqd||'';}],
       ['vendorPa','Vendor assessment',0,function(m){var v=vendorForMat(m);return v.name?(paInScope(v)?(v.pa||'Pending'):'N/A'):'';}],
       ['vendorPaDate','Survey date',0,function(m){return vendorForMat(m).paDate||'';}],
@@ -6118,7 +6287,7 @@ var RB_SOURCES={
       ['items','Line items',0,function(m){return (m.items||[]).length||'';}],
       ['notes','Notes',0]
     ],
-    filters:[['catCor','Category',['C0','C1','C2','C3']],['mts','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']],['insp','Inspection',['None','Inspection on delivery','Final inspection','FAT','FAT and final inspection']]]},
+    filters:[['catCor','Category',['C0','C1','C2','C3']],['mts','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
 
   dossiers:{label:'Pre-inspection dossiers',rows:function(){return (DB.dossiers||[]).slice();},
     cols:[['no','Dossier no.',1],['title','Title',1],['ref','Aconex reference',1],['vendor','Vendor',1],
@@ -6729,7 +6898,7 @@ window.importDB=function(e){
     try{
       var d=JSON.parse(ev.target.result);
       if(confirm('This replaces all current data for this project. Continue?')){
-        DB.pqd=d.pqd||[];DB.mat=d.mat||[];DB.mir=d.mir||[];DB.fat=d.fat||[];DB.events=d.events||[];DB.checklists=d.checklists||[];DB.inspectors=d.inspectors||[];DB.dossiers=d.dossiers||[];DB.tpi=d.tpi||[];DB.pfm=d.pfm||[];DB.itp=d.itp||[];DB.fatproc=d.fatproc||[];DB.ipi=d.ipi||[];DB.fatrep=d.fatrep||[];DB.ir=d.ir||[];DB.irn=d.irn||[];DB.postdoss=d.postdoss||[];
+        DB.pqd=d.pqd||[];DB.mat=d.mat||[];DB.mir=d.mir||[];DB.fat=d.fat||[];DB.events=d.events||[];DB.checklists=d.checklists||[];DB.inspectors=d.inspectors||[];DB.dossiers=d.dossiers||[];DB.tpi=d.tpi||[];DB.pfm=d.pfm||[];DB.itp=d.itp||[];DB.fatproc=d.fatproc||[];DB.ipi=d.ipi||[];DB.fatrep=d.fatrep||[];DB.ir=d.ir||[];DB.irn=d.irn||[];DB.postdoss=d.postdoss||[];DB.items=d.items||[];DB.deliv=d.deliv||[];
         persist().then(function(){stampSaved();refreshCounts();goTo(CUR_PAGE);toast('Data restored');});
       }
     }catch(x){alert('That file could not be read.');}
@@ -6865,6 +7034,8 @@ function refreshCounts(){
   set('nb-ir',(DB.ir||[]).filter(function(x){return (x.status||'Pending').indexOf('Approved')!==0;}).length);
   set('nb-ipi',(DB.ipi||[]).filter(function(x){return (x.result||'Pending')==='Pending'||x.result==='Failed';}).length);
   set('nb-fatproc',(DB.fatproc||[]).filter(function(x){return (x.status||'Pending').indexOf('Approved')!==0;}).length);
+  set('nb-items',(DB.items||[]).filter(function(x){return itemState(x)!=='complete';}).length);
+  set('nb-deliv',(DB.deliv||[]).length);
   set('nb-irn',(DB.irn||[]).length);
   set('nb-post',(DB.postdoss||[]).filter(function(x){return (x.status||'Pending').indexOf('Approved')!==0;}).length);
   set('nb-mir',(DB.mir||[]).length);
