@@ -5333,23 +5333,48 @@ function vendorOf(name){
   }
   return {};
 }
-/* one lookup per register, so a report column stays a one-liner */
+/* A material can carry more than one of almost anything — two release
+   notes for two deliveries, several inspection requests, more than one
+   dossier. Taking only the first would hide the rest without saying so,
+   so every lookup returns the whole list and the column stacks the
+   values one per line inside a single cell. */
 function matRef(m){return m.aconex||m.name;}
-function itpFor(m){return (DB.itp||[]).find(function(x){return x.mat===matRef(m);})||{};}
-function tpiFor(m){return (DB.tpi||[]).find(function(x){return x.mat===matRef(m);})||{};}
-function fatFor(m){return (DB.fat||[]).find(function(x){return x.matRef===matRef(m);})||{};}
-function mirForMat(m){return (DB.mir||[]).find(function(x){return mirRefsOf(x).indexOf(matRef(m))>=0;})||{};}
-function irnForMat(m){
-  var q=mirForMat(m);
-  if(!q.id)return {};
-  return (DB.irn||[]).find(function(r){return String(r.mir)===String(q.id);})||{};
+function itpAll(m){return (DB.itp||[]).filter(function(x){return x.mat===matRef(m);});}
+function tpiAll(m){return (DB.tpi||[]).filter(function(x){return x.mat===matRef(m);});}
+function fatAll(m){return (DB.fat||[]).filter(function(x){return x.matRef===matRef(m);});}
+function mirAll(m){return (DB.mir||[]).filter(function(x){return mirRefsOf(x).indexOf(matRef(m))>=0;});}
+function irnAll(m){
+  var ids=mirAll(m).map(function(q){return String(q.id);});
+  if(!ids.length)return [];
+  return (DB.irn||[]).filter(function(r){return ids.indexOf(String(r.mir))>=0;});
 }
-function postFor(m){return (DB.postdoss||[]).find(function(d){return (d.mats||[]).indexOf(matRef(m))>=0;})||{};}
-/* the inspector named on the assignment, looked up in the register */
-function inspectorFor(m){
-  var t=tpiFor(m);
-  if(!t.inspector)return {};
-  return (DB.inspectors||[]).find(function(x){return nameKey(x.name)===nameKey(t.inspector);})||{};
+function postAll(m){return (DB.postdoss||[]).filter(function(d){return (d.mats||[]).indexOf(matRef(m))>=0;});}
+function pfmAll(m){
+  var out=[];
+  dossiersFor(m).forEach(function(d){meetingsFor(d).forEach(function(p){out.push(p);});});
+  return out;
+}
+/* the inspectors named on the assignments, looked up in the register */
+function inspectorAll(m){
+  var out=[];
+  tpiAll(m).forEach(function(t){
+    if(!t.inspector)return;
+    var x=(DB.inspectors||[]).find(function(y){return nameKey(y.name)===nameKey(t.inspector);});
+    if(x&&out.indexOf(x)<0)out.push(x);
+  });
+  return out;
+}
+/* stack one value per line, drop blanks, keep the order they were made */
+function stack(list,pick){
+  var out=[];
+  (list||[]).forEach(function(x){
+    var v=pick(x);
+    if(v===0||v)out.push(String(v));
+  });
+  return out.join('\n');
+}
+function stackDate(list,pick){
+  return stack(list,function(x){var v=pick(x);return v?dtToDisplay(v):'';});
 }
 function vendorForMat(m){
   var v=vendorOf(m.company);
@@ -5380,7 +5405,7 @@ var RB_COL_GROUP={
     fatDate:'fat',fatPrefab:'fat',fatFab:'fat',fatDelivery:'fat',fatTpia:'fat',fatInspector:'fat',fatRemark:'fat',
     mirNo:'mir',mirDate:'mir',mirStatus:'mir',
     irnNo:'irn',irnDate:'irn',irnRef:'irn',irnStatus:'irn',
-    postNo:'postdoss',postRef:'postdoss',postDueCol:'postdoss',postStatus:'postdoss',
+    postNo:'postdoss',postRef:'postdoss',postDueCol:'postdoss',postStatus:'postdoss',linkCount:'materials',
     vendorPqd:'vendors',vendorMatch:'vendors',vendorCat:'vendors',vendorIso:'vendors',vendorOrigin:'vendors',vendorPa:'assessment',
     vendorPaDate:'assessment',vendorPaRef:'assessment',vendorQms:'assessment',vendorQmsAssessor:'assessment',
     vendorQmsResult:'assessment',vendorQmsRef:'assessment',vendorTech:'assessment',vendorTechAssessor:'assessment',
@@ -5439,51 +5464,58 @@ var RB_SOURCES={
       ['vendorCat','Vendor category',0,function(m){return vendorForMat(m).cat||'';}],
       ['vendorIso','Vendor ISO',0,function(m){var v=vendorForMat(m);return v.name?((v.isoDate&&isExp(v.isoDate))?'Expired':(v.iso||'')):'';}],
       ['vendorOrigin','Vendor origin',0,function(m){var v=vendorForMat(m);return v.name?(vendorOrigin(v)==='Unknown'?'':vendorOrigin(v)):'';}],
-      ['pidNo','Dossier no.',0,function(m){var d=dossiersFor(m)[0];return d?(d.no||''):'';}],
-      ['pidTitle','Dossier title',0,function(m){var d=dossiersFor(m)[0];return d?(d.title||''):'';}],
-      ['pidRef','Dossier Aconex reference',0,function(m){var d=dossiersFor(m)[0];return d?(d.ref||''):'';}],
-      ['pidDate','Dossier submitted',0,function(m){var d=dossiersFor(m)[0];return d?(d.date||''):'';}],
-      ['pidStatus','Dossier status',0,function(m){var d=dossiersFor(m)[0];return d?(d.status||''):'';}],
-      ['pfmNo','Meeting no.',0,function(m){var d=dossiersFor(m)[0];var p=d?meetingsFor(d)[0]:null;return p?(p.no||''):'';}],
-      ['pfmDate','Meeting date',0,function(m){var d=dossiersFor(m)[0];var p=d?meetingsFor(d)[0]:null;return p?(p.date||''):'';}],
-      ['pfmStatus','Meeting status',0,function(m){var d=dossiersFor(m)[0];var p=d?meetingsFor(d)[0]:null;return p?(p.status||''):'';}],
-      ['pfmRef','Meeting Aconex reference',0,function(m){var d=dossiersFor(m)[0];var p=d?meetingsFor(d)[0]:null;return p?(p.ref||''):'';}],
-      ['momRef','Minutes reference',0,function(m){var d=dossiersFor(m)[0];var p=d?meetingsFor(d)[0]:null;return p?(p['mom-ref']||''):'';}],
-      ['itpNo','ITP no.',0,function(m){var x=itpFor(m);return x.no||'';}],
-      ['itpRev','ITP revision',0,function(m){var x=itpFor(m);return x.rev||'';}],
-      ['itpRef','ITP Aconex reference',0,function(m){var x=itpFor(m);return x.ref||'';}],
-      ['itpDate','ITP submitted',0,function(m){var x=itpFor(m);return x.date||'';}],
-      ['itpStatus','ITP status',0,function(m){var x=itpFor(m);return x.status||'';}],
-      ['itpPoints','Hold and witness points',0,function(m){var x=itpFor(m);return x.points||'';}],
-      ['tpiRef','TPI Aconex reference',0,function(m){return tpiFor(m).ref||'';}],
-      ['tpiAgency','TPI agency',0,function(m){return tpiFor(m).agency||'';}],
-      ['tpiInspector','TPI inspector',0,function(m){return tpiFor(m).inspector||'';}],
-      ['tpiScope','TPI scope',0,function(m){return tpiFor(m).scope||'';}],
-      ['tpiDate','TPI assigned',0,function(m){return tpiFor(m).date||'';}],
-      ['tpiStatus','TPI status',0,function(m){return tpiFor(m).status||'';}],
-      ['inspAgency','Inspector agency on record',0,function(m){return inspectorFor(m).agency||'';}],
-      ['inspDisc','Inspector discipline',0,function(m){return inspectorFor(m).disc||'';}],
-      ['inspCert','Inspector certificate',0,function(m){return inspectorFor(m).cert||'';}],
-      ['inspCertExp','Inspector certificate expiry',0,function(m){return inspectorFor(m).certExp||'';}],
-      ['inspRef','Inspector Aconex reference',0,function(m){return inspectorFor(m).ref||'';}],
-      ['fatDate','FAT date',0,function(m){return fatFor(m).fatDate||'';}],
-      ['fatPrefab','Pre-fabrication date',0,function(m){return fatFor(m).prefab||'';}],
-      ['fatFab','Fabrication date',0,function(m){return fatFor(m).fab||'';}],
-      ['fatDelivery','First delivery',0,function(m){return fatFor(m).delivery||'';}],
-      ['fatTpia','FAT agency',0,function(m){return fatFor(m).tpia||'';}],
-      ['fatInspector','FAT inspector',0,function(m){return fatFor(m).inspector||'';}],
-      ['fatRemark','FAT status',0,function(m){return fatFor(m).remark||'';}],
-      ['mirNo','MIR no.',0,function(m){return mirForMat(m).num||'';}],
-      ['mirDate','MIR date',0,function(m){return mirForMat(m).date||'';}],
-      ['mirStatus','MIR status',0,function(m){return mirForMat(m).status||'';}],
-      ['irnNo','Release note no.',0,function(m){return irnForMat(m).no||'';}],
-      ['irnDate','Release note date',0,function(m){return irnForMat(m).date||'';}],
-      ['irnRef','Release note Aconex reference',0,function(m){return irnForMat(m).ref||'';}],
-      ['irnStatus','Release note status',0,function(m){return irnForMat(m).status||'';}],
-      ['postNo','Post dossier no.',0,function(m){return postFor(m).no||'';}],
-      ['postRef','Post dossier Aconex reference',0,function(m){return postFor(m).ref||'';}],
-      ['postDueCol','Post dossier due',0,function(m){var p=postFor(m);return p.id?(postDue(p)||''):'';}],
-      ['postStatus','Post dossier status',0,function(m){return postFor(m).status||'';}],
+      ['pidNo','Dossier no.',0,function(m){return stack(dossiersFor(m),function(d){return d.no;});}],
+      ['pidTitle','Dossier title',0,function(m){return stack(dossiersFor(m),function(d){return d.title;});}],
+      ['pidRef','Dossier Aconex reference',0,function(m){return stack(dossiersFor(m),function(d){return d.ref;});}],
+      ['pidDate','Dossier submitted',0,function(m){return stackDate(dossiersFor(m),function(d){return d.date;});}],
+      ['pidStatus','Dossier status',0,function(m){return stack(dossiersFor(m),function(d){return d.status;});}],
+      ['pfmNo','Meeting no.',0,function(m){return stack(pfmAll(m),function(p){return p.no;});}],
+      ['pfmDate','Meeting date',0,function(m){return stackDate(pfmAll(m),function(p){return p.date;});}],
+      ['pfmStatus','Meeting status',0,function(m){return stack(pfmAll(m),function(p){return p.status;});}],
+      ['pfmRef','Meeting Aconex reference',0,function(m){return stack(pfmAll(m),function(p){return p.ref;});}],
+      ['momRef','Minutes reference',0,function(m){return stack(pfmAll(m),function(p){return p['mom-ref'];});}],
+      ['itpNo','ITP no.',0,function(m){return stack(itpAll(m),function(x){return x.no;});}],
+      ['itpRev','ITP revision',0,function(m){return stack(itpAll(m),function(x){return x.rev;});}],
+      ['itpRef','ITP Aconex reference',0,function(m){return stack(itpAll(m),function(x){return x.ref;});}],
+      ['itpDate','ITP submitted',0,function(m){return stackDate(itpAll(m),function(x){return x.date;});}],
+      ['itpStatus','ITP status',0,function(m){return stack(itpAll(m),function(x){return x.status;});}],
+      ['itpPoints','Hold and witness points',0,function(m){return stack(itpAll(m),function(x){return x.points;});}],
+      ['tpiRef','TPI Aconex reference',0,function(m){return stack(tpiAll(m),function(x){return x.ref;});}],
+      ['tpiAgency','TPI agency',0,function(m){return stack(tpiAll(m),function(x){return x.agency;});}],
+      ['tpiInspector','TPI inspector',0,function(m){return stack(tpiAll(m),function(x){return x.inspector;});}],
+      ['tpiScope','TPI scope',0,function(m){return stack(tpiAll(m),function(x){return x.scope;});}],
+      ['tpiDate','TPI assigned',0,function(m){return stackDate(tpiAll(m),function(x){return x.date;});}],
+      ['tpiStatus','TPI status',0,function(m){return stack(tpiAll(m),function(x){return x.status;});}],
+      ['inspAgency','Inspector agency on record',0,function(m){return stack(inspectorAll(m),function(x){return x.agency;});}],
+      ['inspDisc','Inspector discipline',0,function(m){return stack(inspectorAll(m),function(x){return x.disc;});}],
+      ['inspCert','Inspector certificate',0,function(m){return stack(inspectorAll(m),function(x){return x.cert;});}],
+      ['inspCertExp','Inspector certificate expiry',0,function(m){return stackDate(inspectorAll(m),function(x){return x.certExp;});}],
+      ['inspRef','Inspector Aconex reference',0,function(m){return stack(inspectorAll(m),function(x){return x.ref;});}],
+      ['fatDate','FAT date',0,function(m){return stackDate(fatAll(m),function(f){return f.fatDate;});}],
+      ['fatPrefab','Pre-fabrication date',0,function(m){return stackDate(fatAll(m),function(f){return f.prefab;});}],
+      ['fatFab','Fabrication date',0,function(m){return stackDate(fatAll(m),function(f){return f.fab;});}],
+      ['fatDelivery','First delivery',0,function(m){return stackDate(fatAll(m),function(f){return f.delivery;});}],
+      ['fatTpia','FAT agency',0,function(m){return stack(fatAll(m),function(f){return f.tpia;});}],
+      ['fatInspector','FAT inspector',0,function(m){return stack(fatAll(m),function(f){return f.inspector;});}],
+      ['fatRemark','FAT status',0,function(m){return stack(fatAll(m),function(f){return f.remark;});}],
+      ['mirNo','MIR no.',0,function(m){return stack(mirAll(m),function(q){return q.num;});}],
+      ['mirDate','MIR date',0,function(m){return stackDate(mirAll(m),function(q){return q.date;});}],
+      ['mirStatus','MIR status',0,function(m){return stack(mirAll(m),function(q){return q.status;});}],
+      ['irnNo','Release note no.',0,function(m){return stack(irnAll(m),function(r){return r.no;});}],
+      ['irnDate','Release note date',0,function(m){return stackDate(irnAll(m),function(r){return r.date;});}],
+      ['irnRef','Release note Aconex reference',0,function(m){return stack(irnAll(m),function(r){return r.ref;});}],
+      ['irnStatus','Release note status',0,function(m){return stack(irnAll(m),function(r){return r.status;});}],
+      ['postNo','Post dossier no.',0,function(m){return stack(postAll(m),function(d){return d.no;});}],
+      ['postRef','Post dossier Aconex reference',0,function(m){return stack(postAll(m),function(d){return d.ref;});}],
+      ['postDueCol','Post dossier due',0,function(m){return stackDate(postAll(m),function(d){return postDue(d);});}],
+      ['postStatus','Post dossier status',0,function(m){return stack(postAll(m),function(d){return d.status;});}],
+      ['linkCount','Linked records',0,function(m){
+        var p=[];
+        [['dossier',dossiersFor(m)],['meeting',pfmAll(m)],['ITP',itpAll(m)],['TPI',tpiAll(m)],
+         ['FAT',fatAll(m)],['MIR',mirAll(m)],['IRN',irnAll(m)],['post dossier',postAll(m)]]
+        .forEach(function(x){if(x[1].length>1)p.push(x[1].length+' '+x[0]+'s');});
+        return p.join('\n');
+      }],
       ['items','Line items',0,function(m){return (m.items||[]).length||'';}],
       ['notes','Notes',0]
     ],
@@ -5682,8 +5714,7 @@ function rbCols(){
   });
 }
 var RB_DATE_KEYS=['date','paDate','isoDate','qualDate','certExp','last','due','fatDate','prefab','fab','delivery',
-  'sent-date','vendorPaDate','pidDate','pimDate','pfmDate','itpDate','tpiDate','inspCertExp',
-  'fatPrefab','fatFab','fatDelivery','mirDate','irnDate','postDueCol'];
+  'sent-date','vendorPaDate','pidDate','pimDate'];
 function rbValue(c,r){
   var v=c[3]?c[3](r):(r[c[0]]==null?'':r[c[0]]);
   /* dates leave the system the way Aconex prints them */
@@ -5709,7 +5740,7 @@ window.runRB=function(mode){
       +pb.map(function(b){return '<th colspan="'+b.n+'" style="background:var(--sf-2);color:var(--t-2)">'+b.g+'</th>';}).join('')
       +'</tr><tr>'+cols.map(function(c){return '<th>'+c[1]+'</th>';}).join('')+'</tr></thead><tbody>'
       +rows.map(function(r){return '<tr>'+cols.map(function(c){
-          return '<td style="text-align:left">'+String(rbValue(c,r)||'')+'</td>';}).join('')+'</tr>';}).join('')
+          return '<td style="text-align:left;white-space:pre-line">'+String(rbValue(c,r)||'')+'</td>';}).join('')+'</tr>';}).join('')
       +'</tbody></table>';
     document.getElementById('rpt-out').innerHTML='<div class="panel" style="margin:0"><div class="panel-h">'
       +RB_SOURCES[RB_SRC].label+'</div><div class="panel-b">'
@@ -5720,7 +5751,9 @@ window.runRB=function(mode){
     return;
   }
   if(!(window.fflate&&fflate.zipSync))return alert('The export library is still loading. Try again in a moment.');
-  var esc=function(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
+  /* a stacked cell holds real newlines; they must survive the XML and
+     the cell must be told to wrap, or Excel shows one long line */
+  var esc=function(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\r\n?/g,'\n');};
   var fills='<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
     +'<fill><patternFill patternType="solid"><fgColor rgb="FF156082"/><bgColor indexed="64"/></patternFill></fill>'
     +'<fill><patternFill patternType="solid"><fgColor rgb="FF0C3D52"/><bgColor indexed="64"/></patternFill></fill>';
@@ -5731,7 +5764,8 @@ window.runRB=function(mode){
   var xfs=['<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>',
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>',
     '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>',
-    '<xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'];
+    '<xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>'];
   var styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
     +'<fonts count="4">'+fonts+'</fonts><fills count="4">'+fills+'</fills>'
     +'<borders count="2"><border/><border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom></border></borders>'
@@ -5760,8 +5794,12 @@ window.runRB=function(mode){
   cols.forEach(function(c,i){hr+=cx(4,i,c[1],1);});
   sd+=hr+'</row>';
   rows.forEach(function(r,i){
-    var rn=5+i,rr='<row r="'+rn+'">';
-    cols.forEach(function(c,ci){rr+=cx(rn,ci,rbValue(c,r),0);});
+    var rn=5+i, vals=cols.map(function(c){return String(rbValue(c,r)==null?'':rbValue(c,r));});
+    /* the tallest stacked cell sets the row height */
+    var lines=1;
+    vals.forEach(function(v){var n=v.split('\n').length;if(n>lines)lines=n;});
+    var rr='<row r="'+rn+'"'+(lines>1?' ht="'+(lines*15)+'" customHeight="1"':'')+'>';
+    vals.forEach(function(v,ci){rr+=cx(rn,ci,v,v.indexOf('\n')>=0?4:0);});
     sd+=rr+'</row>';
   });
   /* a fixed width truncates long values on screen even though the cell
@@ -5769,8 +5807,9 @@ window.runRB=function(mode){
   var colXml='<cols>'+cols.map(function(c,i){
     var longest=String(c[1]).length;
     rows.forEach(function(r){
-      var v=String(rbValue(c,r)||'');
-      if(v.length>longest)longest=v.length;
+      String(rbValue(c,r)||'').split('\n').forEach(function(line){
+        if(line.length>longest)longest=line.length;
+      });
     });
     var w=Math.min(Math.max(longest+3,11),60);
     return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'"/>';
