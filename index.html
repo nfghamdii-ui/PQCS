@@ -3333,6 +3333,10 @@ window.pickChoose=function(id,val){
 };
 function pickSet(id,val){
   var k=PICK_SRC[id], isVendor=(k==='vendor'||k==='subco'||k==='agency'||k==='material'||k==='dossier'||k==='mir');
+  /* a picker stores an id or a reference; the visible box needs its label */
+  if(k==='mir'&&val){var lb=mirLabel(val);if(lb){var e2=document.getElementById(id);if(e2)e2.value=val;var q2=document.getElementById(id+'-q');if(q2)q2.value=lb;return;}}
+  if(k==='material'&&val){var mm=matRecords().find(function(x){return (x.aconex||x.name)===val;});
+    if(mm){var e3=document.getElementById(id);if(e3)e3.value=val;var q3=document.getElementById(id+'-q');if(q3)q3.value=mm.name+(mm.aconex?'  ·  '+mm.aconex:'');return;}}
   var el=document.getElementById(id);if(el)el.value=val||'';
   if(isVendor){var q=document.getElementById(id+'-q');if(q)q.value=val||'';}
 }
@@ -5898,19 +5902,23 @@ function chainOf(m){
   return out;
 }
 /* what each form is willing to accept from a paste */
+/* what each form is willing to take from a paste. Anything the chain
+   already knows is offered — the point is never to retype a value the
+   system can already see. */
 var PASTE_FILL={
-  'ov-tpi':   {mat:'t-mat'},
-  'ov-itp':   {mat:'n-mat', vendor:'n-vendor'},
-  'ov-fatproc':{mat:'fp-mat',vendor:'fp-vendor'},
-  'ov-ipi':   {mat:'ip-mat'},
-  'ov-fat':   {matRaw:'fat-mat', material:'fat-material', mfr:'fat-mfr', cat:'fat-cat'},
-  'ov-pid':   {vendor:'d-vendor', matList:'pid'},
-  'ov-post':  {vendor:'o-vendor', matList:'post'},
-  'ov-mir':   {matList:'mir', vendorPlain:'mir-co'},
-  'ov-irn':   {materialPlain:'r-material'},
-  'ov-fatrep':{mat:'fr-mat'},
-  'ov-ir':    {mat:'ir-mat'},
-  'ov-mat':   {}
+  'ov-tpi':    {mat:'t-mat', agency:'t-agency', inspector:'t-inspector'},
+  'ov-itp':    {mat:'n-mat', vendor:'n-vendor'},
+  'ov-fatproc':{mat:'fp-mat', vendor:'fp-vendor'},
+  'ov-ipi':    {mat:'ip-mat', agency:'ip-agency', inspector:'ip-inspector', itpNo:'ip-itp'},
+  'ov-fat':    {matRaw:'fat-mat', material:'fat-material', mfr:'fat-mfr', cat:'fat-cat',
+                agencyPlain:'fat-tpia', inspector:'fat-inspector', country:'fat-loc'},
+  'ov-fatrep': {mat:'fr-mat', agency:'fr-agency', inspector:'fr-inspector'},
+  'ov-ir':     {mat:'ir-mat', agency:'ir-agency', inspector:'ir-inspector'},
+  'ov-pid':    {vendor:'d-vendor', matList:'pid'},
+  'ov-post':   {vendor:'o-vendor', matList:'post'},
+  'ov-mir':    {matList:'mir', vendorPlain:'mir-co', materialPlain:'mir-name'},
+  'ov-irn':    {materialPlain:'r-material', mirPick:'r-mir'},
+  'ov-mat':    {}
 };
 window.pasteRef=function(ovId){
   var box=document.getElementById(ovId+'-paste');
@@ -5948,6 +5956,13 @@ window.pasteApply=function(ovId){
     if(PICK_SRC[id])pickSet(id,val); else el.value=val;
     n++;
   }
+  /* the most recent assignment carries the agency and the inspector */
+  var t=tpiAll(m)[tpiAll(m).length-1]||{};
+  var lastIpi=ipiAll(m)[ipiAll(m).length-1]||{};
+  var itp=itpAll(m)[0]||{};
+  var agency=t.agency||lastIpi.agency||'';
+  var inspector=t.inspector||lastIpi.inspector||'';
+
   if(map.mat)setIf(map.mat,matRef(m));
   if(map.matRaw){var e=document.getElementById(map.matRaw);if(e&&!e.value){e.value=matRef(m);n++;
     var q=document.getElementById('fat-mat-q');if(q&&!q.value)q.value=m.name+(m.aconex?'  ·  '+m.aconex:'');}}
@@ -5957,6 +5972,15 @@ window.pasteApply=function(ovId){
   if(map.materialPlain)setIf(map.materialPlain,m.name);
   if(map.mfr)setIf(map.mfr,m.mfr||m.company);
   if(map.cat)setIf(map.cat,(m.catCor||m.catSub));
+  if(map.country)setIf(map.country,m.mfrCountry);
+  if(map.agency)setIf(map.agency,agency);
+  if(map.agencyPlain)setIf(map.agencyPlain,agency);
+  if(map.inspector)setIf(map.inspector,inspector);
+  if(map.itpNo)setIf(map.itpNo,itp.no);
+  if(map.mirPick){
+    var q2=mirAll(m)[0];
+    if(q2&&q2.id)setIf(map.mirPick,String(q2.id));
+  }
   if(map.matList==='pid'&&PID_MATS.indexOf(matRef(m))<0){PID_MATS.push(matRef(m));renderPidChips();n++;}
   if(map.matList==='post'&&POST_MATS.indexOf(matRef(m))<0){POST_MATS.push(matRef(m));renderPostChips();n++;}
   if(map.matList==='mir'&&MIR_REFS.indexOf(matRef(m))<0){addMirRef(matRef(m));n++;}
