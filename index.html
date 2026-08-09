@@ -17,6 +17,9 @@
 :root{
   --bg:#15171a; --sf-0:#1a1d21; --sf-1:#1c1f23; --sf-2:#23272c; --sf-3:#2a2f35;
   --line:#2e333a; --line-2:#3d444d; --line-3:#4a5158;
+  /* the sidebar is tinted rather than coloured: enough to set it apart
+     from the working area, not enough to compete with a status stamp */
+  --sb-bg:#1a1922; --sb-line:#2f2c3d; --sb-hover:#26243180;
   --t-1:#e7e9ec; --t-2:#98a0a9; --t-3:#6b7480; --t-4:#5f6873;
 
   /* the only four status tones in the system */
@@ -36,24 +39,26 @@ a{color:inherit}
 
 /* ---------------- sidebar ---------------- */
 /* the sidebar carries long section names, so its width is yours to set */
-.sb{width:var(--sb-w,198px);flex-shrink:0;background:var(--sf-0);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow-y:auto;position:relative}
+.sb{width:var(--sb-w,238px);flex-shrink:0;background:var(--sb-bg);border-right:1px solid var(--sb-line);display:flex;flex-direction:column;overflow-y:auto;position:relative}
 .sb-grip{position:absolute;top:0;right:-3px;bottom:0;width:7px;cursor:col-resize;z-index:40}
 .sb-grip::after{content:"";position:absolute;left:3px;top:0;bottom:0;width:1px;background:transparent;transition:background .12s}
 .sb-grip:hover::after,.sb-grip.on::after{background:var(--line-3)}
 body.sb-dragging{cursor:col-resize;user-select:none}
-.ni span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sb-head{padding:16px 16px 15px;border-bottom:1px solid var(--line);flex-shrink:0}
+.ni>span:not(.ni-n){flex:1;min-width:0}
+.ni svg{margin-top:1px}
+.ni-n{align-self:flex-start;margin-top:1px}
+.sb-head{padding:16px 16px 15px;border-bottom:1px solid var(--sb-line);flex-shrink:0}
 .sb-name{font-size:16px;font-weight:500;letter-spacing:.02em}
 .sb-proj{font-family:var(--mono);font-size:11px;color:var(--t-3);margin-top:4px;word-break:break-word}
 .sb-save{font-family:var(--mono);font-size:10px;color:var(--t-4);margin-top:7px}
 .grp{padding:14px 9px 4px}
 .grp-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.09em;color:var(--t-4);padding:0 7px 8px}
-.ni{display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:var(--r);font-size:13.5px;color:var(--t-2);cursor:pointer;user-select:none;transition:background var(--fast),color var(--fast)}
-.ni:hover{background:var(--sf-2);color:var(--t-1)}
-.ni.on{background:var(--sf-2);color:var(--t-1)}
+.ni{display:flex;align-items:flex-start;gap:10px;padding:8px 9px;border-radius:var(--r);font-size:13px;line-height:1.35;color:var(--t-2);cursor:pointer;user-select:none;transition:background var(--fast),color var(--fast)}
+.ni:hover{background:#262431;color:var(--t-1)}
+.ni.on{background:#2d2a3b;color:var(--t-1)}
 .ni svg{width:17px;height:17px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .ni-n{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--t-3)}
-.sb-foot{margin-top:auto;padding:12px 16px;border-top:1px solid var(--line);font-family:var(--mono);font-size:10px;color:var(--t-4);line-height:1.7}
+.sb-foot{margin-top:auto;padding:12px 16px;border-top:1px solid var(--sb-line);font-family:var(--mono);font-size:10px;color:var(--t-4);line-height:1.7}
 
 /* ---------------- main ---------------- */
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
@@ -437,18 +442,18 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
       <div class="ni" data-p="pa" onclick="goTo('pa',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/><circle cx="6" cy="8" r="1"/></svg><span>Physical assessment</span><span class="ni-n" id="nb-pa">0</span></div>
       <div class="ni" data-p="mat" onclick="goTo('mat',this)"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></svg><span>Material submittal</span><span class="ni-n" id="nb-mat">0</span></div>
       <div class="ni" data-p="pid" onclick="goTo('pid',this)"><svg viewBox="0 0 24 24"><path d="M4 4h11l5 5v11a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5M8 13h8M8 17h5"/></svg><span>Pre-inspection dossier</span><span class="ni-n" id="nb-pid">0</span></div>
-      <div class="ni" data-p="tpi" onclick="goTo('tpi',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/><path d="M17 3l2 2 3-3"/></svg><span>TPI assignment</span><span class="ni-n" id="nb-tpi">0</span></div>
+      <div class="ni" data-p="tpi" onclick="goTo('tpi',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/><path d="M17 3l2 2 3-3"/></svg><span>Third-party inspection assignment</span><span class="ni-n" id="nb-tpi">0</span></div>
       <div class="ni" data-p="pfm" onclick="goTo('pfm',this)"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg><span>Pre-fabrication meeting</span><span class="ni-n" id="nb-pfm">0</span></div>
-      <div class="ni" data-p="itp" onclick="goTo('itp',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><rect x="3" y="5" width="11" height="14" rx="2"/><path d="M6 9h5M6 13h3"/></svg><span>ITP</span><span class="ni-n" id="nb-itp">0</span></div>
-      <div class="ni" data-p="fatproc" onclick="goTo('fatproc',this)"><svg viewBox="0 0 24 24"><path d="M4 4h11l5 5v11a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5M8 14h8M8 17h5"/><circle cx="9" cy="10" r="1"/></svg><span>FAT procedure</span><span class="ni-n" id="nb-fatproc">0</span></div>
+      <div class="ni" data-p="itp" onclick="goTo('itp',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><rect x="3" y="5" width="11" height="14" rx="2"/><path d="M6 9h5M6 13h3"/></svg><span>Inspection and test plan</span><span class="ni-n" id="nb-itp">0</span></div>
+      <div class="ni" data-p="fatproc" onclick="goTo('fatproc',this)"><svg viewBox="0 0 24 24"><path d="M4 4h11l5 5v11a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5M8 14h8M8 17h5"/><circle cx="9" cy="10" r="1"/></svg><span>Factory acceptance test procedure</span><span class="ni-n" id="nb-fatproc">0</span></div>
       <div class="ni" data-p="ipi" onclick="goTo('ipi',this)"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg><span>In-process inspection</span><span class="ni-n" id="nb-ipi">0</span></div>
-      <div class="ni" data-p="fat" onclick="goTo('fat',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L21 5"/><path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h10"/></svg><span>FAT / final inspection</span><span class="ni-n" id="nb-fat">0</span></div>
-      <div class="ni" data-p="fatrep" onclick="goTo('fatrep',this)"><svg viewBox="0 0 24 24"><path d="M4 4h11l5 5v11a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5"/><path d="M8 15l2 2 4-4"/></svg><span>FAT report</span><span class="ni-n" id="nb-fatrep">0</span></div>
+      <div class="ni" data-p="fat" onclick="goTo('fat',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L21 5"/><path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h10"/></svg><span>Factory acceptance test and final inspection</span><span class="ni-n" id="nb-fat">0</span></div>
+      <div class="ni" data-p="fatrep" onclick="goTo('fatrep',this)"><svg viewBox="0 0 24 24"><path d="M4 4h11l5 5v11a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5"/><path d="M8 15l2 2 4-4"/></svg><span>Factory acceptance test report</span><span class="ni-n" id="nb-fatrep">0</span></div>
       <div class="ni" data-p="ir" onclick="goTo('ir',this)"><svg viewBox="0 0 24 24"><path d="M4 4h11l5 5v11a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5M8 13h8M8 17h5"/><path d="M9 9h2"/></svg><span>Inspection report</span><span class="ni-n" id="nb-ir">0</span></div>
       <div class="ni" data-p="mir" onclick="goTo('mir',this)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3M8 11h6M11 8v6"/></svg><span>Material inspection</span><span class="ni-n" id="nb-mir">0</span></div>
       <div class="ni" data-p="irn" onclick="goTo('irn',this)"><svg viewBox="0 0 24 24"><path d="M4 4h16v5H4z"/><path d="M6 9v11h12V9"/><path d="M10 13h4"/></svg><span>Inspection release note</span><span class="ni-n" id="nb-irn">0</span></div>
       <div class="ni" data-p="post" onclick="goTo('post',this)"><svg viewBox="0 0 24 24"><path d="M4 4h11l5 5v11a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5"/><path d="M9 15l2 2 4-4"/></svg><span>Post-inspection dossier</span><span class="ni-n" id="nb-post">0</span></div>
-      <div class="ni" data-p="items" onclick="goTo('items',this)"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 11h18M8 7V4h8v3"/></svg><span>Line items</span><span class="ni-n" id="nb-items">0</span></div>
+      <div class="ni" data-p="items" onclick="goTo('items',this)"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 11h18M8 7V4h8v3"/></svg><span>Bill of quantities</span><span class="ni-n" id="nb-items">0</span></div>
       <div class="ni" data-p="deliv" onclick="goTo('deliv',this)"><svg viewBox="0 0 24 24"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span>Deliveries</span><span class="ni-n" id="nb-deliv">0</span></div>
       <div class="ni" data-p="dlog" onclick="goTo('dlog',this)"><svg viewBox="0 0 24 24"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span>Delivery log</span></div>
     </div>
@@ -1050,7 +1055,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 <!-- ===================== LINE ITEM MODAL ===================== -->
 <div class="ov" id="ov-items">
  <div class="modal" style="max-width:520px">
-  <div class="m-head"><h2 id="items-title">Line item</h2><button class="ib" onclick="closeITM()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="m-head"><h2 id="items-title">Bill of quantities</h2><button class="ib" onclick="closeITM()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
   <div class="m-body"><input type="hidden" id="li-eid">
    <span class="m-sec">ITEM</span>
    <div class="fg">
@@ -1176,7 +1181,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 <!-- ===================== FAT PROCEDURE MODAL ===================== -->
 <div class="ov" id="ov-fatproc">
  <div class="modal" style="max-width:560px">
-  <div class="m-head"><h2 id="fatproc-title">FAT procedure</h2><button class="ib" onclick="closeFPR()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="m-head"><h2 id="fatproc-title">Factory acceptance test procedure</h2><button class="ib" onclick="closeFPR()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
   <div class="m-body"><input type="hidden" id="fp-eid">
    <div class="paste" id="ov-fatproc-paste">
      <input class="paste-in" id="ov-fatproc-paste-in" placeholder="Paste any Aconex reference here — the system finds what it belongs to" autocomplete="off" oninput="pasteRef('ov-fatproc')">
@@ -1238,7 +1243,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 <!-- ===================== FAT REPORT MODAL ===================== -->
 <div class="ov" id="ov-fatrep">
  <div class="modal" style="max-width:560px">
-  <div class="m-head"><h2 id="fatrep-title">FAT report</h2><button class="ib" onclick="closeFR()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+  <div class="m-head"><h2 id="fatrep-title">Factory acceptance test report</h2><button class="ib" onclick="closeFR()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
   <div class="m-body"><input type="hidden" id="fr-eid">
    <div class="paste" id="ov-fatrep-paste">
      <input class="paste-in" id="ov-fatrep-paste-in" placeholder="Paste any Aconex reference here — the system finds what it belongs to" autocomplete="off" oninput="pasteRef('ov-fatrep')">
@@ -1908,8 +1913,8 @@ function flagFor(u){return u>=80?'<span class="flag f-bad"></span>':(u>=24?'<spa
    3. NAVIGATION AND PER-PAGE TOOLBARS
    ================================================================ */
 var PAGES=['imp','find','dash','trace','pqd','pa','mat','pid','tpi','pfm','itp','fatproc','ipi','fat','fatrep','ir','mir','irn','post','items','deliv','dlog','insp','avl','comp','proc','chk','pasum','rpt','cal','admin'];
-var TITLES={imp:'Import',find:'Search',dash:'Dashboard',trace:'Traceability',pqd:'Pre-qualification',pa:'Physical assessment',mat:'Material submittal',pid:'Pre-inspection dossier',tpi:'Third-party inspection assignment',pfm:'Pre-fabrication meeting',itp:'Inspection and test plan',fatproc:'FAT procedure',ipi:'In-process inspection',fatrep:'FAT report',ir:'Inspection report',fat:'FAT and final inspection',mir:'Material inspection request',irn:'Inspection release note',post:'Post-inspection dossier',items:'Line items',deliv:'Deliveries',dlog:'Material delivery log',insp:'Approved inspectors',avl:'Approved vendor list',comp:'Components and category',proc:'Procedure',chk:'Document review',pasum:'Physical assessment',rpt:'Reports',cal:'Calendar',admin:'Admin'};
-var ADD_LABEL={pqd:'New vendor',pa:'Schedule assessment',mat:'New submittal',pid:'New dossier',tpi:'New assignment',pfm:'New meeting',itp:'New ITP',fatproc:'New procedure',ipi:'New visit',fatrep:'New FAT report',ir:'New report',fat:'New FAT item',mir:'New inspection request',irn:'New release note',post:'New dossier',items:'New item',deliv:'Record a delivery',insp:'New inspector',chk:'New review',cal:'New event'};
+var TITLES={imp:'Import',find:'Search',dash:'Dashboard',trace:'Traceability',pqd:'Pre-qualification',pa:'Physical assessment',mat:'Material submittal',pid:'Pre-inspection dossier',tpi:'Third-party inspection assignment',pfm:'Pre-fabrication meeting',itp:'Inspection and test plan',fatproc:'Factory acceptance test procedure',ipi:'In-process inspection',fatrep:'Factory acceptance test report',ir:'Inspection report',fat:'Factory acceptance test and final inspection',mir:'Material inspection request',irn:'Inspection release note',post:'Post-inspection dossier',items:'Bill of quantities',deliv:'Deliveries',dlog:'Material delivery log',insp:'Approved inspectors',avl:'Approved vendor list',comp:'Components and category',proc:'Procedure',chk:'Document review',pasum:'Physical assessment',rpt:'Reports',cal:'Calendar',admin:'Admin'};
+var ADD_LABEL={pqd:'New vendor',pa:'Schedule assessment',mat:'New submittal',pid:'New dossier',tpi:'New assignment',pfm:'New meeting',itp:'New ITP',fatproc:'New procedure',ipi:'New visit',fatrep:'New FAT report',ir:'New report',fat:'New FAT item',mir:'New inspection request',irn:'New release note',post:'New dossier',items:'New line',deliv:'Record a delivery',insp:'New inspector',chk:'New review',cal:'New event'};
 var PA_VIEW='pipeline', paFilterVal='open';
 var pidFilterVal='open', PID_MATS=[];
 var traceOnlyGaps=false;
@@ -4321,7 +4326,7 @@ crud({key:'ITP',prefix:'n',ov:'itp',table:'itp',titleId:'itp-title',
   }});
 
 crud({key:'FPR',prefix:'fp',ov:'fatproc',table:'fatproc',titleId:'fatproc-title',
-  newTitle:'FAT procedure',
+  newTitle:'Factory acceptance test procedure',
   editTitle:function(m){return 'FAT procedure'+(m.no?' '+m.no:'');},
   fields:['no','rev','title','mat','vendor','date','status','ref','notes'],
   picks:['fp-mat','fp-vendor'],hints:['fp-mat'],
@@ -4369,7 +4374,7 @@ crud({key:'IPI',prefix:'ip',ov:'ipi',table:'ipi',titleId:'ipi-title',
   }});
 
 crud({key:'FR',prefix:'fr',ov:'fatrep',table:'fatrep',titleId:'fatrep-title',
-  newTitle:'FAT report',
+  newTitle:'Factory acceptance test report',
   editTitle:function(m){return 'FAT report'+(m.no?' '+m.no:'');},
   fields:['no','date','mat','agency','inspector','result','status','issued','ref','notes'],
   picks:['fr-mat','fr-agency'],hints:['fr-mat'],
@@ -4473,7 +4478,7 @@ window.itemsFilter=function(v){itemsOpenOnly=v;goTo('items');};
 
 window.openITM=function(){
   document.getElementById('li-eid').value='';
-  document.getElementById('items-title').textContent='Line item';
+  document.getElementById('items-title').textContent='Bill of quantities';
   pickClear('li-mat');
   document.getElementById('ov-items').classList.add('on');
 };
@@ -6297,7 +6302,7 @@ var RB_SOURCES={
       ['mats','Materials',0,function(d){return (d.mats||[]).map(function(r){return refLabelFor(r).name;}).join('; ');}],['notes','Notes',0]],
     filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
 
-  tpi:{label:'TPI assignments',rows:function(){return (DB.tpi||[]).slice();},
+  tpi:{label:'Third-party inspection assignments',rows:function(){return (DB.tpi||[]).slice();},
     cols:[['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
       ['agency','Agency',1],['inspector','Inspector',1],
       ['status','Status',1],['notes','Notes',0]],
@@ -6316,7 +6321,7 @@ var RB_SOURCES={
       ['vendor','Vendor',1],['type','Type',1],['date','Submitted',1],['status','Status',1],['ref','Aconex reference',0],['notes','Notes',0]],
     filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
 
-  fatproc:{label:'FAT procedures',rows:function(){return (DB.fatproc||[]).slice();},
+  fatproc:{label:'Factory acceptance test procedures',rows:function(){return (DB.fatproc||[]).slice();},
     cols:[['no','Procedure no.',1],['title','Title',1],['rev','Revision',1],
       ['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
       ['vendor','Vendor',1],['date','Submitted',1],['status','Status',1],
@@ -6330,7 +6335,7 @@ var RB_SOURCES={
       ['result','Result',1],['ref','Aconex reference',1],['notes','Notes',0]],
     filters:[['result','Result',['Pending','Pass','Pass with comments','Failed']]]},
 
-  fatrep:{label:'FAT reports',rows:function(){return (DB.fatrep||[]).slice();},
+  fatrep:{label:'Factory acceptance test reports',rows:function(){return (DB.fatrep||[]).slice();},
     cols:[['no','Report no.',1],['date','Test date',1],
       ['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
       ['agency','Agency',1],['inspector','Inspector',1],['result','Result',1],['status','Report status',1],
@@ -6344,7 +6349,7 @@ var RB_SOURCES={
       ['ref','Aconex reference',1],['notes','Notes',0]],
     filters:[['result','Result',['Pending','Pass','Pass with comments','Failed']]]},
 
-  fat:{label:'FAT and final inspection',rows:function(){return (DB.fat||[]).slice();},
+  fat:{label:'Factory acceptance test and final inspection',rows:function(){return (DB.fat||[]).slice();},
     cols:[['material','Material',1],['mfr','Manufacturer',1],['cat','Category',1],['loc','Location',1],
       ['addr','Address',0],['tpia','TPIA agency',1],['inspector','Inspector',1],['approval','TPIA approval',0],
       ['prefab','Pre-fabrication',1],['fab','Fabrication',1],['fatDate','FAT date',1],['delivery','First delivery',1],
@@ -7080,7 +7085,7 @@ function sbWaitForLib(tries){
 }
 /* width is remembered per browser, and a double-click puts it back */
 (function(){
-  var MIN=150, MAX=420, DEF=198;
+  var MIN=170, MAX=460, DEF=238;
   function setW(w){
     w=Math.max(MIN,Math.min(MAX,Math.round(w)));
     document.documentElement.style.setProperty('--sb-w',w+'px');
