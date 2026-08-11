@@ -519,33 +519,6 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 
       <!-- ============ IMPORT ============ -->
       <div id="pg-imp" style="display:none"><div class="wrap">
-        <div class="panel"><div class="panel-h">Import a tracker</div><div class="panel-b">
-          <div class="dim" style="font-size:12.5px;line-height:1.7;margin-bottom:14px">
-            Reads a C3 tracker workbook and spreads each row across the sections it belongs to —
-            the material, its dossier, meeting, ITP, FAT procedure, TPI assignment, reports,
-            inspection request, release note and post-inspection dossier.
-            Nothing is written until you have seen what it will do.
-          </div>
-          <input type="file" id="imp-file" accept=".xlsx" style="display:none" onchange="impRead(event)">
-          <button class="btn" onclick="document.getElementById('imp-file').click()">Choose a workbook</button>
-          <span class="dim" id="imp-name" style="margin-left:10px;font-size:12px"></span>
-        </div></div>
-        <div id="imp-out"></div>
-
-        <div class="panel"><div class="panel-h">Import from the Aconex document log</div><div class="panel-b">
-          <div class="dim" style="font-size:12.5px;line-height:1.7;margin-bottom:14px">
-            Reads the document register exported from Aconex and keeps only what belongs here.
-            The reference code routes each document — PRQ to vendors, MAT to submittals, MIR to
-            inspection requests, ITP to test plans — the category is read out of the title, and
-            an inspection request is matched to the submittal it names.
-            Select the log and the vendor export together.
-          </div>
-          <input type="file" id="acx-file" accept=".xlsx" multiple style="display:none" onchange="acxRead(event)">
-          <button class="btn btn-p" onclick="document.getElementById('acx-file').click()">Choose the Aconex files</button>
-          <span class="dim" id="acx-name" style="margin-left:10px;font-size:12px"></span>
-        </div></div>
-        <div id="acx-out"></div>
-
         <div class="panel"><div class="panel-h">Edit in a spreadsheet</div><div class="panel-b">
           <div class="dim" style="font-size:12.5px;line-height:1.7;margin-bottom:14px">
             Export any section as a plain sheet, edit it in Excel, then bring it back here.
@@ -6888,590 +6861,6 @@ window.runRB=function(mode){
 };
 
 /* ================================================================
-   IMPORT
-   A tracker row is one line in a spreadsheet but many records here.
-   The reader unzips the workbook itself — fflate is already loaded for
-   the exports — then every row is turned into a plan you can inspect
-   before a single record is written.
-   ================================================================ */
-function xlsxRead(buf){
-  var files=fflate.unzipSync(new Uint8Array(buf));
-  var dec=function(name){return fflate.strFromU8(files[name]);};
-  var parse=function(txt){return new DOMParser().parseFromString(txt,'application/xml');};
-  var shared=[];
-  if(files['xl/sharedStrings.xml']){
-    var sd=parse(dec('xl/sharedStrings.xml'));
-    Array.prototype.forEach.call(sd.getElementsByTagName('si'),function(si){
-      var t='';
-      Array.prototype.forEach.call(si.getElementsByTagName('t'),function(x){t+=x.textContent;});
-      shared.push(t);
-    });
-  }
-  var sheetName=Object.keys(files).filter(function(n){return /^xl\/worksheets\/sheet\d+\.xml$/.test(n);}).sort()[0];
-  if(!sheetName)throw new Error('No sheet found in that workbook');
-  var doc=parse(dec(sheetName));
-  var rows=[];
-  Array.prototype.forEach.call(doc.getElementsByTagName('row'),function(r){
-    var cells=[];
-    Array.prototype.forEach.call(r.getElementsByTagName('c'),function(c){
-      var ref=c.getAttribute('r')||'', col=0, m=ref.match(/^([A-Z]+)/);
-      if(m){for(var i=0;i<m[1].length;i++)col=col*26+(m[1].charCodeAt(i)-64);}
-      var t=c.getAttribute('t'), v='';
-      if(t==='inlineStr'){
-        var is=c.getElementsByTagName('t');
-        for(var k=0;k<is.length;k++)v+=is[k].textContent;
-      }else{
-        var vv=c.getElementsByTagName('v')[0];
-        v=vv?vv.textContent:'';
-        if(t==='s')v=shared[+v]||'';
-      }
-      cells[col-1]=v;
-    });
-    rows.push(cells);
-  });
-  return rows;
-}
-/* Excel keeps dates as a day count from 1900 */
-function xlDate(v){
-  var n=parseFloat(v);
-  if(!isFinite(n)||n<20000||n>80000)return '';
-  var d=new Date(Date.UTC(1899,11,30)+n*86400000);
-  return ymd(new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()));
-}
-var IMP_STATUS={
-  'submitted':'Submitted','approved':'Approved','pending':'Pending','n/a':'N/A','na':'N/A',
-  'code a':'Approved - A','code b':'Approved - B','code c':'Code C','rejected':'Rejected',
-  'reviewed only with comments':'Approved with Comments','approved with comments':'Approved with Comments',
-  'complated':'Done','completed':'Done','done':'Done','received':'Approved','yes':'Approved','no':'Pending',
-  'in process':'Submitted','not scheduled':'Not Scheduled','scheduled':'Scheduled'
-};
-function impStatus(v,dflt){
-  var t=String(v==null?'':v).trim().toLowerCase().replace(/\s+/g,' ');
-  if(!t)return dflt||'';
-  if(IMP_STATUS[t])return IMP_STATUS[t];
-  for(var k in IMP_STATUS)if(t.indexOf(k)>=0)return IMP_STATUS[k];
-  return dflt||'';
-}
-function impRefs(v){
-  var t=String(v==null?'':v);
-  var out=t.match(/[A-Z0-9]{4,}(?:-[A-Z0-9]+){3,}/g)||[];
-  return out.map(function(x){return x.trim();});
-}
-function impClean(v){
-  var t=String(v==null?'':v).replace(/\s+/g,' ').trim();
-  return (t.toLowerCase()==='n/a'||t.toLowerCase()==='na')?'':t;
-}
-/* the column layout of the C3 tracker, by its two-row header */
-var IMP_COLS={sr:1,name:2,note:3,mfr:4,cat:5,tpiName:6,tpiStatus:7,itpRecv:8,itpRecvStatus:9,
-  pidNo:10,pidStatus:11,pidRef:12,pimDate:13,pimStatus:14,fprStatus:15,fprRef:16,fprReview:17,
-  itpSub:18,itpRef:19,itpStatus:20,mom:21,ir:22,irn:23,mir:24,post:25,current:26};
-function impPlan(rows){
-  var plan={rows:[],counts:{}}, add=function(k){plan.counts[k]=(plan.counts[k]||0)+1;};
-  for(var r=2;r<rows.length;r++){
-    var g=function(c){return rows[r]?rows[r][IMP_COLS[c]-1]:'';};
-    var name=impClean(g('name'));
-    if(!name)continue;
-    /* two rows can carry the same material name from different makers —
-       HDPE appears twice in this tracker — so identity is name plus maker */
-    var mfr=impClean(g('mfr'));
-    var existing=matRecords().find(function(m){
-      return nameKey(m.name)===nameKey(name)&&nameKey(m.mfr||m.company)===nameKey(mfr);
-    });
-    var cat=impClean(g('cat'))||'';
-    var row={name:name,existing:!!existing,cat:cat,mfr:mfr,make:[]};
-
-    row.make.push({reg:'mat',label:'Material submittal',
-      rec:{name:name,mfr:impClean(g('mfr')),catSub:cat,catCor:cat,company:impClean(g('mfr')),
-           notes:impClean(g('current'))||impClean(g('note'))}});
-    add('mat');
-
-    var pidRef=impRefs(g('pidRef'))[0]||'';
-    var pidNo=impClean(g('pidNo'));
-    if(pidRef||pidNo){
-      row.make.push({reg:'dossiers',label:'Pre-inspection dossier',
-        rec:{no:pidNo,ref:pidRef,status:impStatus(g('pidStatus'),'Pending'),vendor:impClean(g('mfr'))}});
-      add('dossiers');
-    }
-    var pimStatus=impStatus(g('pimStatus'),''), pimDate=xlDate(g('pimDate'));
-    if(pimStatus||pimDate){
-      row.make.push({reg:'pfm',label:'Pre-fabrication meeting',
-        rec:{subject:'Pre-fabrication meeting — '+name,date:pimDate,
-             status:(pimStatus==='Done'?'Done':(pimStatus||'Not Scheduled')),
-             mom:impStatus(g('mom'),'N/A'),vendor:impClean(g('mfr'))}});
-      add('pfm');
-    }
-    var itpRef=impRefs(g('itpRef'))[0]||'';
-    if(itpRef||impClean(g('itpStatus'))){
-      row.make.push({reg:'itp',label:'ITP',
-        rec:{title:'Inspection and test plan — '+name,ref:itpRef,
-             status:impStatus(g('itpStatus'),impStatus(g('itpSub'),'Pending')),vendor:impClean(g('mfr'))}});
-      add('itp');
-    }
-    var fprRef=impRefs(g('fprRef'))[0]||'';
-    if(fprRef||impClean(g('fprStatus'))){
-      row.make.push({reg:'fatproc',label:'FAT procedure',
-        rec:{title:'FAT procedure — '+name,ref:fprRef,
-             status:impStatus(g('fprReview'),impStatus(g('fprStatus'),'Pending')),vendor:impClean(g('mfr'))}});
-      add('fatproc');
-    }
-    var insp=impClean(g('tpiName'));
-    if(insp){
-      row.make.push({reg:'tpi',label:'TPI assignment',
-        rec:{inspector:insp,status:impStatus(g('tpiStatus'),'Pending')}});
-      add('tpi');
-    }
-    impRefs(g('ir')).forEach(function(ref,i){
-      row.make.push({reg:'ir',label:'Inspection report',
-        rec:{no:ref.split('-').pop(),ref:ref,status:impStatus(g('ir'),'Submitted'),result:'Pending',
-             type:'Final inspection'}});
-      add('ir');
-    });
-    if(impClean(g('irn'))){
-      row.make.push({reg:'irn',label:'Release note',
-        rec:{no:'',ref:'',status:impStatus(g('irn'),'Issued'),material:name,sent:'Pending'}});
-      add('irn');
-    }
-    impRefs(g('mir')).forEach(function(ref){
-      row.make.push({reg:'mir',label:'Inspection request',
-        rec:{name:name,num:ref.split('-').slice(-2).join('-'),aconex:ref,status:'Submitted',cat:cat,
-             company:impClean(g('mfr'))}});
-      add('mir');
-    });
-    impRefs(g('post')).forEach(function(ref){
-      row.make.push({reg:'postdoss',label:'Post-inspection dossier',
-        rec:{no:'',ref:ref,title:'Post-inspection dossier — '+name,status:'Submitted',vendor:impClean(g('mfr'))}});
-      add('postdoss');
-    });
-    plan.rows.push(row);
-  }
-  return plan;
-}
-/* ================================================================
-   ACONEX LOG IMPORT
-   The document register exported from Aconex is the whole project, so
-   most of it is irrelevant here. The reference itself says what each
-   document is — PRQ, MAT, MIR, ITP — and that code is what routes a row
-   to its section. Vendor names come from the companion vendor export;
-   the category is read out of the title, where it is written in words.
-   ================================================================ */
-var ACX_CODE={PRQ:'pqd',MAT:'mat',MIR:'mir',ITP:'itp'};
-var ACX_LABEL={pqd:'Vendors',mat:'Material submittals',mir:'Inspection requests',itp:'Inspection and test plans'};
-/* the disciplines are kept as Aconex writes them, only tidied */
-var ACX_DISC={'Architectural':'Architectural','Electrical':'Electrical','Mechanical':'Mechanical',
-  'HVAC':'HVAC','Plumbing Works':'Plumbing','Civil Works (Concrete)':'Civil',
-  'Structural, Concrete and Steel':'Structural','Fire Protection':'Fire Protection',
-  'Electronic Services/ELV':'ELV','General MEP':'General MEP','Landscape':'Landscape',
-  'Theming':'Theming','Infrastructure':'Infrastructure'};
-var ACX_CAT=/\(?\s*categor(?:y|ies)\s*[:\-]?\s*([0-3])\s*\)?|\bcat\s*[:\-]?\s*([0-3])\b|\bC\s?([0-3])\b/i;
-function acxCat(t){
-  var m=ACX_CAT.exec(String(t||''));
-  if(!m)return '';
-  return 'C'+(m[1]||m[2]||m[3]);
-}
-function acxCode(ref){
-  var m=String(ref||'').toUpperCase().match(/-([A-Z]{2,4})-\d{3,}/);
-  return m?m[1]:'';
-}
-/* a title carries the material name inside project boilerplate */
-var ACX_STOP=('p4 makkah material submittal inspection request mir mat prq for the and of category '
-  +'all zone part with to a an on in by from prequalification pre qualification supplier subcontractor').split(' ');
-function acxTokens(t){
-  var out={};
-  String(t||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).forEach(function(w){
-    if(w.length>2&&ACX_STOP.indexOf(w)<0)out[w]=1;
-  });
-  return out;
-}
-function acxOverlap(a,b){
-  var ka=Object.keys(a), kb=Object.keys(b);
-  if(!ka.length||!kb.length)return 0;
-  var n=0;
-  ka.forEach(function(w){if(b[w])n++;});
-  return n/Math.min(ka.length,kb.length);
-}
-function acxTidy(t){
-  return String(t||'')
-    .replace(/^\s*P4\s*[-–]?\s*Makkah\s*[-–:]?\s*/i,'')
-    .replace(/\s*[-–]?\s*\(?\s*categor(?:y|ies)\s*[:\-]?\s*[0-3]\s*\)?\s*$/i,'')
-    .replace(/\s+/g,' ').trim();
-}
-var ACX=null;
-window.acxRead=function(ev){
-  var files=ev.target.files;
-  if(!files||!files.length)return;
-  if(!(window.fflate&&fflate.unzipSync))return alert('The reader is still loading. Try again in a moment.');
-  ACX={log:null,vendors:null,names:{}};
-  var pending=files.length;
-  document.getElementById('acx-name').textContent=[].map.call(files,function(f){return f.name;}).join('  ·  ');
-  [].forEach.call(files,function(f){
-    var fr=new FileReader();
-    fr.onload=function(e){
-      try{acxTake(f.name,e.target.result);}catch(err){console.error(f.name,err);}
-      if(--pending===0)acxBuild();
-    };
-    fr.readAsArrayBuffer(f);
-  });
-  ev.target.value='';
-};
-/* read every sheet, then decide which is which by its headings */
-function acxTake(name,buf){
-  var files=fflate.unzipSync(new Uint8Array(buf));
-  var parse=function(t){return new DOMParser().parseFromString(t,'application/xml');};
-  var shared=[];
-  if(files['xl/sharedStrings.xml']){
-    Array.prototype.forEach.call(parse(fflate.strFromU8(files['xl/sharedStrings.xml'])).getElementsByTagName('si'),function(si){
-      var t='';Array.prototype.forEach.call(si.getElementsByTagName('t'),function(x){t+=x.textContent;});
-      shared.push(t);
-    });
-  }
-  var sheetNames=Object.keys(files).filter(function(n){return /^xl\/worksheets\/sheet\d+\.xml$/.test(n);}).sort();
-  sheetNames.forEach(function(sn){
-    var doc=parse(fflate.strFromU8(files[sn])), rows=[];
-    Array.prototype.forEach.call(doc.getElementsByTagName('row'),function(r){
-      var cells=[];
-      Array.prototype.forEach.call(r.getElementsByTagName('c'),function(c){
-        var ref=c.getAttribute('r')||'', col=0, m=ref.match(/^([A-Z]+)/);
-        if(m){for(var i=0;i<m[1].length;i++)col=col*26+(m[1].charCodeAt(i)-64);}
-        var t=c.getAttribute('t'), v='';
-        if(t==='inlineStr'){
-          var is=c.getElementsByTagName('t');
-          for(var k=0;k<is.length;k++)v+=is[k].textContent;
-        }else{
-          var vv=c.getElementsByTagName('v')[0];
-          v=vv?vv.textContent:'';
-          if(t==='s')v=shared[+v]||'';
-        }
-        cells[col-1]=v;
-      });
-      rows.push(cells);
-      if(rows.length>40000)throw new Error('sheet too large');
-    });
-    if(rows.length<2)return;
-    var head=(rows[0]||[]).map(function(x){return String(x||'').toLowerCase().trim();});
-    var has=function(w){return head.some(function(h){return h.indexOf(w)>=0;});};
-    if(has('document no')&&has('vendor name')&&!ACX.vendors)ACX.vendors=rows;
-    else if(has('document no')&&has('document type')&&!ACX.log)ACX.log=rows;
-    else if(has('vendor name')&&head.length<=3){
-      rows.slice(1).forEach(function(r){
-        if(r[0])ACX.names[String(r[0]).trim().toLowerCase()]={name:String(r[0]).trim(),loc:String(r[1]||'').trim()};
-      });
-    }
-  });
-}
-function acxCol(head,want){
-  for(var i=0;i<head.length;i++){
-    var h=String(head[i]||'').toLowerCase();
-    for(var j=0;j<want.length;j++)if(h.indexOf(want[j])>=0)return i;
-  }
-  return -1;
-}
-function acxBuild(){
-  if(!ACX||!ACX.log){
-    document.getElementById('acx-out').innerHTML='<div class="panel"><div class="empty" style="color:var(--bad-t)">No document log found in those files. Upload the Aconex log export, and the vendor export beside it.</div></div>';
-    return;
-  }
-  /* vendor names, keyed by document reference */
-  var vmap={};
-  if(ACX.vendors){
-    var vh=ACX.vendors[0];
-    var ci={no:acxCol(vh,['document no']),v:acxCol(vh,['vendor name']),
-            lf:acxCol(vh,['local']),d:acxCol(vh,['discipline'])};
-    ACX.vendors.slice(1).forEach(function(r){
-      if(!r[ci.no])return;
-      vmap[String(r[ci.no]).trim().toUpperCase()]={
-        v:String(r[ci.v]||'').trim(),
-        lf:String(r[ci.lf]||'').trim(),
-        d:String(r[ci.d]||'').trim()};
-    });
-  }
-  var lh=ACX.log[0];
-  var li={date:acxCol(lh,['received','date']),no:acxCol(lh,['document no']),
-          ti:acxCol(lh,['title','description']),ty:acxCol(lh,['document type']),
-          d:acxCol(lh,['discipline'])};
-  /* one entry per reference, keeping the newest revision */
-  var uniq={};
-  ACX.log.slice(1).forEach(function(r){
-    var no=r[li.no];if(!no)return;
-    var code=acxCode(no);
-    if(!ACX_CODE[code])return;
-    var key=String(no).trim().toUpperCase();
-    var dt=r[li.date]?xlDate(r[li.date]):'';
-    var prev=uniq[key];
-    if(!prev||(dt&&dt>prev.date))uniq[key]={ref:String(no).trim(),code:code,date:dt,
-      title:String(r[li.ti]||'').trim(),disc:String(r[li.d]||'').trim()};
-  });
-  var all=Object.keys(uniq).map(function(k){return uniq[k];});
-  var plan={pqd:[],mat:[],mir:[],itp:[],counts:{},linked:0,unlinked:0};
-  all.forEach(function(x){
-    var vinfo=vmap[x.ref.toUpperCase()]||{};
-    x.vendor=vinfo.v||'';
-    x.origin=(vinfo.lf==='Local')?'Local':(vinfo.lf==='Foreign'?'Foreign':'');
-    x.disc=x.disc||vinfo.d||'';
-    x.cat=acxCat(x.title);
-    x.name=acxTidy(x.title);
-    plan[ACX_CODE[x.code]].push(x);
-  });
-  /* an inspection request names its material in the title, so it is
-     matched against submittals of the same discipline */
-  var matIdx=plan.mat.map(function(m){return {m:m,t:acxTokens(m.title)};});
-  plan.mir.forEach(function(q){
-    var qt=acxTokens(q.title), best=null, bs=0;
-    matIdx.forEach(function(x){
-      if(x.m.disc&&q.disc&&x.m.disc!==q.disc)return;
-      var sc=acxOverlap(qt,x.t);
-      if(sc>bs){bs=sc;best=x.m;}
-    });
-    if(best&&bs>=0.34){q.link=best;q.score=bs;plan.linked++;
-      if(!q.cat)q.cat=best.cat;}
-    else plan.unlinked++;
-  });
-  ['pqd','mat','mir','itp'].forEach(function(k){plan.counts[k]=plan[k].length;});
-  ACX.plan=plan;
-  renderAcxPlan();
-}
-function renderAcxPlan(){
-  var p=ACX.plan, out=document.getElementById('acx-out');
-  var withV=p.pqd.filter(function(x){return x.vendor;}).length;
-  var matV=p.mat.filter(function(x){return x.vendor;}).length;
-  var withC=p.mat.filter(function(x){return x.cat;}).length;
-  var h='<div class="sec-h"><span class="sec-t">What will be created</span>'
-    +'<span class="sec-s">read from the reference code on every document</span></div>';
-  h+='<div class="stats" style="padding:0 0 18px;border-bottom:1px solid var(--line);margin-bottom:18px">';
-  ['pqd','mat','mir','itp'].forEach(function(k){
-    h+='<div class="stat"><div class="stat-v">'+p.counts[k]+'</div><div class="stat-l">'+ACX_LABEL[k]+'</div></div>';
-  });
-  h+='</div>';
-  h+='<div class="panel"><div class="panel-b" style="font-size:12.5px;line-height:1.9">'
-    +'<div><span class="ref">'+withV+'</span> of '+p.counts.pqd+' vendors carry a name from the vendor export'
-    +(p.counts.pqd-withV?' <span class="dim">· the rest are named from their title</span>':'')+'</div>'
-    +'<div><span class="ref">'+matV+'</span> of '+p.counts.mat+' submittals are linked to a vendor</div>'
-    +'<div><span class="ref">'+withC+'</span> of '+p.counts.mat+' submittals have a category read from the title</div>'
-    +'<div><span class="ref">'+p.linked+'</span> of '+p.counts.mir+' inspection requests matched a submittal'
-    +(p.unlinked?' <span class="dim">· '+p.unlinked+' will be created without a link</span>':'')+'</div>'
-    +'</div></div>';
-  h+='<div class="sec-h"><span class="sec-t">A sample of the matching</span><span class="sec-s">check these before you commit</span></div>';
-  h+='<div class="panel"><div class="tw"><table><thead><tr>'
-    +'<th style="min-width:150px">REFERENCE</th><th style="min-width:260px">TITLE</th>'
-    +'<th>CAT</th><th style="min-width:170px">VENDOR</th><th style="min-width:230px">MATCHED SUBMITTAL</th>'
-    +'</tr></thead><tbody>';
-  var sample=p.mat.slice(0,6).concat(p.mir.slice(0,8));
-  sample.forEach(function(x){
-    h+='<tr><td><span class="ref">'+shortRef(x.ref)+'</span></td>'
-      +'<td><span class="nm" style="max-width:250px">'+x.name+'</span></td>'
-      +'<td>'+cB(x.cat)+'</td>'
-      +'<td><span class="nm" style="max-width:160px">'+(x.vendor||'<span class="dim">—</span>')+'</span></td>'
-      +'<td>'+(x.link?('<span class="nm" style="max-width:220px">'+x.link.name+'</span> <span class="ref">'+Math.round(x.score*100)+'%</span>')
-        :'<span class="dim">—</span>')+'</td></tr>';
-  });
-  h+='</tbody></table></div></div>';
-  h+='<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">'
-    +'<button class="btn btn-p" onclick="acxApply()">Create these records</button>'
-    +'<button class="btn" onclick="ACX=null;document.getElementById(\'acx-out\').innerHTML=\'\';document.getElementById(\'acx-name\').textContent=\'\';">Cancel</button>'
-    +'<span class="dim" style="font-size:11.5px">Existing references are updated, never duplicated. Take a backup first.</span></div>';
-  out.innerHTML=h;
-}
-window.acxApply=function(){
-  var p=ACX&&ACX.plan;if(!p)return;
-  if(!confirm('Create these records? Anything already carrying the same Aconex reference is updated rather than duplicated.'))return;
-  var seq=0, made=0, updated=0, queue=[];
-  var idOf=function(){return Date.now()*1000+(seq++);};
-  var byRef=function(arr,ref){
-    var k=refKey(ref);
-    return (arr||[]).find(function(x){return refKey(x.aconex||x.ref)===k;});
-  };
-  /* vendors first, so a submittal can point at one */
-  p.pqd.forEach(function(x){
-    var ex=byRef(DB.pqd,x.ref);
-    var rec=ex||{id:idOf()};
-    rec.aconex=x.ref;
-    if(!rec.name)rec.name=x.vendor||x.name;
-    if(!rec.scope)rec.scope=x.name;
-    if(!rec.date)rec.date=x.date;
-    if(!rec.cat&&x.cat)rec.cat=x.cat;
-    if(!rec.dis&&x.disc)rec.dis=ACX_DISC[x.disc]||'';
-    if(!rec.origin&&x.origin)rec.origin=x.origin;
-    if(!rec.pqd)rec.pqd='Submitted';
-    if(!ex){DB.pqd.push(rec);made++;}else updated++;
-    queue.push(['pqd',rec]);
-  });
-  p.mat.forEach(function(x){
-    var ex=byRef(DB.mat,x.ref);
-    var rec=ex||{id:idOf()};
-    rec.aconex=x.ref;
-    if(!rec.name)rec.name=x.name;
-    if(!rec.date)rec.date=x.date;
-    if(!rec.catSub&&x.cat){rec.catSub=x.cat;rec.catCor=x.cat;}
-    if(!rec.company&&x.vendor)rec.company=x.vendor;
-    if(!rec.mfr&&x.vendor)rec.mfr=x.vendor;
-    if(!rec.mts)rec.mts='Submitted';
-    if(!ex){DB.mat.push(rec);made++;}else updated++;
-    queue.push(['mat',rec]);
-  });
-  p.itp.forEach(function(x){
-    var ex=byRef(DB.itp,x.ref);
-    var rec=ex||{id:idOf()};
-    rec.ref=x.ref;
-    if(!rec.title)rec.title=x.name;
-    if(!rec.date)rec.date=x.date;
-    if(!rec.status)rec.status='Submitted';
-    if(!ex){DB.itp=DB.itp||[];DB.itp.push(rec);made++;}else updated++;
-    queue.push(['itp',rec]);
-  });
-  p.mir.forEach(function(x){
-    var ex=byRef(DB.mir,x.ref);
-    var rec=ex||{id:idOf()};
-    rec.aconex=x.ref;
-    if(!rec.name)rec.name=x.name;
-    if(!rec.date)rec.date=x.date;
-    if(!rec.cat&&x.cat)rec.cat=x.cat;
-    if(!rec.status)rec.status='Submitted';
-    if(!rec.num)rec.num=(x.ref.split('-').pop()||'');
-    if(x.link&&(!rec.matRefs||!rec.matRefs.length)){
-      rec.matRefs=[x.link.ref];rec.matRef=x.link.ref;
-      if(!rec.company&&x.link.vendor)rec.company=x.link.vendor;
-    }
-    if(!ex){DB.mir.push(rec);made++;}else updated++;
-    queue.push(['mir',rec]);
-  });
-  var box=document.getElementById('acx-out');
-  box.innerHTML='<div class="panel"><div class="panel-b"><div class="dim" id="acx-prog">Saving 0 of '+queue.length+'…</div></div></div>';
-  saveQueue(queue,'acx-prog').then(function(){
-    stampSaved();refreshCounts();
-    box.innerHTML='<div class="panel"><div class="empty" style="color:var(--ok-t)">Done — '+made+' created, '
-      +updated+' updated. Open Traceability to see them in place.</div></div>';
-    ACX=null;
-  });
-};
-
-var IMP_PLAN=null;
-window.impRead=function(ev){
-  var f=ev.target.files[0];if(!f)return;
-  document.getElementById('imp-name').textContent=f.name;
-  if(!(window.fflate&&fflate.unzipSync)){alert('The reader is still loading. Try again in a moment.');return;}
-  var fr=new FileReader();
-  fr.onload=function(e){
-    try{
-      var rows=xlsxRead(e.target.result);
-      IMP_PLAN=impPlan(rows);
-      renderImpPlan();
-    }catch(err){
-      console.error(err);
-      document.getElementById('imp-out').innerHTML='<div class="panel"><div class="empty" style="color:var(--bad-t)">That workbook could not be read: '+err.message+'</div></div>';
-    }
-  };
-  fr.readAsArrayBuffer(f);
-  ev.target.value='';
-};
-var REG_LABEL={mat:'Material submittals',dossiers:'Dossiers',pfm:'Meetings',itp:'ITPs',
-  fatproc:'FAT procedures',tpi:'TPI assignments',ir:'Inspection reports',irn:'Release notes',
-  mir:'Inspection requests',postdoss:'Post-inspection dossiers'};
-function renderImpPlan(){
-  var p=IMP_PLAN, out=document.getElementById('imp-out');
-  if(!p||!p.rows.length){out.innerHTML='<div class="panel"><div class="empty">No rows with a material name were found.</div></div>';return;}
-  var newMat=p.rows.filter(function(r){return !r.existing;}).length;
-  var seen=p.rows.length-newMat;
-  var h='<div class="sec-h"><span class="sec-t">What will be created</span><span class="sec-s">'
-    +p.rows.length+' tracker rows · '+newMat+' new materials, '+seen+' already on record</span></div>';
-  h+='<div class="stats" style="padding:0 0 18px;border-bottom:1px solid var(--line);margin-bottom:18px">';
-  Object.keys(REG_LABEL).forEach(function(k){
-    if(!p.counts[k])return;
-    h+='<div class="stat"><div class="stat-v">'+p.counts[k]+'</div><div class="stat-l">'+REG_LABEL[k]+'</div></div>';
-  });
-  h+='</div>';
-  h+='<div class="panel"><div class="tw"><table><thead><tr>'
-    +'<th class="pin1 pin-edge" style="min-width:220px">MATERIAL</th><th>CAT</th>'
-    +'<th style="min-width:150px">MANUFACTURER</th><th class="ctr">ON RECORD</th>'
-    +'<th style="min-width:340px">RECORDS TO CREATE</th></tr></thead><tbody>';
-  p.rows.forEach(function(r){
-    h+='<tr><td class="pin1 pin-edge"><span class="nm" style="max-width:200px">'+r.name+'</span></td>'
-      +'<td>'+cB(r.cat)+'</td>'
-      +'<td><span class="nm" style="max-width:140px">'+(r.mfr||'—')+'</span></td>'
-      +'<td class="ctr">'+(r.existing?'<span class="stamp s-run">Existing</span>':'<span class="stamp s-ok">New</span>')+'</td>'
-      +'<td><div style="display:flex;flex-wrap:wrap;gap:5px">'
-      +r.make.map(function(x){return '<span class="utag">'+x.label+'</span>';}).join('')
-      +'</div></td></tr>';
-  });
-  h+='</tbody></table></div></div>';
-  h+='<div style="display:flex;gap:9px;align-items:center">'
-    +'<button class="btn btn-p" onclick="impApply()">Create these records</button>'
-    +'<button class="btn" onclick="IMP_PLAN=null;document.getElementById(\'imp-out\').innerHTML=\'\';document.getElementById(\'imp-name\').textContent=\'\';">Cancel</button>'
-    +'<span class="dim" style="font-size:11.5px">Existing materials are linked, never duplicated. Take a backup first.</span></div>';
-  out.innerHTML=h;
-}
-/* ids must be unique within one run; the clock alone repeats inside a
-   tight loop and a meeting would then bind to another row's dossier */
-var IMP_SEQ=0;
-function impId(){return Date.now()*1000+(IMP_SEQ++);}
-window.impApply=function(){
-  var p=IMP_PLAN;if(!p)return;
-  IMP_SEQ=0;
-  if(!confirm('Create these records? Existing materials are reused, not duplicated.'))return;
-  var made=0, pending=[];
-  p.rows.forEach(function(row){
-    var matRec=matRecords().find(function(m){
-      return nameKey(m.name)===nameKey(row.name)&&nameKey(m.mfr||m.company)===nameKey(row.mfr);
-    });
-    var madeDossier=null, madeMeeting=null;
-    row.make.forEach(function(job,i){
-      var rec=job.rec, reg=job.reg;
-      if(reg==='mat'){
-        if(matRec){
-          /* fill only what is blank on a record you already have */
-          ['mfr','catSub','catCor','company','notes'].forEach(function(k){
-            if(!matRec[k]&&rec[k])matRec[k]=rec[k];
-          });
-          pending.push(['mat',matRec]);
-          return;
-        }
-        rec.id=impId();DB.mat.push(rec);matRec=rec;made++;pending.push(['mat',rec]);
-        return;
-      }
-      var ref=matRec?(matRec.aconex||matRec.name):row.name;
-      if(reg==='dossiers'||reg==='postdoss')rec.mats=[ref];
-      else if(reg==='mir')rec.matRefs=[ref],rec.matRef=ref;
-      else if(reg!=='irn')rec.mat=ref;
-      rec.id=impId();
-      DB[reg]=DB[reg]||[];
-      DB[reg].push(rec);made++;
-      if(reg==='dossiers')madeDossier=rec;
-      if(reg==='pfm')madeMeeting=rec;
-      pending.push([reg,rec]);
-    });
-    /* the meeting on a row belongs to the dossier raised on that same row */
-    if(madeDossier&&madeMeeting)madeMeeting.dossier=String(madeDossier.id);
-  });
-  document.getElementById('imp-out').innerHTML='<div class="panel"><div class="panel-b"><div class="dim" id="imp-prog">Saving…</div></div></div>';
-  saveQueue(pending,'imp-prog').then(function(){
-    stampSaved();refreshCounts();
-    toast(made+' record'+(made===1?'':'s')+' created');
-    IMP_PLAN=null;
-    document.getElementById('imp-out').innerHTML='<div class="panel"><div class="empty" style="color:var(--ok-t)">Done — '+made+' records created. Open Traceability to see them in place.</div></div>';
-  });
-};
-
-/* Saving thousands of rows one after another took long enough for a
-   session to expire mid-way. Twelve at a time finishes in seconds. */
-function saveQueue(queue,progressId){
-  var done=0, i=0, BATCH=12;
-  function tick(){
-    var pr=document.getElementById(progressId);
-    if(pr)pr.textContent='Saving '+done+' of '+queue.length+'…';
-  }
-  return new Promise(function(resolve){
-    function pump(){
-      if(i>=queue.length&&done>=queue.length)return resolve();
-      var slice=queue.slice(i,i+BATCH);
-      if(!slice.length)return resolve();
-      i+=slice.length;
-      Promise.all(slice.map(function(x){
-        return persist(x[0],x[1]).catch(function(){}).then(function(){done++;});
-      })).then(function(){tick();pump();});
-    }
-    tick();pump();
-  });
-}
-
-/* ================================================================
    EDIT IN A SPREADSHEET AND BRING IT BACK
    The report export is built to be read; this one is built to be
    edited and returned. Every row carries the record's own key in the
@@ -7544,22 +6933,78 @@ function rtValue(rec,f){
   if(RT_DATE[f]&&/^\d{4}-\d{2}-\d{2}$/.test(String(v)))return dtToDisplay(v);
   return String(v);
 }
+/* Which sections, and within each, which columns. Everything is on by
+   default because the usual case is a whole sheet; narrowing it matters
+   when you only mean to touch a field or two across many rows. */
+var RT_PICK={}, RT_ON={}, RT_OPEN={};
 window.openRT=function(){
-  var h='<div class="dlbl" style="margin-bottom:8px">SECTIONS</div><div id="rt-sets" style="display:flex;flex-wrap:wrap;gap:7px">';
   Object.keys(RT_SETS).forEach(function(k){
-    var n=RT_SETS[k].rows().length;
-    h+='<div class="colopt on" data-k="'+k+'" onclick="this.classList.toggle(\'on\')" style="padding:7px 10px">'
-      +'<span class="box"></span>'+RT_SETS[k].label+' <span class="meta">'+n+'</span></div>';
+    if(RT_ON[k]===undefined)RT_ON[k]=true;
+    if(!RT_PICK[k])RT_PICK[k]=RT_SETS[k].fields.map(function(f){return f[0];});
+  });
+  rtRender();
+  document.getElementById('ov-rt').classList.add('on');
+};
+function rtRender(){
+  var h='<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">'
+    +'<span class="dlbl" style="margin:0">SECTIONS AND COLUMNS</span>'
+    +'<span class="link" onclick="rtAllSets(true)">select all</span>'
+    +'<span class="link" onclick="rtAllSets(false)">clear</span>'
+    +'<span class="spacer"></span><span class="count" id="rt-count"></span></div>'
+    +'<div id="rt-sets" style="max-height:360px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--r);padding:5px">';
+  Object.keys(RT_SETS).forEach(function(k){
+    var set=RT_SETS[k], n=set.rows().length;
+    var chosen=RT_PICK[k]||[], on=RT_ON[k], open=!!RT_OPEN[k];
+    var state=on?(chosen.length===set.fields.length?'all':(chosen.length?'some':'')):'';
+    h+='<div class="grp-row '+state+(open?' grp-open':'')+'">'
+      +'<span class="grp-tw" onclick="rtTwist(event,\''+k+'\')"><svg viewBox="0 0 10 10"><path d="M3 1l4 4-4 4"/></svg></span>'
+      +'<span class="box'+(on&&state==='some'?' part':'')+'" onclick="rtSetPick(event,\''+k+'\')" style="position:relative"></span>'
+      +'<span class="grp-name" style="font-family:var(--sans);font-size:12.5px;letter-spacing:0;color:'+(on?'var(--t-1)':'var(--t-3)')+'" onclick="rtTwist(event,\''+k+'\')">'+set.label+'</span>'
+      +'<span class="grp-n">'+(on?(chosen.length+' / '+set.fields.length+'  \u00b7  '):'')+n+' rows</span></div>'
+      +'<div class="grp-body">'
+      +set.fields.map(function(f){
+        var sel=chosen.indexOf(f[0])>=0;
+        return '<div class="colopt'+(sel?' on':'')+'" onclick="rtFieldPick(event,\''+k+'\',\''+f[0]+'\')" style="padding:6px 8px">'
+          +'<span class="box"></span>'+f[1]+'</div>';
+      }).join('')
+      +'</div>';
   });
   h+='</div>';
   document.getElementById('rt-body').innerHTML=h;
-  document.getElementById('ov-rt').classList.add('on');
+  rtCount();
+}
+function rtCount(){
+  var sets=0, rows=0;
+  Object.keys(RT_SETS).forEach(function(k){
+    if(!RT_ON[k]||!(RT_PICK[k]||[]).length)return;
+    sets++;rows+=RT_SETS[k].rows().length;
+  });
+  var e=document.getElementById('rt-count');
+  if(e)e.textContent=sets+' sheet'+(sets===1?'':'s')+' \u00b7 '+rows+' rows';
+}
+window.rtTwist=function(ev,k){ev.stopPropagation();RT_OPEN[k]=!RT_OPEN[k];rtRender();};
+window.rtSetPick=function(ev,k){ev.stopPropagation();RT_ON[k]=!RT_ON[k];rtRender();};
+window.rtFieldPick=function(ev,k,f){
+  ev.stopPropagation();
+  var a=RT_PICK[k]||[], i=a.indexOf(f);
+  if(i>=0)a.splice(i,1);else a.push(f);
+  RT_PICK[k]=a;
+  if(a.length)RT_ON[k]=true;
+  rtRender();
+};
+window.rtAllSets=function(on){
+  Object.keys(RT_SETS).forEach(function(k){
+    RT_ON[k]=on;
+    /* clearing empties the columns as well, so ticking one afterwards
+       adds it rather than removing it from a still-full list */
+    RT_PICK[k]=on?RT_SETS[k].fields.map(function(f){return f[0];}):[];
+  });
+  rtRender();
 };
 window.closeRT=function(){document.getElementById('ov-rt').classList.remove('on');};
 document.getElementById('ov-rt').addEventListener('click',function(e){if(e.target===this)closeRT();});
 window.runRT=function(){
-  var picked=[];
-  document.querySelectorAll('#rt-sets .colopt.on').forEach(function(el){picked.push(el.dataset.k);});
+  var picked=Object.keys(RT_SETS).filter(function(k){return RT_ON[k]&&(RT_PICK[k]||[]).length;});
   if(!picked.length)return alert('Choose at least one section');
   if(!(window.fflate&&fflate.zipSync))return alert('The export library is still loading. Try again in a moment.');
   var esc=function(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');};
@@ -7568,7 +7013,9 @@ window.runRT=function(){
   picked.forEach(function(k){
     var set=RT_SETS[k], rows=set.rows();
     total+=rows.length;
-    var cols=[['__key','PQCS key — do not change']].concat(set.fields);
+    var keep=RT_PICK[k]||[];
+    var cols=[['__key','PQCS key — do not change']]
+      .concat(set.fields.filter(function(f){return keep.indexOf(f[0])>=0;}));
     var sd='<row r="1" ht="26" customHeight="1">';
     cols.forEach(function(c,i){
       sd+='<c r="'+cn(i)+'1" t="inlineStr" s="1"><is><t xml:space="preserve">'+esc(c[1])+'</t></is></c>';
@@ -7829,6 +7276,28 @@ window.rtbApply=function(){
     if(typeof goTo==='function')refreshCounts();
   });
 };
+
+/* Saving many rows one after another took long enough for a session to
+   expire mid-way. Twelve at a time finishes in seconds. */
+function saveQueue(queue,progressId){
+  var done=0, i=0, BATCH=12;
+  function tick(){
+    var pr=document.getElementById(progressId);
+    if(pr)pr.textContent='Saving '+done+' of '+queue.length+'…';
+  }
+  return new Promise(function(resolve){
+    function pump(){
+      if(i>=queue.length&&done>=queue.length)return resolve();
+      var slice=queue.slice(i,i+BATCH);
+      if(!slice.length)return resolve();
+      i+=slice.length;
+      Promise.all(slice.map(function(x){
+        return persist(x[0],x[1]).catch(function(){}).then(function(){done++;});
+      })).then(function(){tick();pump();});
+    }
+    tick();pump();
+  });
+}
 
 window.exportDB=function(){
   dl(new Blob([JSON.stringify(DB,null,2)],{type:'application/json'}),'PQCS_'+new Date().toISOString().slice(0,10)+'.json');
