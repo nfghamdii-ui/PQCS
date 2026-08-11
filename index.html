@@ -1793,15 +1793,34 @@ window.sbAssign=async function(uid){
 /* ---------- data access ---------- */
 /* Twelve tables used to be fetched one after another, so the wait was
    the sum of them all. Fetched together it is the slowest single one. */
+/* The database returns at most a thousand rows to one request, so a
+   plain select silently loses everything past that. The first request
+   asks for the true count as well, and any remainder is fetched in
+   parallel — otherwise a table quietly stops growing at 1000. */
+async function fetchAllRows(table){
+  var size=1000;
+  var first=await sb.from(table).select('id,data',{count:'exact'})
+    .eq('project_id',CUR_PROJECT).range(0,size-1);
+  if(first.error){console.error(table,first.error);return [];}
+  var rows=(first.data||[]).slice();
+  var total=first.count||rows.length;
+  if(total>rows.length){
+    var pages=[];
+    for(var from=size;from<total;from+=size){
+      pages.push(sb.from(table).select('id,data').eq('project_id',CUR_PROJECT).range(from,from+size-1));
+    }
+    var rest=await Promise.all(pages);
+    rest.forEach(function(r){if(r.error)console.error(table,r.error);else rows=rows.concat(r.data||[]);});
+  }
+  return rows;
+}
 async function sbLoadAll(){
   SB_TABLES.forEach(function(t){DB[t]=[];});
   var results=await Promise.all(SB_TABLES.map(function(t){
-    return sb.from(t).select('id,data').eq('project_id',CUR_PROJECT)
-      .then(function(r){return {t:t,r:r};});
+    return fetchAllRows(t).then(function(rows){return {t:t,rows:rows};});
   }));
   results.forEach(function(x){
-    if(x.r.error){console.error(x.t,x.r.error);return;}
-    DB[x.t]=((x.r.data)||[]).map(function(row){var o=row.data||{};o._rowid=row.id;return o;});
+    DB[x.t]=x.rows.map(function(row){var o=row.data||{};o._rowid=row.id;return o;});
   });
 }
 async function sbUpsert(table,obj){
