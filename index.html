@@ -607,7 +607,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
         <div class="tw"><table>
           <thead><tr>
             <th class="pin1" style="min-width:200px">MATERIAL</th><th class="pin2" style="min-width:120px">REFERENCE</th>
-            <th>SUBMITTED</th><th>CAT SUB</th><th>CAT CORRECT</th><th style="min-width:150px">SUBMITTED BY</th><th style="min-width:150px">MANUFACTURER</th>
+            <th>SUBMITTED</th><th>CAT</th><th style="min-width:150px">SUBMITTED BY</th><th style="min-width:150px">MANUFACTURER</th>
             <th>PID NO.</th><th class="ctr">PID</th><th class="ctr">MEETING</th><th class="ctr">LEED</th><th class="ctr">SASO</th><th class="ctr">MTS</th><th style="min-width:110px">ITEMS</th><th>NOTES</th><th></th>
           </tr></thead>
           <tbody id="tb-mat"></tbody>
@@ -788,7 +788,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
           <thead><tr>
             <th class="pin1 pin-edge" style="min-width:280px">VENDOR</th>
             <th>CAT</th><th>DISC</th>
-            <th class="ctr">PRE-PA</th><th class="ctr">ASSESSMENT</th><th>SURVEY DATE</th>
+            <th class="ctr">PRE-FILE</th><th class="ctr">ASSESSMENT</th><th>SURVEY DATE</th>
             <th class="ctr">QMS</th><th class="ctr">TECHNICAL</th><th class="ctr">RESULT</th>
             <th>REFERENCE</th><th></th>
           </tr></thead>
@@ -916,14 +916,14 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input type="hidden" id="f-subco">
        <div class="pick-list" id="f-subco-list"></div></div>
      <div><label class="fl">Material category</label><select class="fs" id="f-cat" onchange="catChanged()"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
-     <div><label class="fl">Discipline</label><select class="fs" id="f-dis"><option value="">—</option><option>Architectural</option><option>Mechanical</option><option>Electrical</option><option>Civil</option><option>Structural</option><option>MEP</option></select></div>
+     <div><label class="fl">Discipline</label><select class="fs" id="f-dis"><option value="">—</option><option>Architectural</option><option>Civil</option><option>Structural</option><option>Mechanical</option><option>HVAC</option><option>Plumbing</option><option>Fire Protection</option><option>Electrical</option><option>ELV</option><option>General MEP</option><option>Landscape</option><option>Theming</option><option>Infrastructure</option></select></div>
      <div class="fg-f" id="cat-hint" style="display:none"></div>
    </div>
 
    <span class="m-sec">VENDOR LIST AND PQD STATUS</span>
    <div class="fg">
      <div><label class="fl">On approved vendor list</label><select class="fs" id="f-avl"><option value="">—</option><option>Yes</option><option>No</option><option>Not same scope</option></select></div>
-     <div><label class="fl">PQD status</label><select class="fs" id="f-pqd"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved - A</option><option>Approved - B</option><option>Code C</option><option>Rejected</option></select></div>
+     <div><label class="fl">PQD status</label><select class="fs" id="f-pqd"><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option></select></div>
    </div>
 
    <span class="m-sec">ENGAGEMENT</span>
@@ -967,8 +967,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div class="fg-f"><label class="fl">Description</label><textarea class="ft" id="m-desc" rows="2"></textarea></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="m-aconex" placeholder="MBL-P4M-QC-MTS-00001"></div>
      <div><label class="fl">Submission date</label><span class="dwrapf"><input class="fi dt" id="m-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
-     <div><label class="fl">Category submitted</label><select class="fs" id="m-cat-sub"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
-     <div><label class="fl">Correct category</label><select class="fs" id="m-cat-cor"><option value="">Same as submitted</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
+     <div><label class="fl">Category</label><select class="fs" id="m-cat-sub"><option value="">—</option><option>C0</option><option>C1</option><option>C2</option><option>C3</option></select></div>
      <div class="fg-f pick"><label class="fl">Submitted by — company on record</label>
        <input class="fi" id="m-co-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('m-co')" onfocus="pickOpen('m-co')">
        <input type="hidden" id="m-co">
@@ -994,7 +993,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
 
    <span class="m-sec">STATUS</span>
    <div class="fg">
-     <div><label class="fl">MTS status</label><select class="fs" id="m-mts"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
+     <div><label class="fl">MTS status</label><select class="fs" id="m-mts"><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option></select></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="m-notes" rows="2"></textarea></div>
    </div>
   </div>
@@ -1039,7 +1038,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    <div class="fg">
      <div><label class="fl">LEED certificate</label><select class="fs" id="mir-leed"><option>N/A</option><option>Attached</option><option>Pending</option></select></div>
      <div><label class="fl">SASO certificate</label><select class="fs" id="mir-saso"><option>N/A</option><option>Attached</option><option>Pending</option></select></div>
-     <div class="fg-f"><label class="fl">MIR status</label><select class="fs" id="mir-st"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
+     <div class="fg-f"><label class="fl">MIR status</label><select class="fs" id="mir-st"><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option></select></div>
    </div>
 
    <span class="m-sec">INSPECTION RELEASE NOTE</span>
@@ -1070,7 +1069,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input class="fi" id="o-vendor-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('o-vendor')" onfocus="pickOpen('o-vendor')">
        <input type="hidden" id="o-vendor"><div class="pick-list" id="o-vendor-list"></div></div>
      <div><label class="fl">Last quantity accepted</label><span class="dwrapf"><input class="fi dt" id="o-last" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
-     <div><label class="fl">Status</label><select class="fs" id="o-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
+     <div><label class="fl">Status</label><select class="fs" id="o-status"><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option></select></div>
    </div>
 
    <span class="m-sec">MATERIALS COVERED — a dossier may cover more than one</span>
@@ -1150,7 +1149,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
      <div class="pick"><label class="fl">Agency</label>
        <input class="fi" id="t-agency-q" placeholder="Search agencies…" autocomplete="off" oninput="pickOpen('t-agency')" onfocus="pickOpen('t-agency')">
        <input type="hidden" id="t-agency"><div class="pick-list" id="t-agency-list"></div></div>
-     <div><label class="fl">Status</label><select class="fs" id="t-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Rejected</option></select></div>
+     <div><label class="fl">Status</label><select class="fs" id="t-status"><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option></select></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="t-notes" rows="2"></textarea></div>
    </div></div>
   <div class="m-foot"><button class="btn" onclick="closeTPI()">Cancel</button><button class="btn btn-p" id="tpi-save-btn" onclick="saveTPI()">Save assignment</button></div>
@@ -1203,7 +1202,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input class="fi" id="n-vendor-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('n-vendor')" onfocus="pickOpen('n-vendor')">
        <input type="hidden" id="n-vendor"><div class="pick-list" id="n-vendor-list"></div></div>
      <div><label class="fl">Submitted date</label><span class="dwrapf"><input class="fi dt" id="n-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
-     <div><label class="fl">Status</label><select class="fs" id="n-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
+     <div><label class="fl">Status</label><select class="fs" id="n-status"><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option></select></div>
      <div class="fg-f"><label class="fl">Aconex reference</label><input class="fi" id="n-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="n-notes" rows="2"></textarea></div>
    </div></div>
@@ -1233,7 +1232,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input class="fi" id="fp-vendor-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('fp-vendor')" onfocus="pickOpen('fp-vendor')">
        <input type="hidden" id="fp-vendor"><div class="pick-list" id="fp-vendor-list"></div></div>
      <div><label class="fl">Submitted date</label><span class="dwrapf"><input class="fi dt" id="fp-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
-     <div><label class="fl">Status</label><select class="fs" id="fp-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
+     <div><label class="fl">Status</label><select class="fs" id="fp-status"><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option></select></div>
      <div class="fg-f"><label class="fl">Aconex reference</label><input class="fi" id="fp-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="fp-notes" rows="2"></textarea></div>
    </div></div>
@@ -1297,7 +1296,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input class="fi" id="fr-inspector" placeholder="Search approved inspectors…" autocomplete="off" oninput="pickOpen('fr-inspector')" onfocus="pickOpen('fr-inspector')">
        <div class="pick-list" id="fr-inspector-list"></div></div>
      <div><label class="fl">Result</label><select class="fs" id="fr-result"><option>Pending</option><option>Pass</option><option>Pass with comments</option><option>Failed</option></select></div>
-     <div><label class="fl">Report status</label><select class="fs" id="fr-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
+     <div><label class="fl">Report status</label><select class="fs" id="fr-status"><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option></select></div>
      <div><label class="fl">Issued date</label><span class="dwrapf"><input class="fi dt" id="fr-issued" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div class="fg-f"><label class="fl">Aconex reference</label><input class="fi" id="fr-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="fr-notes" rows="2"></textarea></div>
@@ -1330,7 +1329,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input class="fi" id="ir-inspector" placeholder="Search approved inspectors…" autocomplete="off" oninput="pickOpen('ir-inspector')" onfocus="pickOpen('ir-inspector')">
        <div class="pick-list" id="ir-inspector-list"></div></div>
      <div><label class="fl">Result</label><select class="fs" id="ir-result"><option>Pending</option><option>Pass</option><option>Pass with comments</option><option>Failed</option></select></div>
-     <div><label class="fl">Report status</label><select class="fs" id="ir-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
+     <div><label class="fl">Report status</label><select class="fs" id="ir-status"><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option></select></div>
      <div><label class="fl">Issued date</label><span class="dwrapf"><input class="fi dt" id="ir-issued" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div class="fg-f"><label class="fl">Aconex reference</label><input class="fi" id="ir-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="ir-notes" rows="2"></textarea></div>
@@ -1357,7 +1356,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input type="hidden" id="r-mir"><div class="pick-list" id="r-mir-list"></div>
        <div class="hint" id="r-mir-hint" style="display:none"></div></div>
      <div class="fg-f"><label class="fl">Material</label><input class="fi" id="r-material"></div>
-     <div><label class="fl">Status</label><select class="fs" id="r-status"><option>Pending</option><option>Issued</option><option>Approved</option><option>Rejected</option></select></div>
+     <div><label class="fl">Status</label><select class="fs" id="r-status"><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option></select></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="r-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
      <div class="fg-f"><label class="fl">Notes</label><textarea class="ft" id="r-notes" rows="2"></textarea></div>
    </div></div>
@@ -1385,7 +1384,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
        <input class="fi" id="d-vendor-q" placeholder="Search your vendors…" autocomplete="off" oninput="pickOpen('d-vendor')" onfocus="pickOpen('d-vendor')">
        <input type="hidden" id="d-vendor">
        <div class="pick-list" id="d-vendor-list"></div></div>
-     <div><label class="fl">Dossier status</label><select class="fs" id="d-status"><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select></div>
+     <div><label class="fl">Dossier status</label><select class="fs" id="d-status"><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option></select></div>
    </div>
 
    <span class="m-sec">MATERIALS COVERED — a dossier may cover more than one</span>
@@ -1509,7 +1508,8 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    </div>
    <span class="m-sec">SURVEY</span>
    <div class="fg">
-     <div><label class="fl">Pre-PA</label><select class="fs" id="pa-prepa"><option>Pending</option><option>Done</option><option>N/A</option></select></div>
+     <div><label class="fl">Pre-assessment file</label><select class="fs" id="pa-prepa"><option>Not received</option><option>Received</option><option>N/A</option></select></div>
+     <div><label class="fl">Received on</label><span class="dwrapf"><input class="fi dt" id="pa-prepa-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Assessment status</label><select class="fs" id="pa-status" onchange="paWaiverCheck()"><option>Pending</option><option>Scheduled</option><option>Done</option><option>Waived</option><option>N/A</option></select></div>
      <div><label class="fl">Survey date</label><span class="dwrapf"><input class="fi dt" id="pa-date" placeholder="dd/mm/yyyy" autocomplete="off" oninput="dtInput(this)" onblur="dtBlur(this)"><input type="date" class="dt-native" tabindex="-1" onchange="dtPick(this)"><button type="button" class="dt-btn" tabindex="-1" onclick="this.previousElementSibling.showPicker?this.previousElementSibling.showPicker():this.previousElementSibling.click()" aria-label="Pick a date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button></span></div>
      <div><label class="fl">Aconex reference</label><input class="fi" id="pa-ref" placeholder="4MAKA08-MAKA-08-MBL-…"></div>
@@ -1517,7 +1517,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    </div>
    <span class="m-sec">QMS REPORT</span>
    <div class="fg">
-     <div><label class="fl">Report status</label><select class="fs" id="pa-qms"><option>Pending</option><option>Submitted</option><option>Approved</option><option>N/A</option></select></div>
+     <div><label class="fl">Report status</label><select class="fs" id="pa-qms"><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option><option>N/A</option></select></div>
      <div class="pick"><label class="fl">Assessor</label>
        <input class="fi" id="pa-qms-assessor" placeholder="Search approved inspectors…" autocomplete="off" oninput="pickOpen('pa-qms-assessor')" onfocus="pickOpen('pa-qms-assessor')">
        <div class="pick-list" id="pa-qms-assessor-list"></div></div>
@@ -1526,7 +1526,7 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
    </div>
    <span class="m-sec">TECHNICAL REPORT</span>
    <div class="fg">
-     <div><label class="fl">Report status</label><select class="fs" id="pa-tech"><option>Pending</option><option>Submitted</option><option>Approved</option><option>N/A</option></select></div>
+     <div><label class="fl">Report status</label><select class="fs" id="pa-tech"><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option><option>N/A</option></select></div>
      <div class="pick"><label class="fl">Assessor</label>
        <input class="fi" id="pa-tech-assessor" placeholder="Search approved inspectors…" autocomplete="off" oninput="pickOpen('pa-tech-assessor')" onfocus="pickOpen('pa-tech-assessor')">
        <div class="pick-list" id="pa-tech-assessor-list"></div></div>
@@ -1841,7 +1841,16 @@ function persist(table,obj){
     }catch(e){console.error('persist',e);}
   })();
 }
-async function saveOne(table,obj){try{await sbUpsert(table,obj);}catch(e){console.error('saveOne',table,e);}}
+var DOC_FIELDS=['pqd','mts','status','pid','mom','paQms','paTech','irnStatus'];
+/* whatever a form or an old record holds, it is written as an Aconex code */
+function normaliseDoc(obj){
+  if(!obj||typeof obj!=='object')return obj;
+  DOC_FIELDS.forEach(function(f){
+    if(obj[f]&&typeof DOC_MIGRATE!=='undefined'&&DOC_MIGRATE[obj[f]])obj[f]=DOC_MIGRATE[obj[f]];
+  });
+  return obj;
+}
+async function saveOne(table,obj){try{await sbUpsert(table,normaliseDoc(obj));}catch(e){console.error('saveOne',table,e);}}
 function stampSaved(){
   var el=document.getElementById('save-lbl');
   if(el)el.textContent='Saved '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
@@ -1859,9 +1868,17 @@ function stampSaved(){
    The word carries the meaning; the tone reinforces it.
    ================================================================ */
 var STAMP_MAP={
-  "Approved":["Approved","ok"], "Approved - A":["Approved A","ok"], "Approved - B":["Approved B","act"],
-  "Approved with Comments":["With comments","act"], "Code C":["Code C","act"], "Rejected":["Rejected","bad"],
-  "Submitted":["Submitted","run"], "Pending":["Pending","act"], "Scheduled":["Scheduled","run"],
+  /* Aconex review codes, used for every document the project transmits */
+  "A - Approved":["A · Approved","ok"],
+  "B - Approved with comments":["B · With comments","act"],
+  "C - Revise & Resubmit":["C · Resubmit","act"],
+  "D - Rejected":["D · Rejected","bad"],
+  /* the names used before the codes were adopted, kept so older records
+     still read correctly until they are edited */
+  "Approved":["A · Approved","ok"], "Approved - A":["A · Approved","ok"], "Approved - B":["B · With comments","act"],
+  "Approved with Comments":["B · With comments","act"], "Code C":["C · Resubmit","act"], "Rejected":["D · Rejected","bad"],
+  "Submitted":["Pending","act"], "Pending":["Pending","act"], "Scheduled":["Scheduled","run"],
+  "Received":["Received","ok"], "Not received":["Not received","act"],
   "Not Scheduled":["Not scheduled","act"], "Done":["Done","ok"], "Waived":["Waived","ok"],
   "Valid":["Valid","ok"], "Expired":["Expired","bad"], "Issued":["Issued","ok"],
   "Attached":["Attached","ok"], "Will Submit with MIR":["With MIR","run"],
@@ -1888,14 +1905,17 @@ function avlNorm(v){
 }
 function avlC(v){var n=avlNorm(v);return n?stamp(n):'<span class="dim">—</span>';}
 function preNorm(m){
-  if(m.prepa)return m.prepa;
+  /* the pre-assessment file is a delivery, not a task: it arrived or it
+     did not */
+  var PRE_OLD={'Pending':'Not received','Done':'Received'};
+  if(m.prepa)return PRE_OLD[m.prepa]||m.prepa;
   var sr=m.srvReq||'',qms=m.qms||'',tech=m.tech||'';
   if(!(sr||qms||tech))return 'Pending';
   if((sr==='N/A'||sr==='Waived')&&(!qms||qms==='N/A')&&(!tech||tech==='N/A'))return 'N/A';
-  var qOk=(qms==='Approved'||qms==='N/A'||qms===''), tOk=(tech==='Approved'||tech==='N/A'||tech===''),
+  var qOk=(docCode(qms)==='A - Approved'||qms==='N/A'||qms===''), tOk=(docCode(tech)==='A - Approved'||tech==='N/A'||tech===''),
       sOk=(sr==='Done'||sr==='Waived'||sr==='N/A'||sr==='');
-  if(sOk&&qOk&&tOk&&(sr==='Done'||qms==='Approved'||tech==='Approved'))return 'Done';
-  return 'Pending';
+  if(sOk&&qOk&&tOk&&(sr==='Done'||qms==='Approved'||tech==='Approved'))return 'Received';
+  return 'Not received';
 }
 function preC(m){return stamp(preNorm(m));}
 
@@ -1916,7 +1936,7 @@ var ACTION_STAGES=['prepa','pa'];
 function paApplies(m){return m.cat==='C2'||m.cat==='C3';}
 function paHasData(m){
   return !!(m.paDate||m.paRef||m.paResult||m.paQmsAssessor||m.paTechAssessor
-    ||(m.pa&&m.pa!=='Pending'&&m.pa!=='N/A')||(m.prepa&&m.prepa!=='Pending'));
+    ||(m.pa&&m.pa!=='Pending'&&m.pa!=='N/A')||(m.prepa&&m.prepa!=='Pending'&&m.prepa!=='Not received'));
 }
 function paInScope(m){return paApplies(m)||paHasData(m);}
 /* effective value of a stage: out-of-scope assessment reads as N/A */
@@ -2039,6 +2059,23 @@ function makeSortable(tbodyId){
   markSortHeads(tbodyId);
 }
 
+/* The review codes Aconex uses. Every document status field offers
+   these and nothing else, so a status means the same thing wherever
+   it appears. */
+var DOC_CODES=['Pending','A - Approved','B - Approved with comments','C - Revise & Resubmit','D - Rejected'];
+var DOC_OPTS=DOC_CODES.map(function(c){return '<option>'+c+'</option>';}).join('');
+/* what an older value becomes when a record is next saved */
+var DOC_MIGRATE={
+  'Submitted':'Pending','Approved':'A - Approved','Approved - A':'A - Approved',
+  'Approved - B':'B - Approved with comments','Approved with Comments':'B - Approved with comments',
+  'Code C':'C - Revise & Resubmit','Rejected':'D - Rejected','Issued':'A - Approved'
+};
+function docCode(v){
+  var t=String(v==null?'':v).trim();
+  if(!t)return '';
+  return DOC_MIGRATE[t]||t;
+}
+
 /* ================================================================
    3. NAVIGATION AND PER-PAGE TOOLBARS
    ================================================================ */
@@ -2071,7 +2108,7 @@ function buildTools(page){
     h+='<div class="spacer"></div><span class="count" id="pqd-count"></span>';
     h+='<div class="colwrap"><button class="btn" onclick="toggleCols(event)">Columns</button><div class="colmenu" id="colmenu" onclick="event.stopPropagation()">'
       +'<div class="colmenu-h">STATUS COLUMNS</div>'
-      +'<div class="colopt" data-c="prepa" onclick="togCol(this)"><span class="box"></span>Pre-PA</div>'
+      +'<div class="colopt" data-c="prepa" onclick="togCol(this)"><span class="box"></span>Pre-assessment file</div>'
       +'<div class="colmenu-h" style="padding-top:9px">DETAIL COLUMNS</div>'
       +'<div class="colopt" data-c="aconex" onclick="togCol(this)"><span class="box"></span>Aconex reference</div>'
       +'<div class="colopt" data-c="scope" onclick="togCol(this)"><span class="box"></span>Scope of work</div>'
@@ -2088,12 +2125,12 @@ function buildTools(page){
     h+='<div class="spacer"></div><span class="count" id="find-count"></span>';
   }else if(page==='mat'){
     h+=searchBox('mat-q','Material, manufacturer or company…','rMAT()');
-    h+='<select class="sel" id="mat-st" onchange="rMAT()"><option value="">All statuses</option><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select>';
+    h+='<select class="sel" id="mat-st" onchange="rMAT()"><option value="">All statuses</option><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option></select>';
     h+='<select class="sel" id="mat-insp" onchange="rMAT()"><option value="">All inspection types</option><option>None</option><option>Inspection on delivery</option><option>Final inspection</option><option>FAT</option><option>FAT and final inspection</option></select>';
     h+='<div class="spacer"></div><span class="count" id="mat-count"></span>';
   }else if(page==='mir'){
     h+=searchBox('mir-q','Material or MIR number…','rMIR()');
-    h+='<select class="sel" id="mir-stf" onchange="rMIR()"><option value="">All statuses</option><option>Pending</option><option>Submitted</option><option>Approved</option><option>Approved with Comments</option><option>Rejected</option></select>';
+    h+='<select class="sel" id="mir-stf" onchange="rMIR()"><option value="">All statuses</option><option>Pending</option><option>A - Approved</option><option>B - Approved with comments</option><option>C - Revise &amp; Resubmit</option><option>D - Rejected</option></select>';
     h+='<div class="spacer"></div><span class="count" id="mir-count"></span>';
   }else if(page==='pa'||page==='pasum'){
     h+='<button class="chip'+(PA_VIEW==='pipeline'?' on':'')+'" onclick="setPAView(\'pipeline\')">Pipeline</button>';
@@ -2498,7 +2535,7 @@ function alertsFor(){
     if(pq==='Submitted'){out.push({p:20,t:'run',s:'Submitted',n:m.name,d:'Awaiting review',c:m,date:m.date});return;}
     if(paInScope(m)){
       var pre=preNorm(m);
-      if(pre==='Pending'&&m.pa!=='Done'&&m.pa!=='Waived'){out.push({p:45,t:'act',s:'Pre-PA pending',n:m.name,d:'Survey and reports needed before assessment',c:m,date:m.paDate});return;}
+      if(pre==='Not received'&&m.pa!=='Done'&&m.pa!=='Waived'){out.push({p:45,t:'act',s:'File awaited',n:m.name,d:'Pre-assessment file not received yet',c:m,date:m.paDate});return;}
       if(m.pa&&m.pa!=='Done'&&m.pa!=='Waived'&&m.pa!=='N/A'){out.push({p:42,t:'act',s:'Survey '+(m.pa==='Scheduled'?'scheduled':'pending'),n:m.name,d:m.paDate?('Scheduled '+m.paDate):'Not yet scheduled',c:m,date:m.paDate});return;}
     }
   });
@@ -2666,7 +2703,7 @@ function renderCharts(live){
    Detail columns are opt-in. Rows expand in place.
    ================================================================ */
 var PQD_STATUS=[['pqd','PQD'],['pa','PA'],['iso','ISO']];
-var PQD_EXTRA=[['prepa','PRE-PA']];
+var PQD_EXTRA=[['prepa','PRE-ASSESSMENT']];
 var PQD_DETAIL=[['aconex','ACONEX REF'],['scope','SCOPE'],['date','SUBMITTED'],['loc','LOCATION'],['subco','BROUGHT BY'],['avl','VENDOR LIST'],['paQms','PA QMS'],['paTech','PA TECHNICAL']];
 var pqdShown={prepa:false,aconex:false,scope:false,date:false,loc:false,subco:false,avl:false,paQms:false,paTech:false};
 
@@ -2792,7 +2829,7 @@ window.rPQD=function(){
 
         +'<div class="dsec">STATUS</div><div class="dwrap">'
         +dfS('PQD',m.pqd||'Pending')
-        +dfS('PRE-PA',effStage(m,'prepa'))
+        +dfS('PRE-ASSESSMENT FILE',effStage(m,'prepa'))
         +dfS('ASSESSMENT',effStage(m,'pa'))
         +dfS('ISO',(m.isoDate&&isExp(m.isoDate))?'Expired':(m.iso||'N/A'))
         +df('DOSSIERS',(function(){var n=(DB.dossiers||[]).filter(function(d){return d.vendor===m.name;}).length;return n?n+' recorded':'';})())
@@ -2949,15 +2986,15 @@ document.getElementById('ov').addEventListener('click',function(e){if(e.target==
    These are suggestions. Any stage you set by hand is locked and will
    not be rewritten if you change the category afterwards. */
 var CAT_RULES={
-  'C0':{prepa:'N/A',pa:'N/A',pid:'N/A',pim:'N/A',mom:'N/A',post:'N/A'},
-  'C1':{prepa:'N/A',pa:'N/A',pid:'N/A',pim:'N/A',mom:'N/A',post:'N/A'},
-  'C2':{prepa:'Pending',pa:'Pending',pid:'Pending',pim:'N/A',mom:'N/A',post:'Pending'},
-  'C3':{prepa:'Pending',pa:'Pending',pid:'Pending',pim:'Not Scheduled',mom:'Pending',post:'Pending'}
+  'C0':{prepa:'N/A',pa:'N/A'},
+  'C1':{prepa:'N/A',pa:'N/A'},
+  'C2':{prepa:'Not received',pa:'Pending'},
+  'C3':{prepa:'Not received',pa:'Pending'}
 };
 /* The category suggests an inspection requirement, but it does not
    decide it: a C1 material can still carry a factory acceptance test,
    so the field is independent and any choice you make is kept. */
-var STAGE_LABEL={prepa:'Pre-PA',pa:'Assessment',pid:'Dossier',pim:'Meeting',mom:'Minutes',post:'Post-inspection'};
+var STAGE_LABEL={prepa:'Pre-assessment file',pa:'Assessment'};
 var stageEdited={};
 window.markStageEdited=function(k){stageEdited[k]=true;renderCatHint();};
 window.catChanged=function(){
@@ -3160,7 +3197,7 @@ window.saveMAT=function(){
   var eid=document.getElementById('m-eid').value, g=function(id){var e=document.getElementById(id);return e?e.value:'';};
   var catSub=g('m-cat-sub');
   var m={id:eid?+eid:Date.now(),name:n,desc:g('m-desc'),aconex:g('m-aconex'),date:g('m-date'),
-    catSub:catSub,catCor:g('m-cat-cor')||catSub,company:g('m-co'),mfr:g('m-mfr'),mfrCountry:g('m-mfr-country'),
+    catSub:catSub,catCor:catSub,company:g('m-co'),mfr:g('m-mfr'),mfrCountry:g('m-mfr-country'),
     leed:g('m-leed'),saso:g('m-saso'),mts:g('m-mts'),notes:g('m-notes')};
   if(eid){var i=DB.mat.findIndex(function(x){return x.id===+eid;});if(i>-1){if(DB.mat[i]._rowid)m._rowid=DB.mat[i]._rowid;DB.mat[i]=m;}}
   else DB.mat.push(m);
@@ -3174,7 +3211,7 @@ window.editMAT=function(id){
   fillCo();buildMfrList();
   var sv=function(f,v){var e=document.getElementById(f);if(e)dtSet(e,v);};
   sv('m-eid',id);sv('m-name',m.name);sv('m-desc',m.desc);sv('m-aconex',m.aconex);sv('m-date',m.date);
-  sv('m-cat-sub',m.catSub);sv('m-cat-cor',(m.catCor&&m.catCor!==m.catSub)?m.catCor:'');
+  sv('m-cat-sub',m.catCor||m.catSub);
   pickSet('m-co',m.company);pickSet('m-mfr',m.mfr);sv('m-mfr-country',m.mfrCountry);checkMfr('m');
   renderMatPidLink(m);renderMatItemsLink(m);sv('m-leed',m.leed||'N/A');sv('m-saso',m.saso||'N/A');sv('m-mts',m.mts||'Pending');sv('m-notes',m.notes);
   if(m.company)showCoInfo(m.company);else document.getElementById('co-info').style.display='none';
@@ -3244,15 +3281,14 @@ window.rMAT=function(){
   });
   var c=document.getElementById('mat-count');if(c)c.textContent=items.length+' submittal'+(items.length===1?'':'s');
   var tb=document.getElementById('tb-mat');if(!tb)return;
-  if(!items.length){tb.innerHTML='<tr><td colspan="16" class="empty">No submittals yet.</td></tr>';return;}
+  if(!items.length){tb.innerHTML='<tr><td colspan="15" class="empty">No submittals yet.</td></tr>';return;}
   tb.innerHTML=items.map(function(m){
-    var sub=m.catSub||'', cor=m.catCor||sub, diff=(m.catCor&&cor!==sub);
     var dsOf=dossiersFor(m);
     return '<tr class="hov" onclick="editMAT('+m.id+')">'
       +'<td class="pin1"><span class="nm">'+m.name+'</span></td>'
       +'<td class="pin2"><span class="ref">'+(m.aconex||'—')+'</span></td>'
       +'<td><span class="ref">'+(m.date||'—')+'</span></td>'
-      +'<td>'+cB(sub)+'</td><td>'+cB(cor)+(diff?' <span style="color:var(--act-t);font-size:11px">changed</span>':'')+'</td>'
+      +'<td>'+cB(m.catCor||m.catSub)+'</td>'
       +'<td><span class="nm" style="max-width:170px">'+(m.company||'—')+'</span></td>'
       +'<td><span class="nm" style="max-width:170px">'+(m.mfr||'—')+(m.mfrCountry?' <span class="dim">'+m.mfrCountry+'</span>':'')+'</span></td>'
       +'<td><span class="ref">'+(dsOf.length?dsOf.map(function(d){return d.no||'—';}).join(', '):'—')+'</span></td>'
@@ -5699,14 +5735,14 @@ window.openPA=function(id){
     if(!m)return;
     sel.value=m.id;sel.disabled=true;
     document.getElementById('pa-title').textContent='Assessment · '+m.name;
-    g('pa-vid',m.id);g('pa-prepa',preNorm(m));g('pa-status',m.pa||'Pending');g('pa-date',m.paDate);g('pa-ref',m.paRef);
+    g('pa-vid',m.id);g('pa-prepa',preNorm(m));g('pa-prepa-date',m.prepaDate);g('pa-status',m.pa||'Pending');g('pa-date',m.paDate);g('pa-ref',m.paRef);
     g('pa-qms',m.paQms||'Pending');g('pa-qms-assessor',m.paQmsAssessor);g('pa-qms-result',m.paQmsResult);g('pa-qms-ref',m.paQmsRef);
     g('pa-tech',m.paTech||'Pending');g('pa-tech-assessor',m.paTechAssessor);g('pa-tech-result',m.paTechResult);g('pa-tech-ref',m.paTechRef);
     g('pa-result',m.paResult);
   }else{
     sel.disabled=false;sel.value='';
     document.getElementById('pa-title').textContent='Schedule an assessment';
-    g('pa-vid','');g('pa-prepa','Pending');g('pa-status','Scheduled');g('pa-date','');g('pa-ref','');
+    g('pa-vid','');g('pa-prepa','Not received');g('pa-prepa-date','');g('pa-status','Scheduled');g('pa-date','');g('pa-ref','');
     g('pa-qms','Pending');g('pa-qms-assessor','');g('pa-qms-result','');g('pa-qms-ref','');
     g('pa-tech','Pending');g('pa-tech-assessor','');g('pa-tech-result','');g('pa-tech-ref','');g('pa-result','');
   }
@@ -5722,7 +5758,7 @@ window.savePA=function(){
   if(!m)return alert('That vendor could not be found');
   var g=function(f){var e=document.getElementById(f);return e?dtGet(e):'';};
   /* mutate in place so nothing else on the vendor record is touched */
-  m.prepa=g('pa-prepa');m.pa=g('pa-status');m.paDate=g('pa-date');m.paRef=g('pa-ref');
+  m.prepa=g('pa-prepa');m.prepaDate=g('pa-prepa-date');m.pa=g('pa-status');m.paDate=g('pa-date');m.paRef=g('pa-ref');
   m.paQms=g('pa-qms');m.paQmsAssessor=g('pa-qms-assessor');m.paQmsResult=g('pa-qms-result');m.paQmsRef=g('pa-qms-ref');
   m.paTech=g('pa-tech');m.paTechAssessor=g('pa-tech-assessor');m.paTechResult=g('pa-tech-result');m.paTechRef=g('pa-tech-ref');
   m.paResult=g('pa-result');
@@ -6350,7 +6386,7 @@ var RB_SOURCES={
       ['name','Vendor',1],['aconex','Aconex reference',1],['cat','Category',1],['dis','Discipline',1],
       ['origin','Origin',0,function(m){return vendorOrigin(m)==='Unknown'?'':vendorOrigin(m);}],['type','Entity type',0],['scope','Scope of work',1],['subco','Brought by',0],
       ['date','Submitted',0],['pqd','PQD status',1],['avl','Vendor list',0,function(m){return avlNorm(m.avl);}],
-      ['prepa','Pre-PA',0,function(m){return effStage(m,'prepa');}],
+      ['prepa','Pre-assessment file',0,function(m){return effStage(m,'prepa');}],['prepaDate','Pre-assessment received',0],
       ['pa','Assessment',1,function(m){return effStage(m,'pa');}],
       ['paDate','Survey date',0],['paRef','Assessment Aconex reference',0],
       ['paQmsAssessor','QMS assessor',0],['paQmsResult','QMS result',0],['paQmsRef','QMS report reference',0],
@@ -6359,12 +6395,11 @@ var RB_SOURCES={
       ['iso','ISO',1,function(m){return (m.isoDate&&isExp(m.isoDate))?'Expired':(m.iso||'');}],
       ['isoDate','ISO expiry',0],['qualDate','Qualified on',0],['notes','Notes',0]
     ],
-    filters:[['cat','Category',['C0','C1','C2','C3']],['pqd','PQD status',['Pending','Submitted','Approved','Approved - A','Approved - B','Code C','Rejected']],['dis','Discipline',null]]},
+    filters:[['cat','Category',['C0','C1','C2','C3']],['pqd','PQD status',DOC_CODES],['dis','Discipline',null]]},
 
   materials:{label:'Material submittals',rows:function(){return matRecords();},
     cols:[
-      ['name','Material',1],['aconex','Aconex reference',1],['desc','Description',0],
-      ['catSub','Category submitted',0],['catCor','Category',1,function(m){return m.catCor||m.catSub||'';}],
+      ['name','Material',1],['aconex','Aconex reference',1],['desc','Description',0],['catCor','Category',1,function(m){return m.catCor||m.catSub||'';}],
       ['company','Submitted by',1],['mfr','Manufacturer',1],['mfrCountry','Country of manufacture',0],
       ['date','Submitted',1],['mts','Submittal status',1],['leed','LEED',0],['saso','SASO',0],
       ['vendorPqd','Vendor PQD',0,function(m){return vendorForMat(m).pqd||'';}],
@@ -6453,7 +6488,7 @@ var RB_SOURCES={
       ['items','Line items',0,function(m){return (m.items||[]).length||'';}],
       ['notes','Notes',0]
     ],
-    filters:[['catCor','Category',['C0','C1','C2','C3']],['mts','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
+    filters:[['catCor','Category',['C0','C1','C2','C3']],['mts','Status',DOC_CODES]]},
 
   dossiers:{label:'Pre-inspection dossiers',rows:function(){return (DB.dossiers||[]).slice();},
     cols:[['no','Dossier no.',1],['title','Title',1],['ref','Aconex reference',1],['vendor','Vendor',1],
@@ -6461,20 +6496,20 @@ var RB_SOURCES={
       ['mats','Materials',1,function(d){return pidMatsOf(d).map(function(r){return refLabelFor(r).name;}).join('; ');}],
       ['meeting','Meeting',0,function(d){var p=meetingsFor(d)[0];return p?(p.status||''):'';}],
       ['notes','Notes',0]],
-    filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
+    filters:[['status','Status',DOC_CODES]]},
 
   postdoss:{label:'Post-inspection dossiers',rows:function(){return (DB.postdoss||[]).slice();},
     cols:[['no','Dossier no.',1],['title','Title',1],['ref','Aconex reference',1],['vendor','Vendor',1],
       ['last','Last quantity accepted',1],['due','Due',1,function(d){return postDue(d)||'';}],
       ['date','Submitted',1],['status','Status',1],
       ['mats','Materials',0,function(d){return (d.mats||[]).map(function(r){return refLabelFor(r).name;}).join('; ');}],['notes','Notes',0]],
-    filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
+    filters:[['status','Status',DOC_CODES]]},
 
   tpi:{label:'Third-party inspection assignments',rows:function(){return (DB.tpi||[]).slice();},
     cols:[['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
       ['agency','Agency',1],['inspector','Inspector',1],
       ['status','Status',1],['notes','Notes',0]],
-    filters:[['status','Status',['Pending','Submitted','Approved','Rejected']]]},
+    filters:[['status','Status',DOC_CODES]]},
 
   meetings:{label:'Pre-fabrication meetings',rows:function(){return (DB.pfm||[]).slice();},
     cols:[['no','Meeting no.',1],['subject','Subject',1],['vendor','Vendor',1],['date','Date',1],
@@ -6487,14 +6522,14 @@ var RB_SOURCES={
     cols:[['title','Title',1],
       ['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
       ['vendor','Vendor',1],['type','Type',1],['date','Submitted',1],['status','Status',1],['ref','Aconex reference',0],['notes','Notes',0]],
-    filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
+    filters:[['status','Status',DOC_CODES]]},
 
   fatproc:{label:'Factory acceptance test procedures',rows:function(){return (DB.fatproc||[]).slice();},
     cols:[['no','Procedure no.',1],['title','Title',1],['rev','Revision',1],
       ['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
       ['vendor','Vendor',1],['date','Submitted',1],['status','Status',1],
       ['ref','Aconex reference',1],['notes','Notes',0]],
-    filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
+    filters:[['status','Status',DOC_CODES]]},
 
   ipi:{label:'In-process inspections',rows:function(){return (DB.ipi||[]).slice();},
     cols:[['no','Visit',1],['date','Date',1],
@@ -6508,7 +6543,7 @@ var RB_SOURCES={
       ['mat','Material',1,function(m){return m.mat?refLabelFor(m.mat).name:'';}],
       ['agency','Agency',1],['inspector','Inspector',1],['result','Result',1],['status','Report status',1],
       ['issued','Issued',1],['ref','Aconex reference',1],['notes','Notes',0]],
-    filters:[['result','Result',['Pending','Pass','Pass with comments','Failed']],['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']]]},
+    filters:[['result','Result',['Pending','Pass','Pass with comments','Failed']],['status','Status',DOC_CODES]]},
 
   ir:{label:'Inspection reports',rows:function(){return (DB.ir||[]).slice();},
     cols:[['no','Report no.',1],['date','Inspection date',1],
@@ -6533,12 +6568,12 @@ var RB_SOURCES={
       ['irnNo','Release note',0,function(m){var r=(DB.irn||[]).find(function(x){return String(x.mir)===String(m.id);});return r?(r.no||''):'';}],
       ['irnStatus','Release status',0,function(m){var r=(DB.irn||[]).find(function(x){return String(x.mir)===String(m.id);});return r?(r.status||''):'';}],
       ['notes','Notes',0]],
-    filters:[['status','Status',['Pending','Submitted','Approved','Approved with Comments','Rejected']],['cat','Category',['C0','C1','C2','C3']]]},
+    filters:[['status','Status',DOC_CODES],['cat','Category',['C0','C1','C2','C3']]]},
 
   irn:{label:'Inspection release notes',rows:function(){return (DB.irn||[]).slice();},
     cols:[['no','IRN no.',1],['material','Material',1],['date','Issued',1],['status','Status',1],['ref','Aconex reference',0],
       ['mir','Inspection request',1,function(m){return mirLabel(m.mir);}],['notes','Notes',0]],
-    filters:[['status','Status',['Pending','Issued','Approved','Rejected']]]},
+    filters:[['status','Status',DOC_CODES]]},
 
   inspectors:{label:'Approved inspectors',rows:function(){return (DB.inspectors||[]).slice();},
     cols:[['name','Inspector',1],['agency','Agency',1],['status','Status',1],['ref','Aconex reference',0],['notes','Notes',0]],
@@ -6952,10 +6987,12 @@ function impPlan(rows){
    ================================================================ */
 var ACX_CODE={PRQ:'pqd',MAT:'mat',MIR:'mir',ITP:'itp'};
 var ACX_LABEL={pqd:'Vendors',mat:'Material submittals',mir:'Inspection requests',itp:'Inspection and test plans'};
+/* the disciplines are kept as Aconex writes them, only tidied */
 var ACX_DISC={'Architectural':'Architectural','Electrical':'Electrical','Mechanical':'Mechanical',
-  'HVAC':'Mechanical','Plumbing Works':'Mechanical','Civil Works (Concrete)':'Civil',
-  'Structural, Concrete and Steel':'Structural','Fire Protection':'Mechanical',
-  'Electronic Services/ELV':'Electrical','General MEP':'MEP','Landscape':'Civil','Theming':'Architectural'};
+  'HVAC':'HVAC','Plumbing Works':'Plumbing','Civil Works (Concrete)':'Civil',
+  'Structural, Concrete and Steel':'Structural','Fire Protection':'Fire Protection',
+  'Electronic Services/ELV':'ELV','General MEP':'General MEP','Landscape':'Landscape',
+  'Theming':'Theming','Infrastructure':'Infrastructure'};
 var ACX_CAT=/\(?\s*categor(?:y|ies)\s*[:\-]?\s*([0-3])\s*\)?|\bcat\s*[:\-]?\s*([0-3])\b|\bC\s?([0-3])\b/i;
 function acxCat(t){
   var m=ACX_CAT.exec(String(t||''));
@@ -7378,13 +7415,13 @@ var RT_SETS={
     fields:[['name','Vendor'],['aconex','Aconex reference'],['cat','Category'],['dis','Discipline'],
       ['origin','Origin'],['loc','Location'],['type','Entity type'],['scope','Scope of work'],
       ['date','Submitted'],['pqd','PQD status'],['avl','Vendor list'],['iso','ISO'],['isoDate','ISO expiry'],
-      ['prepa','Pre-PA'],['pa','Assessment'],['paDate','Survey date'],['paRef','Assessment reference'],
+      ['prepa','Pre-assessment file'],['pa','Assessment'],['paDate','Survey date'],['paRef','Assessment reference'],
       ['paQms','QMS report'],['paQmsAssessor','QMS assessor'],['paQmsResult','QMS result'],['paQmsRef','QMS reference'],
       ['paTech','Technical report'],['paTechAssessor','Technical assessor'],['paTechResult','Technical result'],['paTechRef','Technical reference'],
       ['paResult','Assessment result'],['engage','Engagement'],['qualDate','Qualified on'],['notes','Notes']]},
   mat:{label:'Material submittals',table:'mat',rows:function(){return matRecords();},
     fields:[['name','Material'],['aconex','Aconex reference'],['desc','Description'],
-      ['catSub','Category submitted'],['catCor','Category'],['company','Submitted by'],
+      ['catCor','Category'],['company','Submitted by'],
       ['mfr','Manufacturer'],['mfrCountry','Country of manufacture'],['date','Submitted'],
       ['mts','Status'],['leed','LEED'],['saso','SASO'],['notes','Notes']]},
   mir:{label:'Inspection requests',table:'mir',rows:function(){return DB.mir||[];},
@@ -7859,22 +7896,22 @@ function refreshCounts(){
   var set=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
   set('nb-pqd',(DB.pqd||[]).length);
 
-  var pc=paCounts();set('nb-pa',pc.open+pc.scheduled);
-  var cc=chkCounts();set('nb-chk',cc.open+cc.missing);
+  var pc=paCounts();set('nb-pa',pc.all);
+  var cc=chkCounts();set('nb-chk',cc.all);
   set('nb-fat',(DB.fat||[]).length);
   set('nb-insp',(DB.inspectors||[]).length);
-  var dc=pidCounts();set('nb-pid',dc.open+dc.meeting);
+  var dc=pidCounts();set('nb-pid',(DB.dossiers||[]).length);
   set('nb-tpi',(DB.tpi||[]).length);
-  set('nb-pfm',(DB.pfm||[]).filter(function(x){return x.status!=='Done';}).length);
-  set('nb-itp',(DB.itp||[]).filter(function(x){return (x.status||'Pending').indexOf('Approved')!==0;}).length);
-  set('nb-fatrep',(DB.fatrep||[]).filter(function(x){return (x.status||'Pending').indexOf('Approved')!==0;}).length);
-  set('nb-ir',(DB.ir||[]).filter(function(x){return (x.status||'Pending').indexOf('Approved')!==0;}).length);
-  set('nb-ipi',(DB.ipi||[]).filter(function(x){return (x.result||'Pending')==='Pending'||x.result==='Failed';}).length);
-  set('nb-fatproc',(DB.fatproc||[]).filter(function(x){return (x.status||'Pending').indexOf('Approved')!==0;}).length);
-  set('nb-items',(DB.items||[]).filter(function(x){return itemState(x)!=='complete';}).length);
+  set('nb-pfm',(DB.pfm||[]).length);
+  set('nb-itp',(DB.itp||[]).length);
+  set('nb-fatrep',(DB.fatrep||[]).length);
+  set('nb-ir',(DB.ir||[]).length);
+  set('nb-ipi',(DB.ipi||[]).length);
+  set('nb-fatproc',(DB.fatproc||[]).length);
+  set('nb-items',(DB.items||[]).length);
   set('nb-deliv',(DB.deliv||[]).length);
   set('nb-irn',(DB.irn||[]).length);
-  set('nb-post',(DB.postdoss||[]).filter(function(x){return (x.status||'Pending').indexOf('Approved')!==0;}).length);
+  set('nb-post',(DB.postdoss||[]).length);
   set('nb-mir',(DB.mir||[]).length);
   set('nb-mat',matRecords().length);
   set('nb-comp',(COMP_DATA||[]).length);
