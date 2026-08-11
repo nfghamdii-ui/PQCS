@@ -6652,6 +6652,7 @@ function rbGroupList(){
 var RB_OPEN={};
 function rbCols_render(chosen){
   var host=document.getElementById('rb-cols');
+  var top=host?host.scrollTop:0;
   host.innerHTML=rbGroupList().map(function(grp,gi){
     var on=grp.cols.filter(function(c){return chosen.indexOf(c[0])>=0;}).length;
     var state=(on===0)?'':(on===grp.cols.length?'all':'some');
@@ -6660,7 +6661,7 @@ function rbCols_render(chosen){
     return '<div class="grp-row '+state+(open?' grp-open':'')+'" data-g="'+gi+'">'
       +'<span class="grp-tw" onclick="rbTwist(event,'+gi+')"><svg viewBox="0 0 10 10"><path d="M3 1l4 4-4 4"/></svg></span>'
       +'<span class="'+boxCls+'" onclick="rbGroupPick(event,'+gi+')" style="position:relative"></span>'
-      +'<span class="grp-name" onclick="rbTwist(event,'+gi+')">'+grp.name+'</span>'
+      +'<span class="grp-name" onclick="rbGroupPick(event,'+gi+')">'+grp.name+'</span>'
       +'<span class="grp-n">'+on+' / '+grp.cols.length+'</span></div>'
       +'<div class="grp-body">'
       +grp.cols.map(function(c){
@@ -6670,6 +6671,7 @@ function rbCols_render(chosen){
       }).join('')
       +'</div>';
   }).join('');
+  if(top)host.scrollTop=top;
   var ex=document.getElementById('rb-expand');
   if(ex)ex.textContent=rbGroupList().every(function(g){return RB_OPEN[RB_SRC+'|'+g.name];})?'collapse all':'expand all';
 }
@@ -6946,6 +6948,10 @@ window.openRT=function(){
   document.getElementById('ov-rt').classList.add('on');
 };
 function rtRender(){
+  /* the list is redrawn on every click, so the scroll position has to be
+     carried across or the view jumps back to the top each time */
+  var keep=document.getElementById('rt-sets');
+  var top=keep?keep.scrollTop:0;
   var h='<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">'
     +'<span class="dlbl" style="margin:0">SECTIONS AND COLUMNS</span>'
     +'<span class="link" onclick="rtAllSets(true)">select all</span>'
@@ -6959,7 +6965,7 @@ function rtRender(){
     h+='<div class="grp-row '+state+(open?' grp-open':'')+'">'
       +'<span class="grp-tw" onclick="rtTwist(event,\''+k+'\')"><svg viewBox="0 0 10 10"><path d="M3 1l4 4-4 4"/></svg></span>'
       +'<span class="box'+(on&&state==='some'?' part':'')+'" onclick="rtSetPick(event,\''+k+'\')" style="position:relative"></span>'
-      +'<span class="grp-name" style="font-family:var(--sans);font-size:12.5px;letter-spacing:0;color:'+(on?'var(--t-1)':'var(--t-3)')+'" onclick="rtTwist(event,\''+k+'\')">'+set.label+'</span>'
+      +'<span class="grp-name" style="font-family:var(--sans);font-size:12.5px;letter-spacing:0;color:'+(on?'var(--t-1)':'var(--t-3)')+'" onclick="rtSetPick(event,\''+k+'\')">'+set.label+'</span>'
       +'<span class="grp-n">'+(on?(chosen.length+' / '+set.fields.length+'  \u00b7  '):'')+n+' rows</span></div>'
       +'<div class="grp-body">'
       +set.fields.map(function(f){
@@ -6971,6 +6977,8 @@ function rtRender(){
   });
   h+='</div>';
   document.getElementById('rt-body').innerHTML=h;
+  var host=document.getElementById('rt-sets');
+  if(host&&top)host.scrollTop=top;
   rtCount();
 }
 function rtCount(){
@@ -6983,7 +6991,14 @@ function rtCount(){
   if(e)e.textContent=sets+' sheet'+(sets===1?'':'s')+' \u00b7 '+rows+' rows';
 }
 window.rtTwist=function(ev,k){ev.stopPropagation();RT_OPEN[k]=!RT_OPEN[k];rtRender();};
-window.rtSetPick=function(ev,k){ev.stopPropagation();RT_ON[k]=!RT_ON[k];rtRender();};
+window.rtSetPick=function(ev,k){
+  ev.stopPropagation();
+  var full=RT_SETS[k].fields.length, has=(RT_PICK[k]||[]).length;
+  /* ticking a section means taking it whole; ticking it again drops it */
+  if(RT_ON[k]&&has===full){RT_ON[k]=false;RT_PICK[k]=[];}
+  else{RT_ON[k]=true;RT_PICK[k]=RT_SETS[k].fields.map(function(f){return f[0];});}
+  rtRender();
+};
 window.rtFieldPick=function(ev,k,f){
   ev.stopPropagation();
   var a=RT_PICK[k]||[], i=a.indexOf(f);
