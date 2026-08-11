@@ -214,6 +214,22 @@ th.thf.act .fcar{opacity:1;color:var(--act-t)}
 .pick-t{font-size:12.5px;color:var(--t-1)}
 .pick-s{font-size:11px;color:var(--t-3);margin-top:2px}
 .pick-none{padding:12px;font-size:11.5px;color:var(--t-3);text-align:center}
+/* Ninety columns in one flat list is unreadable, so they are grouped by
+   the register they come from: one row per group, tick it to take the
+   whole group, open it to pick from inside. */
+.grp-row{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:5px;cursor:pointer;user-select:none}
+.grp-row:hover{background:var(--sf-2)}
+.grp-tw{display:flex;align-items:center;justify-content:center;width:16px;height:16px;flex-shrink:0;color:var(--t-3);transition:transform .12s}
+.grp-tw svg{width:9px;height:9px;stroke:currentColor;fill:none;stroke-width:2}
+.grp-open .grp-tw{transform:rotate(90deg)}
+.grp-name{flex:1;font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;color:var(--t-3)}
+.grp-row.some .grp-name,.grp-row.all .grp-name{color:var(--t-1)}
+.grp-row.all .grp-n{color:var(--ok-t)}
+.grp-n{font-family:var(--mono);font-size:10.5px;color:var(--t-4)}
+.grp-body{display:none;padding:2px 0 6px 34px;border-left:1px solid var(--line);margin-left:16px}
+.grp-open+.grp-body{display:block}
+.box.part{background:var(--t-3);border-color:var(--t-3)}
+.box.part::after{content:"";position:absolute;left:2px;top:5px;width:7px;height:2px;background:var(--bg);border:none;transform:none}
 /* paste any reference and let the system work out what it belongs to */
 .paste{padding:12px 14px;border:1px dashed var(--line-2);border-radius:var(--r-lg);background:var(--bg);margin:16px 0 4px}
 .paste-in{width:100%;background:transparent;border:none;outline:none;color:var(--t-1);font-family:var(--mono);font-size:12.5px;padding:0}
@@ -1461,11 +1477,11 @@ function n(){if(i>=s.length)return;var e=document.createElement('script');e.src=
       <span class="dlbl" style="margin:0">COLUMNS</span>
       <span class="link" onclick="rbAll(true)">select all</span>
       <span class="link" onclick="rbAll(false)">clear</span>
-      <span id="rb-groups" style="display:inline-flex;gap:9px"></span>
+      <span class="link" onclick="rbExpand()" id="rb-expand">expand all</span>
       <span class="spacer"></span>
       <span class="count" id="rb-count"></span>
     </div>
-    <div id="rb-cols" style="max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--r);padding:5px"></div>
+    <div id="rb-cols" style="max-height:340px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--r);padding:5px"></div>
 
     <div class="dlbl" style="margin:16px 0 8px">FILTERS</div>
     <div id="rb-filters" class="fg"></div>
@@ -6615,21 +6631,7 @@ function rbRender(){
   RB_PICK=RB_PICK[RB_SRC]?RB_PICK:{};
   var chosen=RB_PICK[RB_SRC]||rbDefaults();
   RB_PICK[RB_SRC]=chosen;
-  document.getElementById('rb-cols').innerHTML=RB_SOURCES[RB_SRC].cols.map(function(c){
-    var on=chosen.indexOf(c[0])>=0;
-    return '<div class="colopt'+(on?' on':'')+'" data-c="'+c[0]+'" onclick="rbToggle(this)" style="padding:7px 9px">'
-      +'<span class="box"></span>'+c[1]+'</div>';
-  }).join('');
-  /* whole groups can be switched on at once — the assessment block is
-     eleven columns, and clicking them one by one is a chore */
-  var gseen=[];
-  RB_SOURCES[RB_SRC].cols.forEach(function(c){
-    var g=rbGroupOf(c[0]);
-    if(g&&g!==(RB_GROUP[RB_SRC]||'')&&gseen.indexOf(g)<0)gseen.push(g);
-  });
-  document.getElementById('rb-groups').innerHTML=gseen.map(function(g){
-    return '<span class="link" onclick="rbGroup(\''+g.replace(/'/g,"")+'\')">+ '+g.toLowerCase()+'</span>';
-  }).join('');
+  rbCols_render(chosen);
   var fs=RB_SOURCES[RB_SRC].filters||[];
   document.getElementById('rb-filters').innerHTML=fs.length
     ? fs.map(function(f){
@@ -6645,19 +6647,52 @@ function rbRender(){
     : '<div class="fg-f"><span class="dim" style="font-size:11.5px">No filters for this source.</span></div>';
   rbCount();
 }
-window.rbToggle=function(el){
-  el.classList.toggle('on');
-  RB_PICK[RB_SRC]=[].slice.call(document.querySelectorAll('#rb-cols .colopt.on')).map(function(x){return x.dataset.c;});
-  rbCount();
+/* the groups, in the order their columns were declared */
+function rbGroupList(){
+  var order=[], byGroup={};
+  RB_SOURCES[RB_SRC].cols.forEach(function(c){
+    var g=rbGroupOf(c[0])||RB_GROUP[RB_SRC]||'OTHER';
+    if(!byGroup[g]){byGroup[g]=[];order.push(g);}
+    byGroup[g].push(c);
+  });
+  return order.map(function(g){return {name:g,cols:byGroup[g]};});
+}
+var RB_OPEN={};
+function rbCols_render(chosen){
+  var host=document.getElementById('rb-cols');
+  host.innerHTML=rbGroupList().map(function(grp,gi){
+    var on=grp.cols.filter(function(c){return chosen.indexOf(c[0])>=0;}).length;
+    var state=(on===0)?'':(on===grp.cols.length?'all':'some');
+    var boxCls='box'+(state==='all'?'':(state==='some'?' part':''));
+    var open=!!RB_OPEN[RB_SRC+'|'+grp.name];
+    return '<div class="grp-row '+state+(open?' grp-open':'')+'" data-g="'+gi+'">'
+      +'<span class="grp-tw" onclick="rbTwist(event,'+gi+')"><svg viewBox="0 0 10 10"><path d="M3 1l4 4-4 4"/></svg></span>'
+      +'<span class="'+boxCls+'" onclick="rbGroupPick(event,'+gi+')" style="position:relative"></span>'
+      +'<span class="grp-name" onclick="rbTwist(event,'+gi+')">'+grp.name+'</span>'
+      +'<span class="grp-n">'+on+' / '+grp.cols.length+'</span></div>'
+      +'<div class="grp-body">'
+      +grp.cols.map(function(c){
+        var sel=chosen.indexOf(c[0])>=0;
+        return '<div class="colopt'+(sel?' on':'')+'" data-c="'+c[0]+'" onclick="rbToggle(this)" style="padding:6px 8px">'
+          +'<span class="box"></span>'+c[1]+'</div>';
+      }).join('')
+      +'</div>';
+  }).join('');
+  var ex=document.getElementById('rb-expand');
+  if(ex)ex.textContent=rbGroupList().every(function(g){return RB_OPEN[RB_SRC+'|'+g.name];})?'collapse all':'expand all';
+}
+window.rbTwist=function(ev,gi){
+  ev.stopPropagation();
+  var g=rbGroupList()[gi];if(!g)return;
+  var k=RB_SRC+'|'+g.name;
+  RB_OPEN[k]=!RB_OPEN[k];
+  rbCols_render(RB_PICK[RB_SRC]||[]);
 };
-window.rbAll=function(on){
-  document.querySelectorAll('#rb-cols .colopt').forEach(function(el){el.classList.toggle('on',on);});
-  RB_PICK[RB_SRC]=on?RB_SOURCES[RB_SRC].cols.map(function(c){return c[0];}):[];
-  rbCount();
-};
-window.rbGroup=function(g){
+window.rbGroupPick=function(ev,gi){
+  ev.stopPropagation();
+  var g=rbGroupList()[gi];if(!g)return;
   var chosen=(RB_PICK[RB_SRC]||[]).slice();
-  var keys=RB_SOURCES[RB_SRC].cols.filter(function(c){return rbGroupOf(c[0])===g;}).map(function(c){return c[0];});
+  var keys=g.cols.map(function(c){return c[0];});
   var allOn=keys.every(function(k){return chosen.indexOf(k)>=0;});
   keys.forEach(function(k){
     var i=chosen.indexOf(k);
@@ -6665,7 +6700,22 @@ window.rbGroup=function(g){
     else if(i<0)chosen.push(k);
   });
   RB_PICK[RB_SRC]=chosen;
-  rbRender();
+  rbCols_render(chosen);rbCount();
+};
+window.rbExpand=function(){
+  var groups=rbGroupList();
+  var allOpen=groups.every(function(g){return RB_OPEN[RB_SRC+'|'+g.name];});
+  groups.forEach(function(g){RB_OPEN[RB_SRC+'|'+g.name]=!allOpen;});
+  rbCols_render(RB_PICK[RB_SRC]||[]);
+};
+window.rbToggle=function(el){
+  el.classList.toggle('on');
+  RB_PICK[RB_SRC]=[].slice.call(document.querySelectorAll('#rb-cols .colopt.on')).map(function(x){return x.dataset.c;});
+  rbCols_render(RB_PICK[RB_SRC]);rbCount();
+};
+window.rbAll=function(on){
+  RB_PICK[RB_SRC]=on?RB_SOURCES[RB_SRC].cols.map(function(c){return c[0];}):[];
+  rbCols_render(RB_PICK[RB_SRC]);rbCount();
 };
 window.rbFilter=function(k,v){if(v)RB_FILT[k]=v;else delete RB_FILT[k];rbCount();};
 window.rbReset=function(){try{localStorage.removeItem(rbPrefKey());}catch(e){}delete RB_PICK[RB_SRC];RB_FILT={};rbRender();};
