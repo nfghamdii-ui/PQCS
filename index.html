@@ -6927,7 +6927,46 @@ var RT_SETS={
   deliv:{label:'Deliveries',table:'deliv',rows:function(){return DB.deliv||[];},
     fields:[['item','Item key'],['mir','Inspection request key'],['qty','Quantity received'],['date','Date'],['note','Note']]}
 };
-var RT_DATE={date:1,isoDate:1,paDate:1,qualDate:1,issued:1,last:1,prefab:1,fab:1,fatDate:1,delivery:1};
+var RT_DATE={date:1,isoDate:1,paDate:1,qualDate:1,issued:1,last:1,prefab:1,fab:1,fatDate:1,delivery:1,prepaDate:1};
+/* The values each field accepts. They become a dropdown in the cell and
+   a line on the reference sheet, so a value is never guessed. The rule
+   warns rather than blocks: an unusual entry is still allowed through. */
+var RT_LISTS={
+  pqd:DOC_CODES, mts:DOC_CODES, status:DOC_CODES, mom:DOC_CODES,
+  paQms:DOC_CODES.concat(['N/A']), paTech:DOC_CODES.concat(['N/A']),
+  cat:['C0','C1','C2','C3'], catSub:['C0','C1','C2','C3'], catCor:['C0','C1','C2','C3'],
+  dis:['Architectural','Civil','Structural','Mechanical','HVAC','Plumbing','Fire Protection','Electrical','ELV','General MEP','Landscape','Theming','Infrastructure'],
+  type:['Manufacturer','Subcontractor','Vendor','Inspection agency'],
+  origin:['Local','Foreign'],
+  avl:['Yes','No','Not same scope'],
+  iso:['Valid','Expired','Pending'],
+  engage:['Active','Discontinued'],
+  prepa:['Not received','Received','N/A'],
+  pa:['Pending','Scheduled','Done','Waived','N/A'],
+  paResult:['Pass','Failed','Under process'],
+  paQmsResult:['Pass','Failed','Under process'],
+  paTechResult:['Pass','Failed','Under process'],
+  result:['Pending','Pass','Pass with comments','Failed'],
+  leed:['N/A','Attached','Pending','Will Submit with MIR'],
+  saso:['N/A','Attached','Pending','Will Submit with MIR'],
+  remark:['FAT done','Final inspection done','Re-FAT is required','Pending'],
+  approval:['Approved','Pending','Rejected','N/A']
+};
+/* a note explaining what a column expects, where a list would not help */
+var RT_HINT={
+  __key:'Written by the system. Leave it exactly as it is — it is how a row finds its record.',
+  aconex:'The document reference as Aconex shows it.',
+  ref:'The document reference as Aconex shows it.',
+  mat:'The Aconex reference of the material submittal this belongs to.',
+  matRef:'The Aconex reference of the material submittal this belongs to.',
+  matRefs:'One or more submittal references, separated by a vertical bar.',
+  mats:'One or more submittal references, separated by a vertical bar.',
+  item:'The key of a line item, taken from the Bill of quantities sheet.',
+  mir:'The key of an inspection request, taken from its sheet.',
+  dossier:'The key of a dossier, taken from the Pre-inspection dossiers sheet.',
+  qty:'A number.',
+  no:'Free text — the number as it is written on the document.'
+};
 function rtValue(rec,f){
   var v=rec[f];
   if(v==null)return '';
@@ -7052,13 +7091,65 @@ window.runRT=function(){
       });
       return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+Math.min(Math.max(w+3,11),60)+'"'+(c[0]==='__key'?' hidden="0"':'')+'/>';
     }).join('')+'</cols>';
+    /* a dropdown per column that has a known set of values; it warns
+       rather than blocks, so an unusual entry still goes through */
+    var dvs='';
+    cols.forEach(function(c,ci){
+      var list=RT_LISTS[c[0]];
+      if(!list||!list.length)return;
+      var joined=list.join(',');
+      if(joined.length>250)return;                 /* Excel's inline limit */
+      var col=cn(ci);
+      dvs+='<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1"'
+        +' errorStyle="warning" errorTitle="Unusual value"'
+        +' error="That is not one of the values PQCS expects. You can keep it, but it may not be understood."'
+        +' promptTitle="'+esc(c[1]).slice(0,28)+'" prompt="'+esc(list.join('  ·  ')).slice(0,250)+'"'
+        +' sqref="'+col+'2:'+col+(Math.max(rows.length,1)+1)+'">'
+        +'<formula1>"'+esc(joined)+'"</formula1></dataValidation>';
+    });
+    var dvXml=dvs?('<dataValidations count="'+(dvs.match(/<dataValidation /g)||[]).length+'">'+dvs+'</dataValidations>'):'';
     sheets.push({name:set.label.slice(0,28).replace(/[\\\/\?\*\[\]:]/g,''),
       xml:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
         +'<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
         +colXml+'<sheetData>'+sd+'</sheetData>'
-        +'<autoFilter ref="A1:'+cn(cols.length-1)+(1+rows.length)+'"/></worksheet>',
+        +'<autoFilter ref="A1:'+cn(cols.length-1)+(1+rows.length)+'"/>'
+        +dvXml+'</worksheet>',
       key:k});
   });
+  /* a plain sheet explaining every column, so the rules travel with the
+     file rather than living only in someone's memory */
+  (function(){
+    var rr=[], n=0;
+    function line(a,b,c,st){
+      n++;
+      var r='<row r="'+n+'"'+(st===1?' ht="20" customHeight="1"':'')+'>';
+      [a,b,c].forEach(function(v,ci){
+        r+='<c r="'+cn(ci)+n+'" t="inlineStr" s="'+(st||0)+'"><is><t xml:space="preserve">'+esc(v)+'</t></is></c>';
+      });
+      rr.push(r+'</row>');
+    }
+    line('HOW TO USE THIS FILE','','',1);
+    line('','Edit any cell you like, then upload the file in Import → Edit in a spreadsheet.','');
+    line('','A row updates the record its key names. Nothing is created and nothing is deleted.','');
+    line('','Leave the first column exactly as it is.','');
+    line('','Dates are written day/month/year, for example 28/09/2026.','');
+    line('','Where several values belong in one cell, separate them with a vertical bar.','');
+    line('','','');
+    line('SHEET','COLUMN','ACCEPTED VALUES',1);
+    picked.forEach(function(k){
+      var set=RT_SETS[k], keep=RT_PICK[k]||[];
+      set.fields.filter(function(f){return keep.indexOf(f[0])>=0;}).forEach(function(f){
+        var list=RT_LISTS[f[0]];
+        var note=list?list.join('  ·  '):(RT_HINT[f[0]]||(RT_DATE[f[0]]?'A date, day/month/year':'Free text'));
+        line(set.label,f[1],note);
+      });
+    });
+    sheets.push({name:'Reference',
+      xml:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        +'<cols><col min="1" max="1" width="30"/><col min="2" max="2" width="34"/><col min="3" max="3" width="86"/></cols>'
+        +'<sheetData>'+rr.join('')+'</sheetData></worksheet>',
+      key:'__ref'});
+  })();
   var fonts='<font><sz val="11"/><name val="Calibri"/></font>'
     +'<font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font>'
     +'<font><color rgb="FF9AA0A6"/><sz val="10"/><name val="Calibri"/></font>';
@@ -7190,6 +7281,7 @@ function rtbBuild(buf){
   sheets.forEach(function(sh){
     if(sh.rows.length<2)return;
     var head=sh.rows[0]||[];
+    if(String(sh.name).trim()==='Reference')return;
     var key=rtbSetFor(sh.name,head);
     if(!key)return;
     var set=RT_SETS[key];
