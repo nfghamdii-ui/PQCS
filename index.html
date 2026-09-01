@@ -514,11 +514,11 @@ if(!(window.supabase&&window.supabase.createClient))window.SB_LIB={state:'failed
     <div class="filters" id="filters"></div>
     <div class="side-l" id="list"></div>
 
+    </div>
     <div class="side-f">
       <button class="btn btn-s btn-p" onclick="addNew()" id="add-btn">Add</button>
       <button class="btn btn-s" onclick="showDue()">What is due</button>
       <button class="btn-q" onclick="showMenu()" aria-label="More">More</button>
-    </div>
     </div>
   </aside>
 
@@ -652,14 +652,20 @@ window.signOut=async function(){
 
 /* pull the whole workspace; it is small, and one clean read beats
    half a dozen partial ones */
+/* the moment each row was last written, so a save can tell whether
+   somebody else has touched it since this tab last looked */
+var STAMPS={};
 async function loadAll(){
   busy(true,'Loading your records');
   try{
     var c=client(), out=blank();
+    STAMPS={};
     for(var key in TABLES){
-      var r=await c.from(TABLES[key]).select('id,data');
+      var r=await c.from(TABLES[key]).select('id,data,updated_at,updated_by');
       if(r.error)throw r.error;
+      STAMPS[key]={};
       out[key]=(r.data||[]).map(function(row){
+        STAMPS[key][row.id]={at:row.updated_at,by:row.updated_by};
         var o=row.data||{};o.id=Number(row.id);return o;});
     }
     var st=await c.from('settings').select('key,value').eq('key','project').maybeSingle();
@@ -682,30 +688,95 @@ function snapshot(){
 /* Save what actually changed. Comparing against the last snapshot
    means an untouched record is never rewritten, so somebody else's
    edit to it survives. */
-window.save=async function(){
+/* Before writing, check that nobody has touched the same rows since
+   this tab last read them. Two people on different materials never
+   collide; two people on the same one would otherwise have the second
+   save quietly erase the first, and a warning is cheap next to that. */
+async function conflicts(c,changed){
+  var hits=[];
+  for(var key in changed){
+    var ids=changed[key];
+    if(!ids.length)continue;
+    var r=await c.from(TABLES[key]).select('id,updated_at,updated_by').in('id',ids);
+    if(r.error)throw r.error;
+    (r.data||[]).forEach(function(row){
+      var mine=(STAMPS[key]||{})[row.id];
+      if(!mine)return;                                   /* new row of ours */
+      if(row.updated_at!==mine.at&&row.updated_by!==(USER&&USER.id))
+        hits.push({key:key,id:row.id,at:row.updated_at});
+    });
+  }
+  return hits;
+}
+function nameOf(key,id){
+  var list=DB[key]||[], r=list.find(function(x){return String(x.id)===String(id);});
+  return r?(r.name||r.title||('record '+id)):('record '+id);
+}
+window.save=async function(force){
   if(!DB||!USER||SYNCING)return;
   var c=client();if(!c)return;
   SYNCING=true;stamp();
   try{
+    var plan={}, dels={}, any=false;
     for(var key in TABLES){
-      var table=TABLES[key], now={}, ups=[];
+      var now={}, ups=[];
       (DB[key]||[]).forEach(function(o){
         now[o.id]=JSON.stringify(o);
-        if(SNAP[key][o.id]!==now[o.id])ups.push({id:o.id,data:o});
+        if(SNAP[key][o.id]!==now[o.id])ups.push(o);
       });
-      if(ups.length){
-        var r=await c.from(table).upsert(ups,{onConflict:'id'});
-        if(r.error)throw r.error;
+      plan[key]=ups;
+      dels[key]=Object.keys(SNAP[key]).filter(function(id){return !(id in now);});
+      if(ups.length||dels[key].length)any=true;
+    }
+    if(any&&!force){
+      var changed={};
+      for(var k2 in plan){
+        changed[k2]=plan[k2].map(function(o){return o.id;}).concat(dels[k2].map(Number));
       }
-      var gone=Object.keys(SNAP[key]).filter(function(id){return !(id in now);});
-      if(gone.length){
-        var d=await c.from(table).delete().in('id',gone.map(Number));
+      var clash=await conflicts(c,changed);
+      if(clash.length){
+        SYNCING=false;stamp();
+        var first=clash[0];
+        return sheet('Someone else got there first',
+           '<div style="font-size:14px;line-height:1.75">'
+          +'<b>'+esc(nameOf(first.key,first.id))+'</b> was changed by another person '
+          +esc(sinceWhen(first.at))+(clash.length>1?(', along with '+(clash.length-1)+' other record'+(clash.length===2?'':'s')):'')+'.'
+          +'<br><br>Saving now would wipe out what they wrote. Reload to take their version — '
+          +'your unsaved edits to those records are lost, and anything you changed elsewhere is kept. '
+          +'Or overwrite, if you know theirs is the stale one.</div>'
+          +'<div class="f-act" style="margin-top:20px">'
+          +'<button class="btn btn-p" onclick="closeSheet();refresh()">Reload theirs</button>'
+          +'<button class="btn btn-d btn-s" onclick="closeSheet();save(true)">Overwrite with mine</button>'
+          +'</div>');
+      }
+    }
+    for(var key3 in TABLES){
+      var table=TABLES[key3];
+      if(plan[key3].length){
+        var r2=await c.from(table).upsert(plan[key3].map(function(o){return {id:o.id,data:o};}),{onConflict:'id'});
+        if(r2.error)throw r2.error;
+      }
+      if(dels[key3].length){
+        var d=await c.from(table).delete().in('id',dels[key3].map(Number));
         if(d.error)throw d.error;
+        dels[key3].forEach(function(id){if(STAMPS[key3])delete STAMPS[key3][id];});
       }
     }
     if(SNAP.project!==DB.project){
       var p=await c.from('settings').upsert({key:'project',value:{name:DB.project}},{onConflict:'key'});
       if(p.error)throw p.error;
+    }
+    /* our own writes become the new baseline */
+    if(any){
+      for(var key4 in TABLES){
+        if(!plan[key4].length)continue;
+        var fresh=await c.from(TABLES[key4]).select('id,updated_at,updated_by')
+          .in('id',plan[key4].map(function(o){return o.id;}));
+        if(!fresh.error)(fresh.data||[]).forEach(function(row){
+          STAMPS[key4]=STAMPS[key4]||{};
+          STAMPS[key4][row.id]={at:row.updated_at,by:row.updated_by};
+        });
+      }
     }
     snapshot();DIRTY=false;SAVED=new Date();stamp();
   }catch(e){
@@ -714,6 +785,14 @@ window.save=async function(){
   SYNCING=false;
   if(PENDING){PENDING=false;save();}
 };
+function sinceWhen(iso){
+  var m=Math.round((Date.now()-new Date(iso).getTime())/60000);
+  if(m<1)return 'moments ago';
+  if(m<60)return m+' minute'+(m===1?'':'s')+' ago';
+  var h=Math.round(m/60);
+  if(h<24)return h+' hour'+(h===1?'':'s')+' ago';
+  return 'on '+show(new Date(iso).toISOString().slice(0,10));
+}
 var timer=null;
 function touch(){
   DIRTY=true;stamp();
@@ -736,10 +815,14 @@ window.refresh=async function(quiet){
   var keepTab=TAB, keepSel={mat:SEL.mat,mfr:SEL.mfr,insp:SEL.insp};
   try{
     var c=client(), out=blank();
+    STAMPS={};
     for(var key in TABLES){
-      var r=await c.from(TABLES[key]).select('id,data');
+      var r=await c.from(TABLES[key]).select('id,data,updated_at,updated_by');
       if(r.error)throw r.error;
-      out[key]=(r.data||[]).map(function(row){var o=row.data||{};o.id=Number(row.id);return o;});
+      STAMPS[key]={};
+      out[key]=(r.data||[]).map(function(row){
+        STAMPS[key][row.id]={at:row.updated_at,by:row.updated_by};
+        var o=row.data||{};o.id=Number(row.id);return o;});
     }
     var st=await c.from('settings').select('value').eq('key','project').maybeSingle();
     out.project=(st.data&&st.data.value&&st.data.value.name)||DB.project;
@@ -1169,6 +1252,8 @@ window.setTab=function(t){
     if(b)b.setAttribute('aria-selected',t===k);});
   if(BUCKETS[t]&&!BUCKETS[t].some(function(b){return b[0]===FILTER[t];}))FILTER[t]='all';
   var side=(t!=='home'&&t!=='cal');
+  var add=document.getElementById('add-btn');
+  if(add)add.style.display=side?'':'none';
   document.getElementById('side-body').classList.toggle('hidden',!side);
   if(side){
     document.getElementById('q').placeholder='Search '+NOUN[t]+'s, or type a new name';
