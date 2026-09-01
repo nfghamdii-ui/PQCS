@@ -423,6 +423,46 @@ svg{display:block}
 }
 </style>
 <script src="cats.js"></script>
+<script>
+/* Supabase. The anon key belongs in a public file — on its own it can
+   read nothing, because every table refuses it until somebody signs in.
+
+   One CDN is a single point of failure, and on a site network any of
+   them may be blocked, so each is tried in turn. A script that loads
+   but leaves nothing behind counts as a failure too. */
+window.SB_URL='https://wxzvtmzhnpqasvtntjrz.supabase.co';
+window.SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4enZ0bXpobnBxYXN2dG50anJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyNTQ3ODgsImV4cCI6MjEwMzgzMDc4OH0.BsHrI6wLQ-bwy33Zh245t3Eu3Tsy0cHw557cH1i3-w4';
+window.SB_LIB={state:'loading',tried:[]};
+(function(){
+  var srcs=[
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
+    'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js',
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js',
+    'https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js'
+  ];
+  var i=0, done=false;
+  function ok(){return !!(window.supabase&&window.supabase.createClient);}
+  function finish(state){
+    if(done)return;done=true;
+    window.SB_LIB.state=state;
+    if(typeof window.libReady==='function')window.libReady(state);
+  }
+  function next(){
+    if(ok())return finish('ready');
+    if(i>=srcs.length)return finish('failed');
+    var src=srcs[i++];
+    window.SB_LIB.tried.push(src.split('/')[2]);
+    var el=document.createElement('script');
+    el.src=src;
+    el.onload=function(){ok()?finish('ready'):next();};
+    el.onerror=next;
+    document.head.appendChild(el);
+    /* a request that simply hangs must not hold everything up */
+    setTimeout(function(){if(!done&&!ok())next();},4500);
+  }
+  next();
+})();
+</script>
 </head>
 <body>
 
@@ -559,15 +599,42 @@ function niceError(e){
   return m||'Something went wrong.';
 }
 window.gateKey=function(e){if(e.key==='Enter'){e.preventDefault();signIn();}};
+/* the library usually lands within a second, so a click that arrives
+   first should wait for it rather than be thrown away */
+function waitForLib(ms){
+  return new Promise(function(res){
+    if(sbReady())return res(true);
+    if(window.SB_LIB&&window.SB_LIB.state==='failed')return res(false);
+    var t0=Date.now();
+    (function poll(){
+      if(sbReady())return res(true);
+      if(window.SB_LIB&&window.SB_LIB.state==='failed')return res(false);
+      if(Date.now()-t0>(ms||12000))return res(false);
+      setTimeout(poll,150);
+    })();
+  });
+}
+function libProblem(){
+  var tried=((window.SB_LIB&&window.SB_LIB.tried)||[]).join(', ');
+  return 'The database library could not be loaded'+(tried?(' \u2014 tried '+esc(tried)):'')+'.<br>'
+    +'A site network or an ad blocker is the usual cause. '
+    +'<span style="cursor:pointer;text-decoration:underline" onclick="location.reload()">Reload</span>'
+    +' once you are on a network that allows it.';
+}
+window.libReady=function(state){
+  var e=document.getElementById('gate-msg');
+  if(state==='failed')return gmsg(libProblem());
+  if(e&&/loading|could not be loaded/i.test(e.textContent||''))gmsg('');
+};
 window.signIn=async function(){
   gmsg('');
-  var c=client();
-  if(!c)return gmsg('Still loading the database library — try again in a moment.');
   var email=document.getElementById('g-email').value.trim();
   var pass=document.getElementById('g-pass').value;
   if(!email||!pass)return gmsg('Enter both an email and a password.');
-  var b=document.getElementById('g-in');b.disabled=true;b.textContent='Signing in…';
+  var b=document.getElementById('g-in');b.disabled=true;b.textContent='Signing in\u2026';
   try{
+    if(!(await waitForLib())){b.disabled=false;b.textContent='Sign in';return gmsg(libProblem());}
+    var c=client();
     var r=await c.auth.signInWithPassword({email:email,password:pass});
     if(r.error)throw r.error;
     USER=r.data.user;
@@ -577,13 +644,13 @@ window.signIn=async function(){
 };
 window.signUp=async function(){
   gmsg('');
-  var c=client();
-  if(!c)return gmsg('Still loading the database library — try again in a moment.');
   var email=document.getElementById('g-email').value.trim();
   var pass=document.getElementById('g-pass').value;
   if(!email||!pass)return gmsg('Enter both an email and a password.');
-  var b=document.getElementById('g-up');b.disabled=true;b.textContent='Creating…';
+  var b=document.getElementById('g-up');b.disabled=true;b.textContent='Creating\u2026';
   try{
+    if(!(await waitForLib())){b.disabled=false;b.textContent='Create an account';return gmsg(libProblem());}
+    var c=client();
     var r=await c.auth.signUp({email:email,password:pass});
     if(r.error)throw r.error;
     if(r.data.session){USER=r.data.user;await loadAll();}
@@ -768,13 +835,13 @@ function enter(){
 }
 
 /* a session that is still good means no sign-in screen at all */
-(function resume(tries){
-  tries=tries||0;
-  if(!sbReady()){if(tries<60)return setTimeout(function(){resume(tries+1);},120);return;}
-  client().auth.getSession().then(function(r){
+(async function resume(){
+  if(!(await waitForLib(14000)))return;
+  try{
+    var r=await client().auth.getSession();
     if(r.data&&r.data.session){USER=r.data.session.user;loadAll();}
-  }).catch(function(){});
-})(0);
+  }catch(e){}
+})();
 
 /* ================================================================
    2. DATES, CATEGORY, SMALL HELPERS
