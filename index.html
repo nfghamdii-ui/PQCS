@@ -1,1 +1,2857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Material tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ================================================================
+   MATERIAL TRACKER — light
+   Two lists, one detail pane. Everything is typed where it is read.
+   Colour carries state and never decoration; every state also
+   carries a word, so it survives being printed or misread.
+   ================================================================ */
+:root{
+  /* surfaces */
+  --bg:#f5f6f8; --card:#ffffff; --sunk:#eef0f3; --hover:#f7f8fa;
+  --line:#e2e5ea; --line-2:#cdd3db; --line-3:#aab2bd;
+  /* text — all at or above 4.5:1 on white */
+  --ink:#12161c; --ink-2:#59616d; --ink-3:#6e7783; --ink-4:#89919d;
+  /* state: line, text, wash */
+  --ok:#2e7d51;   --ok-t:#1f6440;  --ok-b:#e8f5ee;
+  --now:#9a6512;  --now-t:#845410; --now-b:#fdf3e2;
+  --wait:#2c6ba8; --wait-t:#245a8d; --wait-b:#e9f2fa;
+  --bad:#b03636;  --bad-t:#962c2c; --bad-b:#fdeeee;
+  --accent:#1f2937;
+  /* the rail is dark, so it carries its own set — the working area
+     stays light and the two never borrow each other's values */
+  --rail:#161a20; --rail-2:#1d222a; --rail-3:#262c35;
+  --rail-line:#2b323c; --rail-line-2:#3a4351;
+  --rail-t:#f1f3f6; --rail-t2:#a8b1bd; --rail-t3:#7d8794;
+  --sans:"Inter",-apple-system,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+  --r:8px; --r-lg:12px;
+  --sh:0 1px 2px rgba(16,24,40,.05);
+  --sh-md:0 4px 14px rgba(16,24,40,.09);
+  --sh-lg:0 18px 44px rgba(16,24,40,.16);
+  --fast:180ms cubic-bezier(.2,.7,.3,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;
+  height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+:focus-visible{outline:2px solid var(--wait);outline-offset:2px;border-radius:4px}
+button{font:inherit;color:inherit}
+svg{display:block}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* ---------------- left rail ---------------- */
+.side{width:344px;flex-shrink:0;background:var(--rail);border-right:1px solid var(--rail-line);
+  display:flex;flex-direction:column;min-height:0;color:var(--rail-t)}
+.side-h{padding:20px 20px 0;flex-shrink:0}
+.side ::selection{background:rgba(255,255,255,.16)}
+.brand{display:flex;align-items:center;gap:10px;width:100%;padding:8px;margin:-8px -8px 0;
+  background:none;border:1px solid transparent;border-radius:var(--r);cursor:pointer;text-align:left;
+  transition:background var(--fast),border-color var(--fast)}
+.brand:hover{background:var(--rail-2)}
+.brand[aria-selected=true]{background:var(--rail-3);border-color:var(--rail-line-2)}
+.brand[aria-selected=true] .logo{background:var(--rail-t);color:var(--rail);border-color:var(--rail-t)}
+.brand-go{margin-left:auto;font-size:12px;color:var(--rail-t3);flex-shrink:0}
+.brand[aria-selected=true] .brand-go{color:var(--rail-t)}
+.brand-m{min-width:0}
+.brand-t{font-size:15px;font-weight:600;letter-spacing:-.01em;line-height:1.2;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brand-s{font-size:12px;color:var(--rail-t3);margin-top:2px}
+.brand-s.dirty{color:var(--now-t)}
+.logo{width:32px;height:32px;border-radius:9px;background:var(--rail-3);color:var(--rail-t);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;border:1px solid var(--rail-line-2)}
+.logo svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+/* the two lists */
+.tabs{display:flex;flex-wrap:wrap;gap:3px;padding:16px 12px 0;flex-shrink:0}
+.tab{flex:1 1 auto;padding:9px 12px;border:none;background:none;border-radius:var(--r);cursor:pointer;
+  font-size:13.5px;font-weight:450;color:var(--rail-t3);transition:background var(--fast),color var(--fast);
+  display:flex;align-items:center;justify-content:center;gap:7px;min-height:40px;white-space:nowrap}
+.tab:hover{background:var(--rail-2);color:var(--rail-t)}
+.tab[aria-selected=true]{background:var(--rail-3);color:var(--rail-t);font-weight:500}
+.tab .n{font-family:var(--mono);font-size:11px;color:var(--rail-t3)}
+
+.side-s{padding:12px 16px;flex-shrink:0}
+.search-row{display:flex;gap:8px}
+.search-row .search{flex:1;min-width:0}
+.add-btn{flex-shrink:0;width:42px;height:42px;border-radius:var(--r);cursor:pointer;
+  border:1px solid var(--rail-line-2);background:var(--rail-2);color:var(--rail-t);
+  display:flex;align-items:center;justify-content:center;transition:background var(--fast),border-color var(--fast)}
+.add-btn:hover{background:var(--rail-3);border-color:var(--rail-t3)}
+.add-btn.ready{background:var(--rail-t);border-color:var(--rail-t);color:var(--rail)}
+.add-btn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.wider{width:100%;margin-top:8px;padding:8px 11px;border-radius:var(--r);cursor:pointer;text-align:left;
+  border:1px solid var(--rail-line);background:var(--rail-2);color:var(--rail-t2);font-size:12.5px;
+  transition:background var(--fast),color var(--fast)}
+.wider:hover{background:var(--rail-3);color:var(--rail-t)}
+.wider b{color:var(--rail-t);font-weight:500}
+.search{position:relative}
+.search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;
+  stroke:var(--rail-t3);fill:none;stroke-width:1.8;pointer-events:none}
+.q{width:100%;background:var(--rail-2);border:1px solid var(--rail-line);border-radius:var(--r);
+  padding:10px 12px 10px 36px;color:var(--rail-t);font-family:var(--sans);font-size:14px;outline:none;
+  transition:border-color var(--fast),background var(--fast);min-height:42px}
+.q:focus{border-color:var(--rail-line-2);background:var(--rail-3)}
+.q::placeholder{color:var(--rail-t3)}
+.q.flash{border-color:var(--now);box-shadow:0 0 0 3px rgba(192,139,46,.28);background:var(--rail-3)}
+@keyframes nudge{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+.q.flash{animation:nudge 320ms ease}
+
+/* the group holding the search box, the list and the footer takes part
+   in the rail's own column rather than forming a box of its own —
+   otherwise the list stops being a flex child and loses its scroll */
+#side-body{display:contents}
+#side-body.hidden{display:none}
+.filters{display:flex;gap:5px;padding:0 16px 10px;flex-wrap:wrap;flex-shrink:0}
+.filters:empty{display:none}
+.fchip{border:1px solid var(--rail-line);background:var(--rail-2);color:var(--rail-t3);border-radius:20px;
+  padding:5px 11px;font-size:12px;cursor:pointer;white-space:nowrap;min-height:30px;
+  transition:background var(--fast),color var(--fast),border-color var(--fast)}
+.fchip:hover{background:var(--rail-3);color:var(--rail-t)}
+.fchip[aria-pressed=true]{background:var(--rail-t);border-color:var(--rail-t);color:var(--rail);font-weight:500}
+.fchip .fn{opacity:.62;margin-left:5px;font-family:var(--mono);font-size:11px}
+.side-l{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:4px 12px 12px}
+.side-f{padding:12px 16px;border-top:1px solid var(--rail-line);display:flex;gap:8px;align-items:center;flex-shrink:0}
+
+.card{width:100%;text-align:left;padding:11px 13px;border-radius:var(--r);cursor:pointer;margin-bottom:3px;
+  border:1px solid transparent;background:none;transition:background var(--fast),border-color var(--fast);display:block}
+.card:hover{background:var(--rail-2)}
+.card[aria-current=true]{background:var(--rail-3);border-color:var(--rail-line-2)}
+.card-t{font-size:14px;font-weight:500;line-height:1.35;color:var(--rail-t);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-s{font-size:12.5px;color:var(--rail-t2);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-b{display:flex;gap:3px;margin-top:8px}
+.card-b i{flex:1;height:4px;border-radius:2px;background:var(--rail-3)}
+.card-none{padding:40px 18px;text-align:center;color:var(--rail-t3);font-size:13.5px;line-height:1.75}
+
+/* ---------------- detail ---------------- */
+.main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.head{padding:24px 40px 18px;background:var(--card);border-bottom:1px solid var(--line);flex-shrink:0}
+.head-t{font-size:24px;font-weight:600;letter-spacing:-.022em;line-height:1.2}
+.head-m{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:13px}
+.body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:22px 40px 80px;scroll-behavior:smooth}
+.wrap{max-width:1180px;margin:0 auto}
+.swhy{max-width:74ch}
+
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:6px 12px;
+  border:1px solid var(--line-2);border-radius:20px;color:var(--ink-2);background:var(--card);
+  cursor:pointer;transition:border-color var(--fast),background var(--fast);min-height:32px}
+.chip:hover{border-color:var(--line-3);background:var(--hover)}
+.chip.set{border-color:var(--wait);color:var(--wait-t);background:var(--wait-b)}
+.chip.warn{border-color:var(--now);color:var(--now-t);background:var(--now-b)}
+.chip.flat{cursor:default;background:var(--sunk);border-color:transparent;color:var(--ink-3)}
+.chip.flat:hover{background:var(--sunk)}
+.chip svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2}
+
+.tag{display:inline-block;font-size:12px;font-weight:450;padding:3px 10px;border:1px solid;border-radius:6px;white-space:nowrap}
+.t-ok{border-color:var(--ok);color:var(--ok-t);background:var(--ok-b)}
+.t-now{border-color:var(--now);color:var(--now-t);background:var(--now-b)}
+.t-wait{border-color:var(--wait);color:var(--wait-t);background:var(--wait-b)}
+.t-bad{border-color:var(--bad);color:var(--bad-t);background:var(--bad-b)}
+.t-na{border-color:var(--line-2);color:var(--ink-3);background:var(--sunk)}
+
+/* a step on the road */
+.step{display:flex;gap:18px;padding:22px 24px;border-radius:var(--r-lg);background:var(--card);
+  border:1px solid var(--line);margin-bottom:10px;box-shadow:var(--sh);transition:box-shadow var(--fast)}
+.step.now{border-color:var(--now);box-shadow:0 0 0 3px var(--now-b),var(--sh)}
+.step.ahead{background:transparent;box-shadow:none;border-style:dashed;border-color:var(--line)}
+.step.ahead .stitle,.step.ahead .swhy{color:var(--ink-4)}
+.dot{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:12px;border:1.5px solid var(--line-2);color:var(--ink-4);background:var(--card)}
+.dot.done{border-color:var(--ok);color:#fff;background:var(--ok)}
+.dot.now{border-color:var(--now);color:var(--now-t);background:var(--now-b);font-weight:500}
+.dot.wait{border-color:var(--wait);color:var(--wait-t);background:var(--wait-b)}
+.dot.bad{border-color:var(--bad);color:#fff;background:var(--bad)}
+.dot svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.sbody{flex:1;min-width:0}
+.stitle{font-size:16px;font-weight:550;letter-spacing:-.011em;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.sclause{font-family:var(--mono);font-size:11px;color:var(--ink-4);font-weight:400;letter-spacing:.02em}
+.swhy{font-size:13.5px;color:var(--ink-2);line-height:1.65;margin-top:6px}
+.srec{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:11px;font-size:13px;color:var(--ink-2)}
+.sdue{display:inline-flex;align-items:center;gap:7px;margin-top:11px;font-size:13px;padding:7px 11px;border-radius:var(--r);border:1px solid}
+.sdue svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9;flex-shrink:0}
+.d-soon{border-color:var(--now);color:var(--now-t);background:var(--now-b)}
+.d-late{border-color:var(--bad);color:var(--bad-t);background:var(--bad-b)}
+.d-ok{border-color:var(--line-2);color:var(--ink-2);background:var(--sunk)}
+
+/* inline form — the only place anything is typed */
+.form{margin-top:15px;padding-top:15px;border-top:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;align-items:end}
+.f{display:flex;flex-direction:column;gap:6px;min-width:0}
+.f.wide{grid-column:span 2}
+.f label{font-size:12px;font-weight:450;color:var(--ink-2)}
+.f input,.f select{background:var(--card);border:1px solid var(--line-2);border-radius:var(--r);
+  padding:9px 11px;color:var(--ink);font-family:var(--sans);font-size:14px;outline:none;width:100%;
+  min-height:42px;transition:border-color var(--fast),box-shadow var(--fast)}
+.f input:focus,.f select:focus{border-color:var(--wait);box-shadow:0 0 0 3px var(--wait-b)}
+.f input.mono{font-family:var(--mono);font-size:13.5px}
+.f input[aria-invalid=true]{border-color:var(--bad);box-shadow:0 0 0 3px var(--bad-b)}
+.f .err{font-size:12px;color:var(--bad-t)}
+.f-act{grid-column:1/-1;display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:2px}
+
+.btn{border:1px solid var(--line-2);background:var(--card);color:var(--ink);border-radius:var(--r);
+  padding:9px 16px;font-size:14px;font-weight:450;cursor:pointer;white-space:nowrap;min-height:42px;
+  transition:background var(--fast),border-color var(--fast),box-shadow var(--fast);box-shadow:var(--sh)}
+.btn:hover{background:var(--hover);border-color:var(--line-3)}
+.btn:active{box-shadow:none}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-p{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
+.btn-p:hover{background:#111827;border-color:#111827}
+.btn-s{padding:7px 13px;font-size:13.5px;min-height:36px}
+.btn-q{border:none;background:none;box-shadow:none;color:var(--ink-3);padding:8px 10px;min-height:36px;font-size:13.5px}
+.btn-q:hover{background:var(--sunk);color:var(--ink)}
+.btn-d{color:var(--bad-t);border-color:var(--line-2)}
+.btn-d:hover{background:var(--bad-b);border-color:var(--bad)}
+.btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+/* a checklist, folded */
+.cl{margin-top:14px;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--card)}
+.cl.open{border-color:var(--line-2)}
+.cl-head{display:flex;gap:12px;align-items:flex-start;width:100%;padding:13px 15px;text-align:left;
+  background:var(--sunk);border:none;cursor:pointer;transition:background var(--fast)}
+.cl-head:hover{background:#e7eaee}
+.cl.open .cl-head{background:var(--card);border-bottom:1px solid var(--line)}
+.cl-arrow{width:16px;height:16px;flex-shrink:0;margin-top:2px;stroke:var(--ink-3);fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round;transition:transform var(--fast)}
+.cl-head[aria-expanded=true] .cl-arrow{transform:rotate(90deg)}
+.cl-m{flex:1;min-width:0}
+.cl-t{font-size:14px;font-weight:500}
+.cl-s{font-size:12.5px;color:var(--ink-3);margin-top:3px}
+.cl-body{padding:6px 15px 4px}
+.cl-item{display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line);
+  font-size:13.5px;cursor:pointer;line-height:1.5}
+.cl-item:first-child{border-top:none}
+.cl-item input{width:19px;height:19px;accent-color:var(--ok);flex-shrink:0;cursor:pointer;margin-top:1px}
+.cl-item .ticked{color:var(--ink-3)}
+.cl-foot{display:flex;gap:8px;align-items:center;padding:12px 0 14px;border-top:1px solid var(--line);margin-top:4px}
+
+/* small panels used for quantities, non-conformances, and lists */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--sh);margin-bottom:10px;overflow:hidden}
+.panel-h{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.panel-t{font-size:15px;font-weight:550;letter-spacing:-.011em}
+.panel-b{padding:16px 18px}
+.line{display:flex;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--line);font-size:13.5px;flex-wrap:wrap}
+.line:first-child{border-top:none}
+.line-m{flex:1;min-width:120px}
+.meta{font-family:var(--mono);font-size:12.5px;color:var(--ink-3)}
+.dim{color:var(--ink-3)}
+.mono{font-family:var(--mono);font-size:13px}
+.bar{height:7px;background:var(--sunk);border-radius:20px;overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:20px;background:var(--ok);transition:width var(--fast)}
+.sec{font-size:12px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-4);margin:26px 0 10px}
+.sec:first-child{margin-top:4px}
+
+.empty{padding:76px 32px;text-align:center;color:var(--ink-3);font-size:14.5px;line-height:1.8;max-width:460px;margin:0 auto}
+.empty b{color:var(--ink-2);font-weight:500}
+.empty .btn{margin-top:20px}
+
+/* the opening board */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:22px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px;
+  box-shadow:var(--sh);cursor:pointer;transition:border-color var(--fast),box-shadow var(--fast)}
+.stat:hover{border-color:var(--line-3);box-shadow:var(--sh-md)}
+.stat-v{font-size:30px;font-weight:600;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.stat-l{font-size:13px;color:var(--ink-3);margin-top:7px}
+.stat.hot .stat-v{color:var(--bad-t)}
+.stat.warm .stat-v{color:var(--now-t)}
+.feed{display:flex;gap:13px;align-items:flex-start;padding:13px 0;border-top:1px solid var(--line);cursor:pointer}
+.feed:first-child{border-top:none}
+.feed:hover .feed-t{text-decoration:underline}
+.feed-m{flex:1;min-width:0}
+.feed-t{font-size:14.5px;font-weight:450}
+.feed-s{font-size:13px;color:var(--ink-3);margin-top:3px;line-height:1.5}
+.feed-w{flex-shrink:0;min-width:88px;text-align:right}
+.rail{display:flex;gap:3px;margin-top:9px}
+.rail i{flex:1;height:5px;border-radius:3px;background:var(--line)}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.day{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:8px 6px;min-height:84px;min-width:0}
+.day.today{border-color:var(--accent);box-shadow:0 0 0 2px rgba(31,41,55,.08)}
+.day-n{font-size:11.5px;color:var(--ink-4);font-family:var(--mono)}
+.day-d{font-size:12px;font-weight:500;margin-top:1px}
+.day-e{font-size:10.5px;padding:2px 5px;border-radius:4px;margin-top:5px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid}
+.e-now{border-color:var(--now);color:var(--now-t);background:var(--now-b)}
+.e-bad{border-color:var(--bad);color:var(--bad-t);background:var(--bad-b)}
+.e-ok{border-color:var(--ok);color:var(--ok-t);background:var(--ok-b)}
+
+/* Past a certain width a single column leaves the eye travelling too
+   far for too little, so the board splits and the panels sit side by
+   side. Below it, the one column returns. */
+.cols{display:grid;grid-template-columns:1fr;gap:0 22px}
+@media(min-width:1180px){
+  .cols{grid-template-columns:1.15fr .85fr}
+  .cols>section{min-width:0}
+  .cols .sec:first-child{margin-top:4px}
+}
+
+/* the month */
+.cal-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.cal-m{font-size:19px;font-weight:600;letter-spacing:-.02em;min-width:190px}
+.cal-dow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:6px;width:100%}
+.cal-dow div{text-align:center;font-size:11.5px;font-weight:500;color:var(--ink-4);padding:4px 0;letter-spacing:.04em}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;width:100%}
+.cell{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:7px 6px 8px;
+  min-height:104px;min-width:0;width:100%;overflow:hidden;cursor:pointer;
+  transition:border-color var(--fast),box-shadow var(--fast);
+  display:flex;flex-direction:column;gap:3px;text-align:left}
+.cell:hover{border-color:var(--line-3);box-shadow:var(--sh)}
+.cell.other{background:transparent;border-style:dashed}
+.cell.other .cell-n{color:var(--ink-4)}
+.cell.today{border-color:var(--accent);box-shadow:0 0 0 2px rgba(31,41,55,.09)}
+.cell.weekend{background:var(--sunk)}
+.cell-n{font-size:12.5px;font-weight:500;font-variant-numeric:tabular-nums}
+.cell.today .cell-n{color:var(--accent)}
+.ev{font-size:10.5px;padding:3px 5px;border-radius:4px;border:1px solid;line-height:1.3;
+  min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ev.mid{border-radius:0;border-left-width:0;border-right-width:0}
+.ev.start{border-radius:4px 0 0 4px;border-right-width:0}
+.ev.end{border-radius:0 4px 4px 0;border-left-width:0}
+.ev-ok{border-color:var(--ok);color:var(--ok-t);background:var(--ok-b)}
+.ev-now{border-color:var(--now);color:var(--now-t);background:var(--now-b)}
+.ev-wait{border-color:var(--wait);color:var(--wait-t);background:var(--wait-b)}
+.ev-bad{border-color:var(--bad);color:var(--bad-t);background:var(--bad-b)}
+.ev-na{border-color:var(--line-2);color:var(--ink-2);background:var(--sunk)}
+.cell-more{font-size:10px;color:var(--ink-4);padding-left:2px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-3);margin-top:14px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:6px;border:1px solid}
+
+/* opening screen, sheets, toast */
+.gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px;z-index:900}
+.gate-c{width:100%;max-width:400px}
+.gate-c h1{font-size:26px;font-weight:600;letter-spacing:-.025em;margin-top:18px}
+.gate-c p{font-size:14.5px;color:var(--ink-2);line-height:1.75;margin:10px 0 26px}
+.gate-c .btn{width:100%;margin-bottom:10px;min-height:46px}
+.msg{font-size:13.5px;line-height:1.7;margin-top:16px;color:var(--bad-t)}
+.msg.ok{color:var(--ok-t)}
+.gate-foot{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-3)}
+.busy{position:fixed;inset:0;background:rgba(245,246,248,.88);z-index:990;display:none;
+  align-items:center;justify-content:center;flex-direction:column;gap:14px;font-size:14px;color:var(--ink-2)}
+.busy.on{display:flex}
+.spin{width:26px;height:26px;border:2px solid var(--line-2);border-top-color:var(--accent);
+  border-radius:50%;animation:spin 720ms linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.ov{position:fixed;inset:0;background:rgba(16,24,40,.5);display:none;align-items:flex-start;justify-content:center;
+  z-index:800;padding:44px 20px;overflow-y:auto}
+.ov.on{display:flex}
+.sheet{background:var(--card);border-radius:14px;width:100%;max-width:680px;margin:auto;overflow:hidden;box-shadow:var(--sh-lg)}
+.sheet-h{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px}
+.sheet-h h2{font-size:17px;font-weight:600;letter-spacing:-.015em}
+.sheet-b{padding:18px 22px 22px;max-height:66vh;overflow-y:auto}
+.row{display:flex;gap:14px;padding:12px 0;border-top:1px solid var(--line);font-size:14px;align-items:center}
+.row:first-child{border-top:none}
+.row-a{cursor:pointer;margin:0 -10px;padding-left:10px;padding-right:10px;border-radius:var(--r)}
+.row-a:hover{background:var(--hover)}
+/* a small panel that opens against the control that called it, so a
+   short edit never leaves the page it belongs to */
+.pop{position:fixed;z-index:860;background:var(--card);border:1px solid var(--line-2);border-radius:var(--r-lg);
+  box-shadow:var(--sh-lg);padding:14px;min-width:260px;max-width:340px;display:none}
+.pop.on{display:block}
+.pop-t{font-size:12.5px;font-weight:500;color:var(--ink-2);margin-bottom:10px}
+.pop-r{display:flex;gap:7px;flex-wrap:wrap}
+.opt{border:1px solid var(--line-2);background:var(--card);border-radius:var(--r);padding:9px 14px;
+  font-size:14px;cursor:pointer;min-height:40px;transition:background var(--fast),border-color var(--fast)}
+.opt:hover{background:var(--hover);border-color:var(--line-3)}
+.opt.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.pop input{width:100%;background:var(--card);border:1px solid var(--line-2);border-radius:var(--r);
+  padding:9px 11px;font-family:var(--sans);font-size:14px;outline:none;min-height:42px;color:var(--ink)}
+.pop input:focus{border-color:var(--wait);box-shadow:0 0 0 3px var(--wait-b)}
+.pop-f{display:flex;gap:8px;margin-top:12px;align-items:center}
+.pop-hint{font-size:12px;color:var(--ink-3);margin-top:9px;line-height:1.55}
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;
+  border-radius:22px;padding:11px 20px;font-size:13.5px;z-index:950;display:none;box-shadow:var(--sh-lg)}
+.toast.on{display:block}
+
+/* buttons inside the rail */
+.side .btn{background:var(--rail-2);border-color:var(--rail-line-2);color:var(--rail-t);box-shadow:none}
+.side .btn:hover{background:var(--rail-3);border-color:var(--rail-t3)}
+.side .btn-p{background:var(--rail-t);border-color:var(--rail-t);color:var(--rail)}
+.side .btn-p:hover{background:#fff;border-color:#fff}
+.side .btn-q{background:none;border:none;color:var(--rail-t3)}
+.side .btn-q:hover{background:var(--rail-2);color:var(--rail-t)}
+.side .side-l::-webkit-scrollbar-thumb{background:var(--rail-3);border-color:var(--rail)}
+.side .side-l::-webkit-scrollbar-thumb:hover{background:var(--rail-line-2)}
+.side :focus-visible{outline-color:#8bb6de}
+.brand-s.dirty{color:#e0ab55}
+
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:8px;border:3px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--line-3)}
+
+@media(max-width:880px){
+  body{overflow:auto;height:auto}
+  .app{flex-direction:column;height:auto}
+  .app{overflow:visible;height:auto}
+  .side{width:100%;border-right:none;border-bottom:1px solid var(--rail-line)}
+  .side-l{max-height:320px}
+  .main,.body{overflow:visible;height:auto}
+  .head{padding:18px 18px 14px}
+  .body{padding:16px 18px 60px}
+  .cols{grid-template-columns:1fr}
+  .cell{min-height:74px;padding:5px 4px 6px}
+  .ev{font-size:9.5px;padding:2px 4px}
+  .cal-m{font-size:16px;min-width:0;flex:1}
+  .cal-top{gap:6px}
+  .form{grid-template-columns:1fr 1fr}
+  .f.wide{grid-column:1/-1}
+}
+@media(max-width:560px){
+  .cal-dow{display:none}
+  .cal-grid{grid-template-columns:1fr;gap:4px}
+  .cell{min-height:0;flex-direction:row;align-items:center;gap:8px;padding:9px 11px}
+  .cell.bare,.cell.other{display:none}
+  .cal-grid:not(:has(.cell:not(.bare):not(.other)))::after{
+    content:"Nothing this month.";display:block;padding:28px;text-align:center;color:var(--ink-3);font-size:14px}
+  .cell-n{min-width:26px}
+  .ev{flex:1}
+}
+@media print{
+  body{background:#fff;height:auto;overflow:visible}
+  .side,.head-m,.no-print,.ov,.toast{display:none!important}
+  .main,.body{overflow:visible}
+  .step,.panel{box-shadow:none;break-inside:avoid}
+}
+</style>
+<script src="cats.js"></script>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="gate-c">
+    <div class="logo" style="width:44px;height:44px;border-radius:12px">
+      <svg viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>
+    </div>
+    <h1>Material tracker</h1>
+    <p id="gate-sub">Your vendors, your materials, and the steps the procedure asks of each — in order, one at a time.</p>
+
+    <div class="f" style="text-align:left;margin-bottom:12px">
+      <label for="g-email">Email</label>
+      <input id="g-email" type="email" autocomplete="username" onkeydown="gateKey(event)">
+    </div>
+    <div class="f" style="text-align:left;margin-bottom:18px">
+      <label for="g-pass">Password</label>
+      <input id="g-pass" type="password" autocomplete="current-password" onkeydown="gateKey(event)">
+    </div>
+
+    <button class="btn btn-p" id="g-in" onclick="signIn()">Sign in</button>
+    <button class="btn" id="g-up" onclick="signUp()">Create an account</button>
+    <div class="msg" id="gate-msg" role="status"></div>
+
+    <div class="gate-foot">
+      <span class="btn-q" style="cursor:pointer;padding:0" onclick="document.getElementById('imp').click()">Bring in a file from the old version</span>
+      <input type="file" id="imp" accept=".json" style="display:none" onchange="importPicked(event)">
+    </div>
+  </div>
+</div>
+
+<div class="app" id="app" style="display:none">
+
+  <aside class="side">
+    <div class="side-h">
+      <button class="brand" id="tab-home" role="tab" aria-selected="true" onclick="setTab('home')" title="Today">
+        <div class="logo"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg></div>
+        <div class="brand-m">
+          <div class="brand-t" id="proj">—</div>
+          <div class="brand-s" id="saved"></div>
+        </div>
+        <span class="brand-go">Today</span>
+      </button>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" id="tab-mat" role="tab" aria-selected="false" onclick="setTab('mat')">Materials <span class="n" id="n-mat">0</span></button>
+      <button class="tab" id="tab-mfr" role="tab" aria-selected="false" onclick="setTab('mfr')">Vendors <span class="n" id="n-mfr">0</span></button>
+      <button class="tab" id="tab-insp" role="tab" aria-selected="false" onclick="setTab('insp')">Inspectors <span class="n" id="n-insp">0</span></button>
+      <button class="tab" id="tab-cal" role="tab" aria-selected="false" onclick="setTab('cal')">Calendar</button>
+    </div>
+
+    <div id="side-body">
+    <div class="side-s">
+      <div class="search-row">
+        <div class="search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3"/></svg>
+          <input class="q" id="q" autocomplete="off" oninput="rList()" onkeydown="searchKey(event)">
+        </div>
+        <button class="add-btn" id="plus" onclick="addNew()" title="Add" aria-label="Add">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
+      <button class="wider" id="wider" onclick="huntNow()" style="display:none"></button>
+    </div>
+
+    <div class="filters" id="filters"></div>
+    <div class="side-l" id="list"></div>
+
+    <div class="side-f">
+      <button class="btn btn-s btn-p" onclick="addNew()" id="add-btn">Add</button>
+      <button class="btn btn-s" onclick="showDue()">What is due</button>
+      <button class="btn-q" onclick="showMenu()" aria-label="More">More</button>
+    </div>
+    </div>
+  </aside>
+
+  <main class="main" id="pane"></main>
+</div>
+
+<div class="ov" id="ov" role="dialog" aria-modal="true"><div class="sheet">
+  <div class="sheet-h"><h2 id="sheet-t"></h2><button class="btn-q" onclick="closeSheet()">Close</button></div>
+  <div class="sheet-b" id="sheet-b"></div>
+</div></div>
+
+<div class="pop" id="pop" role="dialog" aria-modal="false"></div>
+<div class="busy" id="busy"><div class="spin"></div><span id="busy-t">Loading</span></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ================================================================
+   1. THE FILE
+   ================================================================ */
+var DB=null, DIRTY=false, SAVED=null, TAB='mat', SEL={mat:null,mfr:null,insp:null}, OPEN=null;
+var SB=null, USER=null, SNAP=null, SYNCING=false, PENDING=false;
+var TABLES={mfrs:'vendors',mats:'materials',people:'people',events:'events'};
+
+function blank(){return {_v:4,project:'',mfrs:[],mats:[],people:[],events:[]};}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function attr(s){return String(s==null?'':s).replace(/"/g,'&quot;');}
+function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('on');
+  clearTimeout(window._t);window._t=setTimeout(function(){t.classList.remove('on');},2100);}
+function gmsg(m,ok){var e=document.getElementById('gate-msg');e.className='msg'+(ok?' ok':'');e.innerHTML=m||'';}
+function busy(on,label){
+  var b=document.getElementById('busy');if(!b)return;
+  if(label)document.getElementById('busy-t').textContent=label;
+  b.classList.toggle('on',!!on);
+}
+
+/* ================================================================
+   1. THE DATABASE
+   Every record is a row of its own. Two people editing two different
+   materials never touch the same row, so neither can quietly undo
+   the other — which is exactly what a single shared document would
+   have allowed.
+   ================================================================ */
+function sbReady(){return !!(window.supabase&&window.supabase.createClient);}
+function client(){
+  if(SB)return SB;
+  if(!sbReady())return null;
+  SB=window.supabase.createClient(window.SB_URL,window.SB_KEY,
+    {auth:{persistSession:true,autoRefreshToken:true,detectSessionUrl:false}});
+  return SB;
+}
+function niceError(e){
+  var m=String((e&&e.message)||e||'');
+  if(/Invalid login/i.test(m))return 'That email and password do not match an account.';
+  if(/Email not confirmed/i.test(m))return 'Check your inbox and confirm the address first.';
+  if(/already registered|already been registered/i.test(m))return 'That address already has an account — sign in instead.';
+  if(/Password should be/i.test(m))return 'The password needs at least six characters.';
+  if(/valid email/i.test(m))return 'That does not look like an email address.';
+  if(/Failed to fetch|NetworkError|fetch/i.test(m))return 'No connection to the database. Check the network and try again.';
+  if(/row-level security|permission denied/i.test(m))return 'The database refused that. Run the setup SQL, then try again.';
+  return m||'Something went wrong.';
+}
+window.gateKey=function(e){if(e.key==='Enter'){e.preventDefault();signIn();}};
+window.signIn=async function(){
+  gmsg('');
+  var c=client();
+  if(!c)return gmsg('Still loading the database library — try again in a moment.');
+  var email=document.getElementById('g-email').value.trim();
+  var pass=document.getElementById('g-pass').value;
+  if(!email||!pass)return gmsg('Enter both an email and a password.');
+  var b=document.getElementById('g-in');b.disabled=true;b.textContent='Signing in…';
+  try{
+    var r=await c.auth.signInWithPassword({email:email,password:pass});
+    if(r.error)throw r.error;
+    USER=r.data.user;
+    await loadAll();
+  }catch(e){gmsg(niceError(e));}
+  b.disabled=false;b.textContent='Sign in';
+};
+window.signUp=async function(){
+  gmsg('');
+  var c=client();
+  if(!c)return gmsg('Still loading the database library — try again in a moment.');
+  var email=document.getElementById('g-email').value.trim();
+  var pass=document.getElementById('g-pass').value;
+  if(!email||!pass)return gmsg('Enter both an email and a password.');
+  var b=document.getElementById('g-up');b.disabled=true;b.textContent='Creating…';
+  try{
+    var r=await c.auth.signUp({email:email,password:pass});
+    if(r.error)throw r.error;
+    if(r.data.session){USER=r.data.user;await loadAll();}
+    else gmsg('Account created. Confirm the address from your inbox, then sign in.',true);
+  }catch(e){gmsg(niceError(e));}
+  b.disabled=false;b.textContent='Create an account';
+};
+window.signOut=async function(){
+  if(DIRTY)await save();
+  try{await client().auth.signOut();}catch(e){}
+  USER=null;DB=null;SNAP=null;
+  document.getElementById('app').style.display='none';
+  document.getElementById('gate').style.display='flex';
+  document.getElementById('g-pass').value='';
+  gmsg('');
+};
+
+/* pull the whole workspace; it is small, and one clean read beats
+   half a dozen partial ones */
+async function loadAll(){
+  busy(true,'Loading your records');
+  try{
+    var c=client(), out=blank();
+    for(var key in TABLES){
+      var r=await c.from(TABLES[key]).select('id,data');
+      if(r.error)throw r.error;
+      out[key]=(r.data||[]).map(function(row){
+        var o=row.data||{};o.id=Number(row.id);return o;});
+    }
+    var st=await c.from('settings').select('key,value').eq('key','project').maybeSingle();
+    if(st.error&&st.error.code!=='PGRST116')throw st.error;
+    out.project=(st.data&&st.data.value&&st.data.value.name)||'';
+    DB=out;snapshot();DIRTY=false;SAVED=new Date();
+    busy(false);enter();
+  }catch(e){
+    busy(false);
+    gmsg(niceError(e));
+  }
+}
+function snapshot(){
+  SNAP={project:DB.project};
+  for(var key in TABLES){
+    SNAP[key]={};
+    (DB[key]||[]).forEach(function(o){SNAP[key][o.id]=JSON.stringify(o);});
+  }
+}
+/* Save what actually changed. Comparing against the last snapshot
+   means an untouched record is never rewritten, so somebody else's
+   edit to it survives. */
+window.save=async function(){
+  if(!DB||!USER||SYNCING)return;
+  var c=client();if(!c)return;
+  SYNCING=true;stamp();
+  try{
+    for(var key in TABLES){
+      var table=TABLES[key], now={}, ups=[];
+      (DB[key]||[]).forEach(function(o){
+        now[o.id]=JSON.stringify(o);
+        if(SNAP[key][o.id]!==now[o.id])ups.push({id:o.id,data:o});
+      });
+      if(ups.length){
+        var r=await c.from(table).upsert(ups,{onConflict:'id'});
+        if(r.error)throw r.error;
+      }
+      var gone=Object.keys(SNAP[key]).filter(function(id){return !(id in now);});
+      if(gone.length){
+        var d=await c.from(table).delete().in('id',gone.map(Number));
+        if(d.error)throw d.error;
+      }
+    }
+    if(SNAP.project!==DB.project){
+      var p=await c.from('settings').upsert({key:'project',value:{name:DB.project}},{onConflict:'key'});
+      if(p.error)throw p.error;
+    }
+    snapshot();DIRTY=false;SAVED=new Date();stamp();
+  }catch(e){
+    toast('Could not save — '+niceError(e));
+  }
+  SYNCING=false;
+  if(PENDING){PENDING=false;save();}
+};
+var timer=null;
+function touch(){
+  DIRTY=true;stamp();
+  clearTimeout(timer);
+  timer=setTimeout(function(){if(SYNCING)PENDING=true;else save();},1200);
+}
+function stamp(){
+  var e=document.getElementById('saved');if(!e)return;
+  if(SYNCING||DIRTY){e.className='brand-s dirty';e.textContent='saving…';return;}
+  e.className='brand-s';
+  e.textContent=SAVED?('saved '+SAVED.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})):'';
+}
+window.addEventListener('beforeunload',function(e){if(DIRTY){e.preventDefault();e.returnValue='';}});
+
+/* somebody else may have changed something while this tab sat idle */
+window.refresh=async function(quiet){
+  if(!USER)return;
+  if(DIRTY)await save();
+  if(!quiet)busy(true,'Checking for changes');
+  var keepTab=TAB, keepSel={mat:SEL.mat,mfr:SEL.mfr,insp:SEL.insp};
+  try{
+    var c=client(), out=blank();
+    for(var key in TABLES){
+      var r=await c.from(TABLES[key]).select('id,data');
+      if(r.error)throw r.error;
+      out[key]=(r.data||[]).map(function(row){var o=row.data||{};o.id=Number(row.id);return o;});
+    }
+    var st=await c.from('settings').select('value').eq('key','project').maybeSingle();
+    out.project=(st.data&&st.data.value&&st.data.value.name)||DB.project;
+    DB=out;snapshot();DIRTY=false;SAVED=new Date();
+    TAB=keepTab;SEL=keepSel;
+    busy(false);rList();rPane();stamp();
+    if(!quiet)toast('Up to date');
+  }catch(e){busy(false);toast('Could not refresh — '+niceError(e));}
+};
+window.addEventListener('focus',function(){
+  if(USER&&!DIRTY&&SAVED&&(Date.now()-SAVED.getTime()>60000))refresh(true);
+});
+
+/* bringing across a file from the version that lived on disk */
+window.importPicked=function(ev){
+  var f=ev.target.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(e){
+    var d;
+    try{d=JSON.parse(e.target.result);}catch(x){return gmsg('That file could not be read.');}
+    if(!d||typeof d!=='object'||!Array.isArray(d.mats))return gmsg('That is not a tracker file.');
+    PENDING_IMPORT=d;
+    gmsg('Read <b>'+esc(f.name)+'</b> — '+(d.mats||[]).length+' materials, '+(d.mfrs||[]).length
+      +' vendors. Sign in and it will be brought across.',true);
+  };
+  r.readAsText(f);ev.target.value='';
+};
+var PENDING_IMPORT=null;
+async function runImport(){
+  if(!PENDING_IMPORT)return;
+  var d=PENDING_IMPORT;PENDING_IMPORT=null;
+  busy(true,'Bringing your file across');
+  try{
+    /* ids can collide with what is already there, so anything that
+       clashes is given a new one and its links are followed through */
+    var used={};
+    ['mfrs','mats','people','events'].forEach(function(k){
+      (DB[k]||[]).forEach(function(o){used[o.id]=1;});
+    });
+    var remap={};
+    (d.mfrs||[]).forEach(function(v){
+      var old=v.id;
+      if(used[v.id])v.id=uid();
+      used[v.id]=1;remap[old]=v.id;
+      DB.mfrs.push(v);
+    });
+    (d.mats||[]).forEach(function(m){
+      if(used[m.id])m.id=uid();
+      used[m.id]=1;
+      if(m.mfr&&remap[m.mfr]!==undefined)m.mfr=String(remap[m.mfr]);
+      DB.mats.push(m);
+    });
+    (d.people||[]).forEach(function(p){
+      if(used[p.id])p.id=uid();used[p.id]=1;DB.people.push(p);});
+    (d.events||[]).forEach(function(e2){
+      if(used[e2.id])e2.id=uid();used[e2.id]=1;
+      if(e2.link&&/^mfr:/.test(e2.link)){
+        var oldId=e2.link.slice(4);
+        if(remap[oldId]!==undefined)e2.link='mfr:'+remap[oldId];
+      }
+      DB.events.push(e2);});
+    if(!DB.project&&d.project)DB.project=d.project;
+    await save();
+    busy(false);
+    toast('Brought across '+(d.mats||[]).length+' materials and '+(d.mfrs||[]).length+' vendors');
+  }catch(e){busy(false);toast('Could not bring the file across — '+niceError(e));}
+}
+
+function enter(){
+  document.getElementById('gate').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('proj').textContent=DB.project||'Untitled project';
+  stamp();setTab('home');
+  if(PENDING_IMPORT)runImport();
+}
+
+/* a session that is still good means no sign-in screen at all */
+(function resume(tries){
+  tries=tries||0;
+  if(!sbReady()){if(tries<60)return setTimeout(function(){resume(tries+1);},120);return;}
+  client().auth.getSession().then(function(r){
+    if(r.data&&r.data.session){USER=r.data.session.user;loadAll();}
+  }).catch(function(){});
+})(0);
+
+/* ================================================================
+   2. DATES, CATEGORY, SMALL HELPERS
+   ================================================================ */
+function pad(n){return ('0'+n).slice(-2);}
+function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function today(){return ymd(new Date());}
+function addDays(iso,n){return ymd(new Date(new Date(iso).getTime()+n*864e5));}
+function daysTo(iso){return Math.round((new Date(iso)-new Date(today()))/864e5);}
+function build(y,mo,d){
+  if(!(y>=1900&&y<=2200)||!(mo>=1&&mo<=12)||!(d>=1&&d<=31))return null;
+  var t=new Date(Date.UTC(y,mo-1,d));
+  if(t.getUTCFullYear()!==y||t.getUTCMonth()!==mo-1||t.getUTCDate()!==d)return null;
+  return y+'-'+pad(mo)+'-'+pad(d);
+}
+function parseDate(t){
+  t=String(t||'').trim();var m;
+  if(!t)return '';
+  if((m=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)))return build(+m[1],+m[2],+m[3]);
+  if((m=t.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})$/))){
+    var y=m[3].length===2?('20'+m[3]):m[3];return build(+y,+m[2],+m[1]);}
+  return null;
+}
+function show(iso){
+  if(!iso)return '';
+  var m=String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m?(m[3]+'/'+m[2]+'/'+m[1]):String(iso);
+}
+function when(iso){
+  var n=daysTo(iso);
+  return n===0?'today':n===1?'tomorrow':n===-1?'yesterday':n<0?(Math.abs(n)+' days ago'):('in '+n+' days');
+}
+function key(x){return String(x||'').toLowerCase().replace(/\s+/g,' ').replace(/[.,]/g,'').trim();}
+function num(x){var n=parseFloat(x);return isFinite(n)?n:0;}
+function uid(){return Date.now()+Math.floor(Math.random()*900);}
+
+var CATS=(window.CATS||[]).map(function(r){return {sr:r[0],n:r[1],t:r[2],c:r[3]};});
+/* the procedure names a category for each component; an exact name is
+   certain, a partial one is worth confirming before it is relied on */
+function lookCat(text){
+  var q=key(text);if(q.length<4)return null;
+  var exact=null,inside=null,il=0,around=null,al=1e9;
+  CATS.forEach(function(c){
+    if(!c.c)return;
+    var n=key(c.n);if(n.length<4)return;
+    if(n===q){exact=exact||c;return;}
+    if(q.indexOf(n)>=0){if(n.length>il){inside=c;il=n.length;}return;}
+    if(n.indexOf(q)>=0){if(n.length<al){around=c;al=n.length;}}
+  });
+  if(exact)return {c:exact,sure:true};
+  var hit=inside||around;
+  return hit?{c:hit,sure:false}:null;
+}
+function topCat(c){var p=String(c||'').split('|').filter(Boolean);return p.length?p[p.length-1]:'';}
+
+/* The two dossiers have their contents written out in the procedure,
+   so the list is not ours to invent — it is quoted, and ticking an
+   item here means the same as ticking it on the transmittal. */
+var DOSSIER={
+ pid:{clause:'2.2.16',items:[
+  'Complete purchase order, including change orders or subcontract',
+  'Material requisition and its attachments',
+  'Sub-suppliers\u2019 purchase orders, where they exist',
+  'Applicable standards and project specifications',
+  'Inspection assignment sheet naming the approved inspectors',
+  'Inspection and test plans',
+  'Pre-fabrication meeting agenda']},
+ post:{clause:'2.2.21',items:[
+  'Narrative of the quality activities during manufacturing',
+  'Copies of any SEVEN-approved waivers',
+  'Contractor inspection reports',
+  'Supplier and sub-supplier quality records',
+  'Every non-conformance report with its final disposition',
+  'Outstanding punch list items',
+  'Inspection or shipping release']}
+};
+/* the pre-qualification file, as SEVEN issues it with the template */
+var PQ_LIST={
+ C1:['Company profile with organisation chart','Technical support department','Completed projects with dates',
+     'List of equipment and tools','Project-specific scope of work','Previous approvals from other consultants',
+     'International or local certificates per specification','Customer testimonial','Product catalogue for this project',
+     'QA/QC plan, if required','ISO 9001 certificate','Recent test report','Recent FAT report',
+     'Commercial registration','Ministry of Commerce and Industry','General Organization for Social Insurance',
+     'Zakat certificate','Saudisation certificate','SASO certificate'],
+ C2:['Company profile with organisation chart','Technical support department','Completed projects with dates',
+     'List of equipment and tools','Company visit as initial survey, if required','Previous approvals from other consultants',
+     'International or local certificates per specification','Customer testimonial','Project-specific scope of work',
+     'Product catalogue for this project','QA/QC plan, if required','Recent test report','Recent FAT report',
+     'Commercial registration','Ministry of Commerce and Industry','General Organization for Social Insurance',
+     'Zakat certificate','Saudisation certificate','SASO certificate','ISO 9001 certificate'],
+ C3:['Company profile with organisation chart','Technical support department','SASO certificate',
+     'Completed projects with dates','List of equipment and tools',
+     'International or local certificates per specification','Physical assessment of the vendor',
+     'Meets the project specification','Project-specific product catalogue','Quality documents and QA/QC plan',
+     'Previous approvals from other consultants','Method statement','Inspection and test plan',
+     'Customer testimonial','Recent test report','Recent FAT report',
+     'Commercial registration','Ministry of Commerce and Industry','General Organization for Social Insurance',
+     'Zakat certificate','Saudisation certificate','VAT registration','SAGIA certificate, if applicable','National address']
+};
+/* the file SEVEN asks for differs by what the company actually is */
+PQ_LIST.SUB=['Company profile with organisation chart and named staff',
+ 'Completed projects, with date and value','ISO 9001 certificate',
+ 'Scope of work specified for the project','Quality documents, QA/QC plan and procedures',
+ 'Previous approvals from other consultants','Customer testimonial',
+ 'Commercial registration','Ministry of Commerce and Industry',
+ 'General Organization for Social Insurance','Zakat certificate',
+ 'VAT registration','Saudisation certificate'];
+PQ_LIST.SUPP=['Company profile','Agency or distribution letter from the maker',
+ 'The maker\u2019s own pre-qualification, or its approval elsewhere',
+ 'Product catalogue for this project','Previous approvals from other consultants',
+ 'Commercial registration','Ministry of Commerce and Industry',
+ 'Zakat certificate','VAT registration','SASO certificate'];
+PQ_LIST.AGCY=['Company profile and inspector list','Accreditation certificate and its scope',
+ 'ISO 17020 or equivalent','Inspector qualifications by discipline',
+ 'Previous approvals from other consultants','Commercial registration','VAT registration'];
+function pqList(v){
+  var k=(typeof v==='string')?null:kindOf(v);
+  if(k==='sub')return PQ_LIST.SUB;
+  if(k==='supplier')return PQ_LIST.SUPP;
+  if(k==='agency')return PQ_LIST.AGCY;
+  var cat=(typeof v==='string')?v:(v&&v.cat);
+  return PQ_LIST[cat]||PQ_LIST.C3;
+}
+
+var ICON={
+  tick:'<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>',
+  clock:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  alert:'<svg viewBox="0 0 24 24"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>',
+  plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>'
+};
+
+/* ================================================================
+   3. THE MODEL
+   A vendor is qualified once and serves many materials, so it
+   is a record of its own. Everything that belongs to one shipment
+   of one material stays on that material — splitting it across
+   pages is what made the last attempt tiring to use.
+   ================================================================ */
+var STATUS=['Pending','Approved','Approved with comments','Resubmit','Rejected'];
+function settled(st){return ['Approved','Approved with comments','Passed','Passed with comments','Waived','Sent','Closed','Received'].indexOf(st)>=0;}
+function failed(st){return ['Rejected','Resubmit','Failed'].indexOf(st)>=0;}
+function mfr(id){return (DB.mfrs||[]).find(function(x){return String(x.id)===String(id);});}
+function mat(id){return (DB.mats||[]).find(function(x){return String(x.id)===String(id);});}
+function mfrOf(m){return m&&m.mfr?mfr(m.mfr):null;}
+function matsOf(v){return (DB.mats||[]).filter(function(m){return String(m.mfr)===String(v.id);});}
+
+/* ---------------------------------------------------------------
+   Four kinds of company appear on a project and the procedure asks
+   different things of each. A factory is qualified with its site and
+   surveyed; a subcontractor is judged on its own quality system; a
+   trader is qualified through the maker it represents; an inspection
+   agency is approved for the discipline it inspects. Giving them all
+   one road would ask a trader for a factory survey and let an agency
+   through with none of what actually matters.
+   --------------------------------------------------------------- */
+var KINDS={
+  maker:{l:'Manufacturer',d:'Makes the material in its own plant.',steps:['pqd','iso','pa']},
+  sub:{l:'Subcontractor',d:'Carries out work on the project rather than supplying goods.',steps:['pqd','iso','qms']},
+  supplier:{l:'Supplier',d:'Trades or distributes; the material is made by someone else.',steps:['pqd','origin']},
+  agency:{l:'Inspection agency',d:'Performs third-party inspection on your behalf.',steps:['appr','scope','iso']}
+};
+var KIND_OPTS=Object.keys(KINDS).map(function(k){return {v:k,l:KINDS[k].l};});
+function kindOf(v){return (v&&KINDS[v.kind])?v.kind:'maker';}
+
+/* ---------- what a vendor must clear ---------- */
+var MFR_ROAD=[
+ {k:'pqd',n:'Pre-qualification',clause:'2.1.6',
+  why:'The vendor and its specific production site are qualified. The evidence reaches SEVEN at least two weeks before any purchase order is placed.',
+  f:[['ref','Aconex reference','text'],['date','Submitted','date'],['status','Outcome','status']],
+  due:function(v,s){return (s.date&&!settled(s.status))?{on:addDays(s.date,14),t:'purchase order may follow from',soft:true}:null;}},
+ {k:'iso',n:'ISO 9001 certificate',clause:'2.1.8',
+  why:'Certified to ISO 9001:2015 or equivalent with a live quality system. The certificate alone is not enough — the system itself is evaluated.',
+  f:[['ref','Certificate number','text'],['date','Expires','date'],
+     ['status','State','sel',['Pending','Valid','Expired']]],
+  due:function(v,s){return s.date?{on:s.date,t:'certificate expires'}:null;}},
+ {k:'pa',n:'Physical assessment',clause:'2.1.9',
+  why:'A survey of the factory by a certified lead auditor with a technical expert. It may be waived for C1 and C2 only.',
+  f:[['date','Survey date','date'],['by','Lead assessor','person'],
+     ['ref','Report reference','text'],
+     ['status','Result','sel',['Pending','Scheduled','Passed','Failed','Waived']]],
+  warn:function(v,s){return (v.cat==='C3'&&s.status==='Waived')?'A waiver is allowed for C1 and C2 only. This manufacturer is C3.':'';}},
+
+ {k:'qms',n:'Quality system and procedures',clause:'2.2.9',
+  why:'A subcontractor buying on your behalf carries every requirement of this procedure, so its QA/QC plan and procedures are reviewed before it starts.',
+  f:[['ref','Aconex reference','text'],['date','Submitted','date'],['status','Outcome','status']]},
+
+ {k:'origin',n:'Maker behind the supply',clause:'2.1.6',
+  why:'A trader is qualified through the factory it represents. Name that factory and the approval or agency letter that ties them together.',
+  f:[['by','Factory represented','text'],['ref','Approval or agency letter','text'],
+     ['date','Dated','date'],['status','Outcome','status']]},
+
+ {k:'appr',n:'SEVEN approval of the agency',clause:'2.2.17',
+  why:'Third-party inspectors are assigned by discipline and reviewed and approved by SEVEN before any inspection.',
+  f:[['ref','Approval reference','text'],['date','Approved','date'],['status','Outcome','status']]},
+
+ {k:'scope',n:'Accreditation and disciplines',clause:'2.2.17',
+  why:'The disciplines the agency is accredited for — mechanical, electrical, civil — and the certificate that says so.',
+  f:[['by','Disciplines','text'],['ref','Accreditation','text'],
+     ['date','Valid until','date'],['status','State','sel',['Pending','Valid','Expired']]],
+  due:function(v,s){return s.date?{on:s.date,t:'accreditation expires'}:null;}}
+];
+/* Clause 2.1.5 requires manufacturer approval for category 1 and above.
+   A C0 maker supplies commodity material reviewed through the submittal
+   and inspected on delivery — asking it for a survey and a certificate
+   would be inventing work the procedure does not ask for. */
+function needsQual(v){
+  if(kindOf(v)==='agency')return true;          /* an agency is approved whatever it inspects */
+  return v.cat!=='C0';
+}
+function roadFor(v){
+  if(!needsQual(v))return [];
+  var want=KINDS[kindOf(v)].steps;
+  return want.map(function(k){return MFR_ROAD.find(function(x){return x.k===k;});}).filter(Boolean);
+}
+
+/* ---------- what a material must clear ---------- */
+var MAT_ROAD=[
+ {k:'mts',n:'Technical submittal',cats:'0123',clause:'2.2.2',
+  why:'Reviewed and approved before the purchase order is issued.',
+  f:[['ref','Aconex reference','text'],['date','Submitted','date'],['status','Outcome','status']]},
+
+ {k:'mfr',n:'Vendor qualified',cats:'123',clause:'2.1.6',
+  why:'Approval of the vendor is required before the purchase order for anything above category 0.',
+  linked:true},
+
+ {k:'pid',n:'Pre-inspection dossier',cats:'23',clause:'2.2.15',
+  why:'Carries the purchase order, the standards, the inspection assignment sheet and the inspection and test plan. Due twenty-one days before fabrication starts.',
+  f:[['ref','Aconex reference','text'],['date','Submitted','date'],['status','Outcome','status']],
+  due:function(m,s){return s.date?{on:addDays(s.date,21),t:'fabrication may start from',soft:true}:null;}},
+
+ {k:'pfm',n:'Pre-fabrication meeting',cats:'3',clause:'2.2.19',
+  why:'Held before fabrication begins. Minutes are due within seven days of the visit.',
+  f:[['date','Meeting date','date'],['ref','Minutes reference','text'],
+     ['status','Minutes','sel',['Pending','Issued','Approved']]],
+  due:function(m,s){return (s.date&&s.status!=='Approved')?{on:addDays(s.date,7),t:'minutes due by'}:null;}},
+
+ {k:'itp',n:'Inspection and test plan',cats:'3',clause:'2.2.10',
+  why:'Hold, witness and review points with acceptance criteria and verifying documents, agreed before fabrication.',
+  f:[['ref','Aconex reference','text'],['date','Submitted','date'],['status','Outcome','status']]},
+
+ {k:'ipi',n:'In-process inspection',cats:'3',clause:'2.2.5',
+  why:'Visits to the factory while the material is being made, against the approved plan.',
+  f:[['date','Last visit','date'],['by','Inspector','person'],['ref','Report reference','text'],
+     ['status','Result','sel',['Pending','Passed','Passed with comments','Failed']]],
+  due:function(m,s){return (s.date&&s.status!=='Pending')?{on:addDays(s.date,7),t:'report due by'}:null;}},
+
+ {k:'fat',n:'Final inspection or FAT',cats:'23',clause:'2.2.17',
+  why:'Carried out at the factory before shipping. The report is submitted within seven days of the visit.',
+  f:[['date','Inspection date','date'],['by','Inspector','person'],['ref','Report reference','text'],
+     ['status','Result','sel',['Pending','Scheduled','Passed','Passed with comments','Failed']]],
+  due:function(m,s){return (s.date&&['Passed','Passed with comments','Failed'].indexOf(s.status)>=0)?{on:addDays(s.date,7),t:'report due by'}:null;}},
+
+ {k:'irn',n:'Material release note',cats:'23',clause:'2.2.20',
+  why:'Issued at final inspection with every exception and punch item listed. It travels with the goods, and the employer copy is due within forty-eight hours.',
+  f:[['ref','Release note number','text'],['date','Issued','date'],
+     ['status','Employer copy','sel',['Pending','Sent']]],
+  due:function(m,s){return (s.date&&s.status!=='Sent')?{on:addDays(s.date,2),t:'employer copy due by'}:null;}},
+
+ {k:'del',n:'Delivery and site inspection',cats:'0123',clause:'2.2.3',
+  why:'Each consignment is inspected on arrival through a material inspection request. A material may arrive in several parts.',
+  deliveries:true},
+
+ {k:'post',n:'Post-inspection dossier',cats:'23',clause:'2.2.21',
+  why:'The quality record of everything that happened, with every non-conformance carrying its final disposition. Due one week after the last purchase-order quantity is accepted.',
+  f:[['ref','Aconex reference','text'],['date','Submitted','date'],['status','Outcome','status']],
+  due:function(m,s){var l=lastAccepted(m);return (l&&!settled(s.status))?{on:addDays(l,7),t:'due by'}:null;}}
+];
+
+function applies(step,cat){
+  var c=String(cat||'').replace('C','');
+  return c?step.cats.indexOf(c)>=0:step.cats.indexOf('0')>=0;
+}
+/* the newest accepted consignment decides when the closing dossier is due */
+function lastAccepted(m){
+  var d=(m.dels||[]).filter(function(x){return settled(x.status);}).map(function(x){return x.date;}).filter(Boolean).sort();
+  return d.length?d[d.length-1]:'';
+}
+function received(m){return (m.dels||[]).filter(function(d){return settled(d.status);}).reduce(function(a,d){return a+num(d.qty);},0);}
+function openNCR(m){return (m.ncrs||[]).filter(function(n){return n.status!=='Closed';}).length;}
+
+function stepState(step,m){
+  if(step.linked){
+    var v=mfrOf(m);
+    if(!v)return 'open';
+    var r=mfrRoad(v);
+    return r.some(function(x){return x.state==='bad';})?'bad'
+      :r.every(function(x){return x.state==='done';})?'done':'wait';
+  }
+  if(step.deliveries){
+    var dels=m.dels||[];
+    if(!dels.length)return 'open';
+    if(dels.some(function(d){return failed(d.status);}))return 'bad';
+    var ord=num(m.qty);
+    var all=dels.every(function(d){return settled(d.status);});
+    if(all&&(!ord||received(m)>=ord))return 'done';
+    return 'wait';
+  }
+  var s=(m.steps||{})[step.k]||{};
+  var st=s.status||'';
+  if(!st||st==='Pending')return (s.date||s.ref)?'wait':'open';
+  if(failed(st))return 'bad';
+  if(settled(st))return 'done';
+  return 'wait';
+}
+function matRoad(m){
+  var steps=MAT_ROAD.filter(function(s){return applies(s,m.cat);}).map(function(s){
+    return {s:s,state:stepState(s,m),data:(m.steps||{})[s.k]||{}};
+  });
+  var i=steps.findIndex(function(x){return x.state!=='done';});
+  steps.forEach(function(x,j){x.now=(j===i);x.ahead=(i>=0&&j>i);});
+  return {steps:steps,at:i,done:steps.filter(function(x){return x.state==='done';}).length};
+}
+function mfrRoad(v){
+  var steps=roadFor(v).map(function(s){
+    var d=(v.steps||{})[s.k]||{};
+    var st=d.status||'';
+    var state;
+    if(s.k==='iso'||s.k==='scope'){
+      state=(st==='Valid')?(d.date&&daysTo(d.date)<0?'bad':'done'):(st==='Expired'?'bad':(d.ref||d.date?'wait':'open'));
+    }else{
+      state=(!st||st==='Pending')?((d.date||d.ref)?'wait':'open'):failed(st)?'bad':settled(st)?'done':'wait';
+    }
+    /* the survey is a factory visit for C1 to C3; below that, nothing to see */
+    if(s.k==='pa'&&v.cat&&['C1','C2','C3'].indexOf(v.cat)<0)state='done';
+    return {s:s,state:state,data:d};
+  });
+  var i=steps.findIndex(function(x){return x.state!=='done';});
+  steps.forEach(function(x,j){x.now=(j===i);x.ahead=(i>=0&&j>i);});
+  return steps;
+}
+</script>
+
+<script>
+/* ================================================================
+   4. THE LEFT RAIL
+   ================================================================ */
+var NOUN={home:'',cal:'',mat:'material',mfr:'vendor',insp:'inspector'};
+var LISTS=['mat','mfr','insp'];
+window.setTab=function(t){
+  TAB=t;OPEN=null;
+  ['home','cal','mat','mfr','insp'].forEach(function(k){
+    var b=document.getElementById('tab-'+k);
+    if(b)b.setAttribute('aria-selected',t===k);});
+  if(BUCKETS[t]&&!BUCKETS[t].some(function(b){return b[0]===FILTER[t];}))FILTER[t]='all';
+  var side=(t!=='home'&&t!=='cal');
+  document.getElementById('side-body').classList.toggle('hidden',!side);
+  if(side){
+    document.getElementById('q').placeholder='Search '+NOUN[t]+'s, or type a new name';
+    document.getElementById('add-btn').textContent='Add '+NOUN[t];
+    document.getElementById('q').value='';
+  }
+  rList();rPane();
+};
+window.searchKey=function(e){if(e.key==='Enter')addFromSearch();};
+function counts(){
+  document.getElementById('n-mat').textContent=(DB.mats||[]).length;
+  document.getElementById('n-mfr').textContent=(DB.mfrs||[]).length;
+  document.getElementById('n-insp').textContent=(DB.people||[]).length;
+}
+function stateColour(s){
+  return s==='done'?'var(--ok)':s==='bad'?'var(--bad)':s==='wait'?'var(--wait)':'var(--line-2)';
+}
+/* Sorting puts the worst first, which answers "what is urgent"; it does
+   not answer "show me only the ones still open". These are the states a
+   record can actually be in, so nothing here is invented. */
+var FILTER={mat:'all',mfr:'all',insp:'all'};
+function matBucket(m){
+  var r=matRoad(m);
+  if(r.steps.some(function(x){return x.state==='bad';}))return 'blocked';
+  if(r.at<0)return 'done';
+  return r.steps[r.at].state==='wait'?'waiting':'open';
+}
+function mfrBucket(v){
+  if(!needsQual(v))return 'exempt';
+  var ms=mfrState(v);
+  if(ms.tone==='bad')return 'blocked';
+  if(ms.ok)return 'done';
+  var r=mfrRoad(v);
+  return r.some(function(x){return x.state==='wait';})?'waiting':'open';
+}
+function inspBucket(p){
+  var st=p.status||'Pending';
+  return st==='Approved'?'done':st==='Suspended'?'blocked':'open';
+}
+var BUCKETS={
+  mat:[['all','All'],['open','Your move'],['waiting','With reviewer'],['blocked','Blocked'],['done','Cleared']],
+  mfr:[['all','All'],['open','Not started'],['waiting','In progress'],['blocked','Lapsed'],['done','Qualified'],['exempt','C0']],
+  insp:[['all','All'],['open','Pending'],['done','Approved'],['blocked','Suspended']]
+};
+function bucketOf(rec){
+  return TAB==='mat'?matBucket(rec):TAB==='mfr'?mfrBucket(rec):inspBucket(rec);
+}
+function drawFilters(rows){
+  var el=document.getElementById('filters');if(!el)return;
+  if(TAB==='home')return el.innerHTML='';
+  var n={};rows.forEach(function(r){var b=bucketOf(r);n[b]=(n[b]||0)+1;});
+  el.innerHTML=BUCKETS[TAB].filter(function(b){return b[0]==='all'||n[b[0]];}).map(function(b){
+    var count=b[0]==='all'?rows.length:n[b[0]];
+    return '<button class="fchip" aria-pressed="'+(FILTER[TAB]===b[0])+'" onclick="setFilter(\''+b[0]+'\')">'
+      +esc(b[1])+'<span class="fn">'+count+'</span></button>';
+  }).join('');
+}
+window.setFilter=function(b){FILTER[TAB]=b;rList();};
+
+window.rList=function(){
+  counts();
+  if(TAB==='home'||TAB==='cal'){var fe=document.getElementById('filters');if(fe)fe.innerHTML='';return;}
+  /* the button fills in the moment there is something to add, so the
+     way to create a record is visible from wherever you are */
+  var typed=(document.getElementById('q')||{value:''}).value.trim();
+  var plus=document.getElementById('plus');
+  if(plus){
+    plus.classList.toggle('ready',!!typed);
+    plus.title=typed?('Add \u201c'+typed+'\u201d'):('Add a '+NOUN[TAB]);
+  }
+  /* a reference or a batch number lives inside a record, not in a list
+     of names, so offer the wider search as soon as one turns up */
+  var wider=document.getElementById('wider');
+  if(wider){
+    var found=typed.length>=2?hunt(typed).filter(function(o){return o.tab!==TAB||o.w!==NOUN[TAB];}).length:0;
+    wider.style.display=found?'':'none';
+    if(found)wider.innerHTML='Search everywhere \u2014 <b>'+found+'</b> match'+(found===1?'':'es')
+      +' outside this list';
+  }
+  var q=key((document.getElementById('q')||{value:''}).value);
+  var el=document.getElementById('list'), sel=SEL[TAB];
+  if(TAB==='mat'){
+    var all=(DB.mats||[]).filter(function(m){
+      var v=mfrOf(m);
+      return !q||key([m.name,m.ref,v?v.name:''].join(' ')).indexOf(q)>=0;
+    });
+    drawFilters(all);
+    var rows=all.filter(function(m){return FILTER.mat==='all'||matBucket(m)===FILTER.mat;});
+    rows.sort(function(a,b){var ra=matRoad(a),rb=matRoad(b);
+      if((ra.at<0)!==(rb.at<0))return ra.at<0?1:-1;return ra.at-rb.at;});
+    if(!rows.length)return el.innerHTML=all.length?filteredOut():blankList('material');
+    el.innerHTML=rows.map(function(m){
+      var r=matRoad(m), cur=r.at>=0?r.steps[r.at]:null, v=mfrOf(m);
+      return '<button class="card" aria-current="'+(String(m.id)===String(sel))+'" onclick="pick('+m.id+')">'
+        +'<div class="card-t">'+esc(m.name||'Untitled')+'</div>'
+        +'<div class="card-s">'+esc(m.cat||'no category')+(v?' · '+esc(v.name):'')
+          +' · '+(cur?('step '+(r.at+1)+' of '+r.steps.length):'cleared')+'</div>'
+        +'<div class="card-b">'+r.steps.map(function(x){
+            return '<i style="background:'+(x.now&&x.state==='open'?'var(--now)':stateColour(x.state))+'"></i>';}).join('')
+        +'</div></button>';
+    }).join('');
+  }else if(TAB==='insp'){
+    var all3=(DB.people||[]).filter(function(p){return !q||key([p.name,p.agency,p.disc].join(' ')).indexOf(q)>=0;});
+    drawFilters(all3);
+    var rows3=all3.filter(function(p){return FILTER.insp==='all'||inspBucket(p)===FILTER.insp;});
+    rows3.sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
+    if(!rows3.length)return el.innerHTML=all3.length?filteredOut():blankList('inspector');
+    el.innerHTML=rows3.map(function(p){
+      var n=assignments(p).length, st=p.status||'Pending';
+      return '<button class="card" aria-current="'+(String(p.id)===String(sel))+'" onclick="pick('+p.id+')">'
+        +'<div class="card-t">'+(p.name?esc(p.name):'<span style="color:var(--rail-t3)">unnamed \u2014 open to fix</span>')+'</div>'
+        +'<div class="card-s">'+esc(st.toLowerCase())
+          +(p.agency?' · '+esc(p.agency):'')+' · '+n+' assignment'+(n===1?'':'s')+'</div>'
+        +'<div class="card-b"><i style="background:'+(st==='Approved'?'var(--ok)':st==='Suspended'?'var(--bad)':'var(--now)')+'"></i></div>'
+        +'</button>';
+    }).join('');
+  }else{
+    var all2=(DB.mfrs||[]).filter(function(v){
+      return !q||key([v.name,v.country,v.scope,KINDS[kindOf(v)].l].join(' ')).indexOf(q)>=0;});
+    drawFilters(all2);
+    var rows2=all2.filter(function(v){return FILTER.mfr==='all'||mfrBucket(v)===FILTER.mfr;});
+    var rank={blocked:0,open:1,waiting:2,done:3,exempt:4};
+    rows2.sort(function(a,b){
+      var d=rank[mfrBucket(a)]-rank[mfrBucket(b)];
+      return d||String(a.name).localeCompare(String(b.name));});
+    if(!rows2.length)return el.innerHTML=all2.length?filteredOut():blankList('vendor');
+    el.innerHTML=rows2.map(function(v){
+      var r=mfrRoad(v), n=matsOf(v).length;
+      var bad=r.some(function(x){return x.state==='bad';});
+      var done=!needsQual(v)||r.every(function(x){return x.state==='done';});
+      return '<button class="card" aria-current="'+(String(v.id)===String(sel))+'" onclick="pick('+v.id+')">'
+        +'<div class="card-t">'+esc(v.name||'Untitled')+'</div>'
+        +'<div class="card-s">'+esc(KINDS[kindOf(v)].l.toLowerCase())+' · '
+          +(bad?'something has lapsed':!needsQual(v)?'C0 — none needed':done?'qualified':'in qualification')
+          +(n?(' · '+n+' material'+(n===1?'':'s')):'')+'</div>'
+        +'<div class="card-b">'+r.map(function(x){return '<i style="background:'+stateColour(x.state)+'"></i>';}).join('')+'</div>'
+        +'</button>';
+    }).join('');
+  }
+};
+function filteredOut(){
+  var b=(BUCKETS[TAB].find(function(x){return x[0]===FILTER[TAB];})||['','that'])[1];
+  return '<div class="card-none">Nothing is \u201c'+esc(b.toLowerCase())+'\u201d right now.'
+    +'<div style="margin-top:12px"><button class="btn btn-s" onclick="setFilter(\'all\')">Show all</button></div></div>';
+}
+function blankList(w){
+  var q=(document.getElementById('q')||{value:''}).value.trim();
+  if(!q)return '<div class="card-none">No '+w+'s yet.<br>Type a name above and press <b>Enter</b>.</div>';
+  var elsewhere=hunt(q).length;
+  return '<div class="card-none">No '+w+' matches.'
+    +(elsewhere?('<div style="margin-top:12px"><button class="btn btn-s" onclick="huntNow()">'
+       +'Found in '+elsewhere+' other place'+(elsewhere===1?'':'s')+'</button></div>'):'')
+    +'<div style="margin-top:10px"><button class="btn btn-p btn-s" onclick="addFromSearch()">Add “'+esc(q)+'”</button></div></div>';
+}
+window.firstKey=function(e){if(e.key==='Enter'){e.preventDefault();addFirst();}};
+window.addFirst=function(){
+  var el=document.getElementById('first-name');
+  var n=el?el.value.trim():'';
+  if(!n){if(el)el.focus();return toast('Give it a name');}
+  create(n);
+};
+window.pick=function(id){SEL[TAB]=id;OPEN=null;rList();rPane();};
+/* the search box is already the place a name is typed, so "Add" just
+   sends you there rather than opening a second box that does the same */
+window.addNew=function(){
+  /* on the board there is no list to add to, so go where one is */
+  if(TAB==='home'){setTab('mat');
+    setTimeout(function(){document.getElementById('q').focus();},0);return;}
+  var q=document.getElementById('q');
+  var n=q.value.trim();
+  if(n)return addFromSearch();
+  /* the box is the whole mechanism, so point at it plainly rather than
+     opening a second box that does the same thing */
+  q.focus();
+  q.classList.add('flash');
+  setTimeout(function(){q.classList.remove('flash');},1400);
+  toast('Type the '+NOUN[TAB]+' name here, then press Enter');
+};
+window.addFromSearch=function(){
+  var q=document.getElementById('q'), n=q.value.trim();
+  if(!n)return;
+  var list=TAB==='mat'?DB.mats:TAB==='mfr'?DB.mfrs:DB.people;
+  var hit=list.find(function(x){return key(x.name)===key(n);});
+  if(hit){q.value='';pick(hit.id);return;}
+  q.value='';create(n);
+};
+function create(n){
+  n=String(n||'').trim();
+  if(!n)return toast('Give it a name first');
+  /* two records with the same name cannot be told apart later */
+  var list=(TAB==='mat')?DB.mats:(TAB==='mfr')?DB.mfrs:DB.people;
+  var twin=list.find(function(x){return key(x.name)===key(n);});
+  if(twin){SEL[TAB]=twin.id;document.getElementById('q').value='';rList();rPane();
+    return toast('That name is already here — opened it instead');}
+  if(TAB==='mat'){
+    var f=lookCat(n);
+    var m={id:uid(),name:n,cat:f?topCat(f.c.c):'',catFrom:f?(f.sure?'read from Attachment 1':'closest entry in Attachment 1'):'',
+      catSure:!!(f&&f.sure),ref:'',mfr:'',qty:'',unit:'',steps:{},dels:[],ncrs:[],added:today()};
+    DB.mats.push(m);SEL.mat=m.id;
+    touch();rList();rPane();
+    toast(f?('Category '+m.cat+' — '+m.catFrom):'No match in Attachment 1 — set the category yourself');
+  }else if(TAB==='insp'){
+    var p={id:uid(),name:n,agency:'',disc:'',status:'Pending',ref:'',added:today()};
+    DB.people.push(p);SEL.insp=p.id;
+    touch();rList();rPane();
+  }else{
+    var v={id:uid(),name:n,kind:'maker',cat:'',country:'',site:'',scope:'',steps:{},pq:{},added:today()};
+    DB.mfrs.push(v);SEL.mfr=v.id;
+    touch();rList();rPane();
+  }
+  document.getElementById('q').value='';
+}
+/* every place an inspector's name has been used */
+function assignments(p){
+  var out=[], k=key(p.name);
+  (DB.mats||[]).forEach(function(m){
+    Object.keys(m.steps||{}).forEach(function(s){
+      if(key(m.steps[s].by)===k)out.push({t:m.name,s:s,tab:'mat',id:m.id});});});
+  (DB.mfrs||[]).forEach(function(v){
+    Object.keys(v.steps||{}).forEach(function(s){
+      if(key(v.steps[s].by)===k)out.push({t:v.name,s:s,tab:'mfr',id:v.id});});});
+  return out;
+}
+window.remove=function(ev){
+  var a=ev&&ev.currentTarget?ev.currentTarget:document.getElementById('add-btn');
+  if(TAB==='insp'){
+    var p=insp(SEL.insp);if(!p)return;
+    var n=assignments(p).length;
+    return popConfirm(a,'Delete '+p.name+'?',
+      n?('Named on '+n+' inspection'+(n===1?'':'s')+'. Those names stay as they were typed; only this record goes.')
+       :'This cannot be undone.','Delete',function(){
+        DB.people=DB.people.filter(function(x){return String(x.id)!==String(p.id);});
+        SEL.insp=DB.people.length?DB.people[0].id:null;
+        touch();rList();rPane();});
+  }
+  if(TAB==='mat'){
+    var m=mat(SEL.mat);if(!m)return;
+    var d=(m.dels||[]).length, c=(m.ncrs||[]).length, done=matRoad(m).done;
+    return popConfirm(a,'Delete '+m.name+'?',
+      'Its '+done+' recorded step'+(done===1?'':'s')
+      +(d?(', '+d+' consignment'+(d===1?'':'s')):'')
+      +(c?(' and '+c+' non-conformance report'+(c===1?'':'s')):'')
+      +' go with it. This cannot be undone.','Delete',function(){
+        DB.mats=DB.mats.filter(function(x){return String(x.id)!==String(m.id);});
+        SEL.mat=DB.mats.length?DB.mats[0].id:null;
+        touch();rList();rPane();});
+  }
+  var v=mfr(SEL.mfr);if(!v)return;
+  var k=matsOf(v).length;
+  popConfirm(a,'Delete '+v.name+'?',
+    k?('Named on '+k+' material'+(k===1?'':'s')+', which will be left without a vendor. Its qualification record goes too.')
+     :'This cannot be undone.','Delete',function(){
+      DB.mats.forEach(function(m){if(String(m.mfr)===String(v.id))m.mfr='';});
+      DB.mfrs=DB.mfrs.filter(function(x){return String(x.id)!==String(v.id);});
+      SEL.mfr=DB.mfrs.length?DB.mfrs[0].id:null;
+      touch();rList();rPane();});
+};
+</script>
+
+<script>
+/* ================================================================
+   5. THE DETAIL PANE
+   ================================================================ */
+function rPane(){
+  var el=document.getElementById('pane');
+  var id=SEL[TAB];
+  if(TAB==='home')return el.innerHTML=homePane();
+  if(TAB==='cal')return el.innerHTML=calPane();
+  var rec=(TAB==='mat')?mat(id):(TAB==='mfr')?mfr(id):insp(id);
+  if(!rec){
+    var has=(TAB==='mat'?DB.mats:DB.mfrs).length;
+    el.innerHTML='<div class="empty">'+(has
+      ? 'Pick a '+NOUN[TAB]+' on the left.'
+      : (TAB==='mat'
+          ? 'Nothing here yet.<br><br>Type a material name on the left and press <b>Enter</b>. The procedure decides its category, and its steps appear in order.'
+          : TAB==='mfr'
+          ? 'No vendors yet.<br><br>A vendor is qualified once and serves every material you buy from it.'
+          : 'No inspectors yet.<br><br>Clause 2.2.17 has SEVEN approve every inspector. Keep them here and their names become a choice rather than something retyped.'))
+      +(has?'<div><button class="btn btn-p" onclick="addNew()">Add a '+NOUN[TAB]+'</button></div>'
+           :'<div class="f" style="max-width:340px;margin:22px auto 0;text-align:left">'
+            +'<label for="first-name">Name of the first '+NOUN[TAB]+'</label>'
+            +'<input id="first-name" autocomplete="off" onkeydown="firstKey(event)">'
+            +'<div class="f-act" style="justify-content:center"><button class="btn btn-p" onclick="addFirst()">Add it</button></div></div>')
+      +'</div>';
+    return;
+  }
+  el.innerHTML=(TAB==='mat')?matPane(rec):(TAB==='mfr')?mfrPane(rec):inspPane(rec);
+}
+
+/* ---------------------------------------------------------------
+   The board answers one question: what should I do now. Everything
+   on it is computed from the records, so it cannot say one thing
+   while a material says another.
+   --------------------------------------------------------------- */
+function homePane(){
+  var f=findings();
+  var late=f.filter(function(x){return x.tone==='bad';});
+  var mine=f.filter(function(x){return x.tone==='now';});
+  var waiting=f.filter(function(x){return x.tone==='wait';});
+  var mats=(DB.mats||[]), done=mats.filter(function(m){var r=matRoad(m);return r.at<0;}).length;
+  var ncr=mats.reduce(function(a,m){return a+openNCR(m);},0);
+  var hour=new Date().getHours();
+  var hello=hour<12?'Good morning':hour<18?'Good afternoon':'Good evening';
+
+  var head='<div class="head"><div class="wrap"><div class="head-t">'+hello+'</div>'
+    +'<div class="head-m">'
+    +(DB.project?('<span class="chip flat">'+esc(DB.project)+'</span>')
+      :'<button class="chip warn" data-pop onclick="rename(event)">name this project</button>')
+    +'<span class="chip flat">'+new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})+'</span>'
+    +(late.length?'<span class="chip warn">'+late.length+' late</span>':'<span class="chip set">nothing late</span>')
+    +'</div></div></div>';
+
+  var cards='<div class="grid">'
+    +stat(late.length,'Late',late.length?'hot':'',"jump('mat',0)")
+    +stat(mine.length,'Waiting on you',mine.length?'warm':'','')
+    +stat(waiting.length,'With the reviewer','','')
+    +stat(mats.length,'Materials',"","setTab('mat')")
+    +stat(done,'Fully cleared','',"setTab('mat')")
+    +stat(ncr,'Open non-conformances',ncr?'warm':'','')
+    +'</div>';
+
+  var left='<div class="sec" style="margin-top:4px">Deal with these first</div><div class="panel"><div class="panel-b">'
+    +(late.length||mine.length
+      ? late.concat(mine).slice(0,10).map(feedRow).join('')
+      : '<div class="dim" style="padding:20px 0;text-align:center">Nothing is late and nothing is waiting on you.</div>')
+    +'</div></div>';
+
+  var right='<div class="sec" style="margin-top:4px">The next seven days</div><div class="panel"><div class="panel-b">'+week()+'</div></div>';
+
+  if(waiting.length)right+='<div class="sec">Sitting with the reviewer</div><div class="panel"><div class="panel-b">'
+    +waiting.slice(0,6).map(feedRow).join('')+'</div></div>';
+
+  var body=cards+'<div class="cols"><section>'+left+'</section><section>'+right+'</section></div>';
+
+  body+='<div class="sec">Where the materials stand</div><div class="panel"><div class="panel-b">'
+    +(mats.length
+      ? mats.slice().sort(function(a,b){return matRoad(a).at-matRoad(b).at;}).slice(0,10).map(function(m){
+          var r=matRoad(m), cur=r.at>=0?r.steps[r.at]:null;
+          return '<div class="feed" onclick="jump(\'mat\','+m.id+')">'
+            +'<div class="feed-m"><div class="feed-t">'+esc(m.name)+'</div>'
+            +'<div class="feed-s">'+esc(m.cat||'no category')+' · '
+              +(cur?('step '+(r.at+1)+' of '+r.steps.length+' — '+esc(cur.s.n)):'all steps cleared')+'</div>'
+            +'<div class="rail">'+r.steps.map(function(x){
+                return '<i style="background:'+(x.now&&x.state==='open'?'var(--now)':stateColour(x.state))+'"></i>';}).join('')
+            +'</div></div>'
+            +'<div class="feed-w"><span class="meta">'+r.done+'/'+r.steps.length+'</span></div></div>';
+        }).join('')
+      : '<div class="dim" style="padding:20px 0;text-align:center">No materials yet. Open <b>Materials</b> and type the first name.</div>')
+    +'</div></div>';
+
+  return head+'<div class="body"><div class="wrap">'+body+'</div></div>';
+}
+function stat(v,label,cls,go){
+  return '<div class="stat '+cls+'"'+(go?(' onclick="'+go+'"'):'')+'>'
+    +'<div class="stat-v">'+v+'</div><div class="stat-l">'+esc(label)+'</div></div>';
+}
+function feedRow(o){
+  return '<div class="feed" onclick="jump(\''+o.tab+'\','+o.id+')">'
+    +'<div class="feed-m"><div class="feed-t">'+esc(o.t)+'</div>'
+    +'<div class="feed-s">'+esc(o.s)+'</div></div>'
+    +'<div class="feed-w"><span class="tag t-'+o.tone+'">'+esc(o.word)+'</span></div></div>';
+}
+/* seven days, drawn from the same dates the steps carry */
+function week(){
+  var t0=today(), out=[];
+  function put(date,text,tone){if(date&&date>=t0&&date<=addDays(t0,6))out.push({d:date,t:text,k:tone});}
+  (DB.mfrs||[]).forEach(function(v){
+    var st=v.steps||{};
+    if(st.pa&&st.pa.date&&st.pa.status==='Scheduled')put(st.pa.date,'Survey · '+v.name,'now');
+    if(st.iso&&st.iso.date)put(st.iso.date,'ISO expires · '+v.name,'bad');
+  });
+  (DB.mats||[]).forEach(function(m){
+    var st=m.steps||{};
+    if(st.pfm&&st.pfm.date&&st.pfm.status!=='Approved')put(st.pfm.date,'Meeting · '+m.name,'now');
+    if(st.fat&&st.fat.date&&['Pending','Scheduled'].indexOf(st.fat.status)>=0)put(st.fat.date,'FAT · '+m.name,'now');
+    matRoad(m).steps.forEach(function(x){
+      var due=x.s.due?x.s.due(m,x.data):null;
+      if(due&&!due.soft)put(due.on,x.s.n+' due · '+m.name,'bad');
+    });
+    (m.dels||[]).forEach(function(d){if(d.status==='Pending')put(d.date,'Inspect delivery · '+m.name,'now');});
+  });
+  (DB.events||[]).forEach(function(e){
+    if(!e.date)return;
+    occurs(e,t0,addDays(t0,6)).forEach(function(d){put(d,(e.rep?'\u21bb ':'')+e.title,EV_KIND[e.type||'other'].t);});
+  });
+  var days='';
+  for(var i=0;i<7;i++){
+    var d=addDays(t0,i), dt=new Date(d), ev=out.filter(function(x){return x.d===d;});
+    days+='<div class="day'+(i===0?' today':'')+'">'
+      +'<div class="day-n">'+dt.toLocaleDateString('en-GB',{weekday:'short'}).toUpperCase()+'</div>'
+      +'<div class="day-d">'+dt.getDate()+'</div>'
+      +ev.slice(0,3).map(function(x){
+          return '<div class="day-e e-'+x.k+'" title="'+attr(x.t)+'">'+esc(x.t)+'</div>';}).join('')
+      +(ev.length>3?('<div class="day-n" style="margin-top:4px">+'+(ev.length-3)+'</div>'):'')
+      +'</div>';
+  }
+  return '<div class="week">'+days+'</div>';
+}
+
+/* ---------------------------------------------------------------
+   THE CALENDAR
+   Most of what belongs on a month is already written on the steps —
+   a survey date, an inspection, a deadline the procedure sets — so
+   it is read from them rather than typed again. What is left is
+   yours: a fabrication window, a meeting, a trip. Those are the only
+   ones stored, and they may hang off a material or stand alone.
+   --------------------------------------------------------------- */
+var CAL=new Date();CAL.setDate(1);
+var EV_KIND={
+  fab:{l:'Fabrication',t:'wait'}, meet:{l:'Meeting',t:'na'},
+  visit:{l:'Site or factory visit',t:'wait'}, ship:{l:'Shipping',t:'ok'},
+  due:{l:'Deadline',t:'now'}, other:{l:'Something else',t:'na'}
+};
+var EV_OPTS=Object.keys(EV_KIND).map(function(k){return {v:k,l:EV_KIND[k].l};});
+var REP={'':'Does not repeat',d:'Every day',w:'Every week','2w':'Every two weeks',m:'Every month'};
+
+function evOf(id){return (DB.events||[]).find(function(e){return String(e.id)===String(id);});}
+function span(a,b,cap){var out=[],d=a,n=0;while(d<=b&&n<(cap||400)){out.push(d);d=addDays(d,1);n++;}return out;}
+/* a rule becomes the days it actually lands on, for the window drawn */
+function occurs(e,from,to){
+  var len=e.end?Math.max(0,Math.round((new Date(e.end)-new Date(e.date))/864e5)):0;
+  if(!e.rep)return span(e.date,e.end||e.date,120).filter(function(d){return d>=from&&d<=to;});
+  var out=[];
+  if(e.rep==='m'){
+    var day=+e.date.slice(8,10);
+    for(var k=-1;k<=1;k++){
+      var base=new Date(+from.slice(0,4),+from.slice(5,7)-1+k,day);
+      if(base.getDate()!==day)continue;
+      var ds=ymd(base);
+      if(ds<e.date)continue;
+      span(ds,addDays(ds,len),120).forEach(function(d){if(d>=from&&d<=to)out.push(d);});
+    }
+    return out;
+  }
+  var step=e.rep==='d'?1:e.rep==='w'?7:14, first=e.date, guard=0;
+  if(first<from){
+    var gap=Math.floor((new Date(from)-new Date(first))/864e5);
+    first=addDays(first,Math.max(0,Math.floor((gap-len)/step))*step);
+  }
+  var d2=first;
+  while(d2<=to&&guard++<900){
+    if(addDays(d2,len)>=from)span(d2,addDays(d2,len),120).forEach(function(x){if(x>=from&&x<=to)out.push(x);});
+    d2=addDays(d2,step);
+  }
+  return out;
+}
+/* everything that falls in a window: what the steps already say, plus yours */
+function calItems(from,to){
+  var out=[];
+  function put(date,title,tone,go,extra){
+    if(date&&date>=from&&date<=to)out.push(Object.assign({d:date,t:title,k:tone,go:go,own:false},extra||{}));
+  }
+  (DB.mfrs||[]).forEach(function(v){
+    var st=v.steps||{};
+    if(st.pa&&st.pa.date&&st.pa.status==='Scheduled')put(st.pa.date,'Survey · '+v.name,'wait',"jump('mfr',"+v.id+")");
+    if(st.iso&&st.iso.date)put(st.iso.date,'ISO expires · '+v.name,'bad',"jump('mfr',"+v.id+")");
+    if(st.scope&&st.scope.date)put(st.scope.date,'Accreditation expires · '+v.name,'bad',"jump('mfr',"+v.id+")");
+  });
+  (DB.mats||[]).forEach(function(m){
+    var st=m.steps||{}, go="jump('mat',"+m.id+")";
+    if(st.pfm&&st.pfm.date&&st.pfm.status!=='Approved')put(st.pfm.date,'Pre-fab meeting · '+m.name,'na',go);
+    if(st.fat&&st.fat.date)put(st.fat.date,(st.fat.status==='Scheduled'?'FAT · ':'FAT held · ')+m.name,'wait',go);
+    if(st.ipi&&st.ipi.date)put(st.ipi.date,'In-process visit · '+m.name,'wait',go);
+    matRoad(m).steps.forEach(function(x){
+      var due=x.s.due?x.s.due(m,x.data):null;
+      if(due&&!due.soft)put(due.on,x.s.n+' due · '+m.name,daysTo(due.on)<0?'bad':'now',go);
+    });
+    (m.dels||[]).forEach(function(d){
+      if(d.date)put(d.date,(d.status==='Pending'?'Inspect delivery · ':'Delivered · ')+m.name,
+        d.status==='Pending'?'now':'ok',go);
+    });
+  });
+  (DB.events||[]).forEach(function(e){
+    if(!e.date)return;
+    var days=occurs(e,from,to);
+    var last=e.end||e.date;
+    days.forEach(function(d){
+      var isStart=(days.length>1&&d===days[0])||d===e.date;
+      out.push({d:d,t:e.title,k:EV_KIND[e.type||'other'].t,own:true,id:e.id,
+        rep:!!e.rep, ends:last,
+        pos:(!e.end||e.end===e.date)?'':(d===e.date?'start':(d===last?'end':'mid')),
+        link:e.link||''});
+    });
+  });
+  return out;
+}
+function calPane(){
+  var y=CAL.getFullYear(), mo=CAL.getMonth();
+  var names=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var start=new Date(y,mo,1).getDay(), dim=new Date(y,mo+1,0).getDate(), prev=new Date(y,mo,0).getDate();
+  var cells=[];
+  for(var i=start-1;i>=0;i--)cells.push({n:prev-i,other:1,o:new Date(y,mo-1,prev-i)});
+  for(var d=1;d<=dim;d++)cells.push({n:d,other:0,o:new Date(y,mo,d)});
+  while(cells.length%7){var nx=cells.length-(start+dim)+1;cells.push({n:nx,other:1,o:new Date(y,mo+1,nx)});}
+  var from=ymd(cells[0].o), to=ymd(cells[cells.length-1].o);
+  var items=calItems(from,to), byDay={};
+  items.forEach(function(x){(byDay[x.d]=byDay[x.d]||[]).push(x);});
+  var mine=(DB.events||[]).length;
+
+  var head='<div class="head"><div class="wrap"><div class="head-t">Calendar</div>'
+    +'<div class="head-m"><span class="chip flat">'+items.length+' this month</span>'
+    +'<span class="chip flat">'+mine+' of your own</span>'
+    +'<span style="flex:1"></span>'
+    +'<button class="btn-q no-print" onclick="window.print()">Print</button></div></div></div>';
+
+  var t0=today();
+  var grid=cells.map(function(c){
+    var ds=ymd(c.o), ev=(byDay[ds]||[]), wk=(c.o.getDay()===5||c.o.getDay()===6);
+    return '<button class="cell'+(c.other?' other':'')+(ds===t0?' today':'')+(wk&&!c.other?' weekend':'')
+      +(ev.length?'':' bare')+'" '
+      +'onclick="daySheet(\''+ds+'\')">'
+      +'<div class="cell-n">'+c.n+'</div>'
+      +ev.slice(0,3).map(function(x){
+          return '<div class="ev ev-'+x.k+(x.pos?' '+x.pos:'')+'" title="'+attr(x.t)+'">'
+            +(x.rep&&x.d===ds?'\u21bb ':'')+esc(x.t)+'</div>';}).join('')
+      +(ev.length>3?'<div class="cell-more">+'+(ev.length-3)+' more</div>':'')
+      +'</button>';
+  }).join('');
+
+  var body='<div class="cal-top">'
+    +'<button class="btn btn-s" onclick="calNav(-1)">Previous</button>'
+    +'<div class="cal-m">'+names[mo]+' '+y+'</div>'
+    +'<button class="btn btn-s" onclick="calNav(1)">Next</button>'
+    +'<button class="btn btn-s" onclick="calToday()">Today</button>'
+    +'<span style="flex:1"></span>'
+    +'<button class="btn btn-p btn-s no-print" onclick="editEvent(null,\''+t0+'\')">Add an event</button>'
+    +'</div>'
+    +'<div class="cal-dow">'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(d2){return '<div>'+d2+'</div>';}).join('')+'</div>'
+    +'<div class="cal-grid">'+grid+'</div>'
+    +'<div class="legend">'
+    +[['ev-wait','Fabrication, surveys and inspections'],['ev-now','Deadlines and things waiting on you'],
+      ['ev-bad','Expiries and anything late'],['ev-ok','Deliveries and shipping'],['ev-na','Meetings and your own notes']]
+      .map(function(l){return '<span><i class="'+l[0]+'"></i>'+l[1]+'</span>';}).join('')
+    +'</div>';
+  return head+'<div class="body"><div class="wrap" style="max-width:1320px;width:100%">'+body+'</div></div>';
+}
+window.calNav=function(n){CAL.setMonth(CAL.getMonth()+n);rPane();};
+window.calToday=function(){CAL=new Date();CAL.setDate(1);rPane();};
+
+/* one day, in full */
+window.daySheet=function(ds){
+  var ev=calItems(ds,ds);
+  var dt=new Date(ds);
+  sheet(dt.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}),
+     (ev.length
+       ? ev.map(function(x){
+           var extra=x.own?(x.ends&&x.ends!==x.d?('until '+show(x.ends)):'')+(x.rep?' \u00b7 repeats':''):'from your records';
+           return '<div class="row'+((x.go||x.own)?' row-a':'')+'"'
+             +(x.own?(' onclick="editEvent('+x.id+')"'):(x.go?(' onclick="closeSheet();'+x.go+'"'):''))+'>'
+             +'<span class="tag t-'+x.k+'" style="min-width:104px;text-align:center;flex-shrink:0">'
+               +esc(x.own?EV_KIND[(evOf(x.id)||{}).type||'other'].l:'from a step')+'</span>'
+             +'<div style="flex:1;min-width:0"><div>'+esc(x.t)+'</div>'
+             +(extra?'<div class="dim" style="font-size:13px;margin-top:2px">'+esc(extra)+'</div>':'')+'</div></div>';
+         }).join('')
+       : '<div class="dim" style="padding:22px 0;text-align:center">Nothing on this day.</div>')
+    +'<div class="f-act" style="margin-top:18px"><button class="btn btn-p" onclick="editEvent(null,\''+ds+'\')">Add an event here</button></div>');
+};
+
+/* your own event */
+window.editEvent=function(id,preset){
+  var e=id?(evOf(id)||{}):{date:preset||today(),type:'fab'};
+  var links=[{v:'',l:'Not linked'}]
+    .concat((DB.mats||[]).map(function(m){return {v:'mat:'+m.id,l:'Material \u00b7 '+m.name};}))
+    .concat((DB.mfrs||[]).map(function(v){return {v:'mfr:'+v.id,l:'Vendor \u00b7 '+v.name};}));
+  sheet(id?'Edit the event':'Add an event',
+     '<div class="form" style="margin:0;padding:0;border:none">'
+    +'<div class="f wide"><label for="e-title">What is it</label>'
+      +'<input id="e-title" value="'+attr(e.title||'')+'" placeholder="Fabrication of the chillers, meeting with SEVEN\u2026" autocomplete="off"></div>'
+    +'<div class="f"><label for="e-type">Kind</label><select id="e-type">'
+      +EV_OPTS.map(function(o){return '<option value="'+o.v+'"'+((e.type||'fab')===o.v?' selected':'')+'>'+esc(o.l)+'</option>';}).join('')
+      +'</select></div>'
+    +'<div class="f"><label for="e-rep">Repeat</label><select id="e-rep">'
+      +Object.keys(REP).map(function(k){return '<option value="'+k+'"'+((e.rep||'')===k?' selected':'')+'>'+esc(REP[k])+'</option>';}).join('')
+      +'</select></div>'
+    +'<div class="f"><label for="e-from">From</label>'
+      +'<input id="e-from" class="mono" value="'+attr(show(e.date||preset||today()))+'" placeholder="dd/mm/yyyy" autocomplete="off">'
+      +'<span class="err" id="err-e-from"></span></div>'
+    +'<div class="f"><label for="e-to">To <span class="dim">\u2014 leave empty for one day</span></label>'
+      +'<input id="e-to" class="mono" value="'+attr(show(e.end||''))+'" placeholder="dd/mm/yyyy" autocomplete="off">'
+      +'<span class="err" id="err-e-to"></span></div>'
+    +'<div class="f wide"><label for="e-link">Belongs to</label><select id="e-link">'
+      +links.map(function(o){return '<option value="'+attr(o.v)+'"'+((e.link||'')===o.v?' selected':'')+'>'+esc(o.l)+'</option>';}).join('')
+      +'</select></div>'
+    +'<div class="f wide"><label for="e-note">Note</label>'
+      +'<input id="e-note" value="'+attr(e.note||'')+'" autocomplete="off"></div>'
+    +'<div class="f-act"><button class="btn btn-p" onclick="saveEvent('+(id||'null')+')">Save</button>'
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button>'
+    +(id?'<span style="flex:1"></span><button class="btn btn-d btn-s" data-pop onclick="delEvent(event,'+id+')">Delete</button>':'')
+    +'</div></div>');
+};
+window.saveEvent=function(id){
+  var title=document.getElementById('e-title').value.trim();
+  if(!title){document.getElementById('e-title').focus();return toast('Give it a name');}
+  var from=parseDate(document.getElementById('e-from').value);
+  if(from===null||!from){document.getElementById('err-e-from').textContent='Use dd/mm/yyyy';return;}
+  var toTxt=document.getElementById('e-to').value.trim();
+  var to=toTxt?parseDate(toTxt):'';
+  if(toTxt&&(to===null||!to)){document.getElementById('err-e-to').textContent='Use dd/mm/yyyy';return;}
+  if(to&&to<from){document.getElementById('err-e-to').textContent='That is before the start';return;}
+  var o={id:id||uid(),title:title,date:from,end:to||'',
+    type:document.getElementById('e-type').value,
+    rep:document.getElementById('e-rep').value,
+    link:document.getElementById('e-link').value,
+    note:document.getElementById('e-note').value.trim()};
+  DB.events=DB.events||[];
+  if(id){var i=DB.events.findIndex(function(x){return String(x.id)===String(id);});if(i>-1)DB.events[i]=o;}
+  else DB.events.push(o);
+  touch();closeSheet();
+  CAL=new Date(from);CAL.setDate(1);
+  rPane();
+};
+window.delEvent=function(ev,id){
+  var e=evOf(id);if(!e)return;
+  popConfirm(ev.currentTarget,'Delete this event?',
+    e.rep?('It repeats '+String(REP[e.rep]||'').toLowerCase()+'. Every occurrence goes.'):'This cannot be undone.',
+    'Delete',function(){
+      DB.events=(DB.events||[]).filter(function(x){return String(x.id)!==String(id);});
+      touch();closeSheet();rPane();});
+};
+
+/* ---------- material ---------- */
+function matPane(m){
+  var r=matRoad(m), v=mfrOf(m), hit=lookCat(m.name);
+  var ord=num(m.qty), got=received(m), ncr=openNCR(m);
+  var head='<div class="head"><div class="wrap"><div class="head-t">'+esc(m.name)+'</div><div class="head-m">'
+    +'<button class="chip '+(m.cat?'set':'warn')+'" data-pop onclick="editCat(event)">'+(m.cat?esc(m.cat):'set the category')+(m.cat&&!m.catSure?' ?':'')+'</button>'
+    +(function(){var ms=mfrState(v);
+       return '<button class="chip '+(!v?'warn':ms.tone==='ok'?'set':'warn')+'" data-pop onclick="pickMfr(event)" '
+        +'title="'+attr(v?(ms.ok?'qualified':ms.short.join(' · ')):'none named')+'">'
+        +(v?esc(v.name):'no vendor')
+        +(v&&!ms.ok?' · '+esc(ms.word):'')+'</button>';})()
+    +'<button class="chip" data-pop onclick="editText(event,\'ref\',\'Aconex reference\')">'+(m.ref?('<span class="mono">'+esc(m.ref)+'</span>'):'no reference')+'</button>'
+    +'<button class="chip" data-pop onclick="editQty(event)">'+(ord?(got+' of '+ord+' '+esc(m.unit||'')+' received'):'set the quantity')+'</button>'
+    +'<span class="chip flat">'+(r.at<0?'all steps cleared':(r.done+' of '+r.steps.length+' done'))+'</span>'
+    +'<span style="flex:1"></span>'
+    +'<button class="btn-q no-print" onclick="printRecord()">Record sheet</button>'
+    +'<button class="btn-q no-print" data-pop onclick="remove(event)">Delete</button>'
+    +'</div>'
+    +(m.cat&&m.catFrom?'<div class="swhy" style="margin-top:10px">Category '+esc(m.cat)+' — '+esc(m.catFrom)
+      +(hit?': '+esc(hit.c.n):'')+(m.catSure?'.':'. Confirm it is the same item before relying on it.')+'</div>':'')
+    +'</div></div>';
+
+  var body='';
+  if(!m.cat)body+='<div class="panel" style="border-color:var(--now);background:var(--now-b)"><div class="panel-b">'
+    +'<b>No category yet.</b> Only the steps every material needs are shown. Set the category above and the rest of the road appears.'
+    +'</div></div>';
+  body+=r.steps.map(function(x,i){return stepCard(m,x,i,'mat');}).join('');
+  body+=delPanel(m)+ncrPanel(m);
+  return head+'<div class="body"><div class="wrap">'+body+'</div></div>';
+}
+
+/* ---------- vendor ---------- */
+function mfrPane(v){
+  var r=mfrRoad(v), mine=matsOf(v);
+  var bad=r.some(function(x){return x.state==='bad';});
+  var done=r.every(function(x){return x.state==='done';});
+  var head='<div class="head"><div class="wrap"><div class="head-t">'+esc(v.name)+'</div><div class="head-m">'
+    +'<button class="chip set" data-pop onclick="editKind(event)">'+esc(KINDS[kindOf(v)].l)+'</button>'
+    +(kindOf(v)==='agency'?''
+      :'<button class="chip '+(v.cat?'set':'warn')+'" data-pop onclick="editMfrCat(event)">'+(v.cat?esc(v.cat):'set the category')+'</button>')
+    +'<button class="chip" data-pop onclick="editText(event,\'country\',\'Country\')">'+(v.country?esc(v.country):'country')+'</button>'
+    +(kindOf(v)==='maker'
+      ?'<button class="chip" data-pop onclick="editText(event,\'site\',\'Production site\',\'Clause 2.1.6 qualifies the manufacturer and its specific production site.\')">'+(v.site?esc(v.site):'production site')+'</button>'
+      :'')
+    +'<button class="chip" data-pop onclick="editText(event,\'scope\',\'Scope of work\')">'+(v.scope?esc(v.scope):'scope')+'</button>'
+    +'<span class="chip flat">'+(bad?'something has lapsed':done?'qualified':'in qualification')+'</span>'
+    +'<span style="flex:1"></span>'
+    +'<button class="btn-q no-print" data-pop onclick="remove(event)">Delete</button>'
+    +'</div>'
+    +((kindOf(v)==='maker'&&!v.site)
+      ?'<div class="swhy" style="margin-top:10px">Clause 2.1.6 qualifies the manufacturer <b>and its specific production site</b>. Name the site.</div>'
+      :'<div class="swhy" style="margin-top:10px">'+esc(KINDS[kindOf(v)].d)+'</div>')
+    +'</div></div>';
+  var body=needsQual(v)
+    ? r.map(function(x,i){return stepCard(v,x,i,'mfr');}).join('')
+    : '<div class="panel"><div class="panel-b">'
+      +'<div style="display:flex;gap:12px;align-items:flex-start">'
+      +'<span class="tag t-ok" style="flex-shrink:0">Nothing to clear</span>'
+      +'<div><div style="font-weight:500">Category 0 needs no manufacturer approval</div>'
+      +'<div class="swhy" style="margin-top:6px">Clause 2.1.5 requires approval for category 1 and above. '
+      +'A C0 material is reviewed through its technical submittal before the purchase order and inspected at site on delivery. '
+      +'Raise the category above if this company also supplies something heavier, and its steps appear.</div></div></div>'
+      +'</div></div>';
+  body+='<div class="sec">Materials from this vendor</div><div class="panel"><div class="panel-b">'
+    +(mine.length
+      ? mine.map(function(m){
+          var rr=matRoad(m), cur=rr.at>=0?rr.steps[rr.at]:null;
+          return '<div class="line row-a" onclick="setTab(\'mat\');pick('+m.id+')">'
+            +'<span class="tag t-'+(rr.at<0?'ok':'na')+'">'+esc(m.cat||'—')+'</span>'
+            +'<div class="line-m"><div>'+esc(m.name)+'</div>'
+            +'<div class="dim" style="font-size:12.5px;margin-top:2px">'+(cur?esc(cur.s.n):'all steps cleared')+'</div></div>'
+            +'<span class="meta">'+rr.done+'/'+rr.steps.length+'</span></div>';
+        }).join('')
+      : '<span class="dim">No material names this vendor yet.</span>')
+    +'</div></div>';
+  return head+'<div class="body"><div class="wrap">'+body+'</div></div>';
+}
+
+/* ---------------------------------------------------------------
+   A material cannot pass a vendor that is not qualified, so the
+   material has to say what the vendor is short of — not
+   merely that something is. Anything else means opening two records
+   to answer one question.
+   --------------------------------------------------------------- */
+function mfrState(v){
+  if(!v)return {tone:'now',word:'none named',short:['No vendor named'],ok:false};
+  if(!needsQual(v))return {tone:'ok',word:'no qualification needed',short:[],ok:true,v:v};
+  var r=mfrRoad(v), short=[], tone='ok', word='qualified';
+  r.forEach(function(x){
+    var d=x.data;
+    if(x.state==='done')return;
+    if(x.s.k==='iso'){
+      if(d.date&&daysTo(d.date)<0)short.push('ISO 9001 expired '+show(d.date));
+      else if(d.status==='Expired')short.push('ISO 9001 marked expired');
+      else short.push('ISO 9001 not recorded');
+      return;
+    }
+    short.push(x.s.n+(x.state==='bad'?(' — '+String(d.status||'returned').toLowerCase())
+      :x.state==='wait'?' — with the reviewer':' — not started'));
+  });
+  if(r.some(function(x){return x.state==='bad';})){tone='bad';word='blocked';}
+  else if(short.length){tone='wait';word='in qualification';}
+  /* a certificate that lapses after approval still stops the work */
+  var iso=(v.steps||{}).iso||{};
+  if(iso.date&&daysTo(iso.date)<0){tone='bad';word='certificate lapsed';
+    if(!short.some(function(t){return /ISO/.test(t);}))short.unshift('ISO 9001 expired '+show(iso.date));}
+  return {tone:tone,word:word,short:short,ok:short.length===0,v:v};
+}
+
+/* ---------- inspector ---------- */
+function inspPane(p){
+  var jobs=assignments(p), st=p.status||'Pending';
+  if(!p.name)return '<div class="head"><div class="head-t">Unnamed inspector</div></div>'
+    +'<div class="body"><div class="wrap"><div class="panel"><div class="panel-b">'
+    +'<div class="f" style="max-width:340px"><label for="fix-name">Name</label>'
+    +'<input id="fix-name" placeholder="full name as it appears on the report" autocomplete="off"></div>'
+    +'<div class="f-act"><button class="btn btn-p" onclick="fixName()">Save</button>'
+    +'<button class="btn btn-d btn-s" data-pop onclick="remove(event)">Delete this record</button></div>'
+    +'</div></div></div></div>';
+  var tone=st==='Approved'?'ok':st==='Suspended'?'bad':'now';
+  var head='<div class="head"><div class="wrap"><div class="head-t">'+esc(p.name)+'</div><div class="head-m">'
+    +'<button class="chip '+(st==='Approved'?'set':'warn')+'" data-pop onclick="cycleInsp(event)">'+esc(st)+'</button>'
+    +'<button class="chip" data-pop onclick="editText(event,\'agency\',\'Agency\')">'+(p.agency?esc(p.agency):'agency')+'</button>'
+    +'<button class="chip" data-pop onclick="editText(event,\'disc\',\'Discipline\')">'+(p.disc?esc(p.disc):'discipline')+'</button>'
+    +'<button class="chip" data-pop onclick="editText(event,\'ref\',\'Approval reference\')">'+(p.ref?('<span class="mono">'+esc(p.ref)+'</span>'):'approval reference')+'</button>'
+    +'<span style="flex:1"></span><button class="btn-q no-print" data-pop onclick="remove(event)">Delete</button></div>'
+    +'<div class="swhy" style="margin-top:10px">Third-party inspectors are assigned by discipline and approved by SEVEN for the materials they inspect \u2014 clause 2.2.17.</div>'
+    +'</div></div>';
+  var body='<div class="panel"><div class="panel-h"><div class="panel-t">Approval</div>'
+    +'<span class="tag t-'+tone+'">'+esc(st)+'</span></div><div class="panel-b">'
+    +(st==='Approved'
+      ? 'Approved for use'+(p.ref?' under <span class="mono">'+esc(p.ref)+'</span>':'')+'.'
+      : st==='Suspended'
+      ? '<span style="color:var(--bad-t)">Suspended. Do not assign new inspections.</span>'
+      : '<span style="color:var(--now-t)">Not yet approved. SEVEN reviews and approves every inspector before an assignment.</span>')
+    +'</div></div>';
+  body+='<div class="sec">Where this name is used</div><div class="panel"><div class="panel-b">'
+    +(jobs.length
+      ? jobs.map(function(j){
+          var nm=(j.tab==='mat'?MAT_ROAD:MFR_ROAD).find(function(x){return x.k===j.s;});
+          return '<div class="line row-a" onclick="jump(\''+j.tab+'\','+j.id+')">'
+            +'<div class="line-m"><div>'+esc(j.t)+'</div>'
+            +'<div class="dim" style="font-size:12.5px;margin-top:2px">'+esc(nm?nm.n:j.s)+'</div></div></div>';
+        }).join('')
+      : '<span class="dim">Not yet named on any inspection.</span>')
+    +'</div></div>';
+  return head+'<div class="body"><div class="wrap">'+body+'</div></div>';
+}
+/* ---------- a checklist that lives on a step ---------- */
+/* Two dozen tick boxes held open push everything below them off the
+   screen, and they are only wanted while the file is actually being
+   gone through. So it shows as one line — count, bar, what is left —
+   and opens when asked. Once open it stays open for that record. */
+var OPENLIST={};
+function checklist(rec,bucket,items,clause,title){
+  var st=rec[bucket]||{};
+  var done=items.filter(function(_,i){return st['i'+i];}).length;
+  var pct=items.length?Math.round(done/items.length*100):0;
+  var id=rec.id+':'+bucket, open=!!OPENLIST[id];
+  var left=items.length-done;
+
+  var head='<button class="cl-head" aria-expanded="'+open+'" onclick="toggleList(\''+id+'\')">'
+    +'<svg class="cl-arrow" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>'
+    +'<div class="cl-m"><div class="cl-t">'+esc(title)+' <span class="sclause">'+esc(clause)+'</span></div>'
+      +'<div class="cl-s">'+(done?(done+' of '+items.length+' ticked'+(left?(' \u00b7 '+left+' still to attach'):' \u00b7 complete'))
+                                 :(items.length+' items, none ticked yet'))+'</div>'
+      +'<div class="bar" style="margin-top:8px"><i style="width:'+pct+'%"></i></div></div>'
+    +'<span class="meta" style="flex-shrink:0">'+done+'/'+items.length+'</span></button>';
+
+  if(!open)return '<div class="cl">'+head+'</div>';
+
+  return '<div class="cl open">'+head+'<div class="cl-body">'
+    +items.map(function(t,i){
+        var on=!!st['i'+i];
+        return '<label class="cl-item">'
+          +'<input type="checkbox" '+(on?'checked ':'')+'onchange="tick(\''+bucket+'\','+i+',this.checked)">'
+          +'<span'+(on?' class="ticked"':'')+'>'+esc(t)+'</span></label>';
+      }).join('')
+    +'<div class="cl-foot">'
+      +'<button class="btn btn-s" onclick="tickAll(\''+bucket+'\','+items.length+',true)">Tick all</button>'
+      +(done?'<button class="btn-q" onclick="tickAll(\''+bucket+'\','+items.length+',false)">Clear</button>':'')
+    +'</div></div></div>';
+}
+window.toggleList=function(id){OPENLIST[id]=!OPENLIST[id];rPane();};
+window.tickAll=function(bucket,n,on){
+  var rec=(TAB==='mat')?mat(SEL.mat):mfr(SEL.mfr);if(!rec)return;
+  rec[bucket]=on?(function(){var o={};for(var i=0;i<n;i++)o['i'+i]=1;return o;})():{};
+  touch();rPane();
+};
+window.tick=function(bucket,i,on){
+  var rec=(TAB==='mat')?mat(SEL.mat):mfr(SEL.mfr);if(!rec)return;
+  rec[bucket]=rec[bucket]||{};
+  if(on)rec[bucket]['i'+i]=1;else delete rec[bucket]['i'+i];
+  touch();rPane();
+};
+
+/* ---------- one step ---------- */
+function stepCard(rec,x,i,kind){
+  var st=x.s, d=x.data, state=x.state;
+  var dot=state==='done'?'done':state==='bad'?'bad':state==='wait'?'wait':(x.now?'now':'');
+  var editing=(OPEN===kind+':'+st.k);
+
+  var inner='';
+  if(st.linked){
+    var v=mfrOf(rec), ms=mfrState(v);
+    if(v&&!needsQual(v)){
+      return '<div class="step"><div class="dot done">'+ICON.tick+'</div><div class="sbody">'
+        +'<div class="stitle">'+esc(st.n)+'<span class="sclause">2.1.5</span></div>'
+        +'<div class="swhy">Approval is required for category 1 and above. This material is C0, so its maker needs none.</div>'
+        +'<div class="srec"><span class="tag t-ok">not required</span><b style="font-weight:500">'+esc(v.name)+'</b></div>'
+        +'<div style="margin-top:11px;display:flex;gap:8px;flex-wrap:wrap">'
+        +'<button class="btn btn-s" onclick="jump(\'mfr\','+v.id+')">Open '+esc(v.name)+'</button>'
+        +'<button class="btn btn-s" data-pop onclick="pickMfr(event)">Change</button></div>'
+        +'</div></div>';
+    }
+    if(!v){
+      inner='<div class="srec"><span class="tag t-now">none named</span>'
+        +'<span class="dim">Approval of the vendor comes before the purchase order for anything above C0.</span></div>'
+        +'<div style="margin-top:11px"><button class="btn btn-p btn-s" data-pop onclick="pickMfr(event)">Name the vendor</button></div>';
+    }else{
+      inner='<div class="srec"><span class="tag t-'+ms.tone+'">'+esc(ms.word)+'</span>'
+        +'<b style="font-weight:500">'+esc(v.name)+'</b>'
+        +(v.country?'<span class="dim">'+esc(v.country)+'</span>':'')
+        +(v.site?'<span class="dim">· '+esc(v.site)+'</span>':'')+'</div>';
+      /* each of its steps, with its own state, read from its record */
+      inner+='<div class="srec" style="margin-top:8px">'+mfrRoad(v).map(function(y){
+        var t=y.state==='done'?'ok':y.state==='bad'?'bad':y.state==='wait'?'wait':'na';
+        return '<span class="tag t-'+t+'">'+esc(y.s.n)+'</span>';}).join('')+'</div>';
+      if(!ms.ok)inner+='<div class="sdue '+(ms.tone==='bad'?'d-late':'d-soon')+'" style="display:flex;align-items:flex-start">'
+        +ICON.alert+'<span><b>Still outstanding:</b><br>'+ms.short.map(esc).join('<br>')+'</span></div>';
+      inner+='<div style="margin-top:11px;display:flex;gap:8px;flex-wrap:wrap">'
+        +'<button class="btn btn-s'+(ms.ok?'':' btn-p')+'" onclick="jump(\'mfr\','+v.id+')">Open '+esc(v.name)+'</button>'
+        +'<button class="btn btn-s" data-pop onclick="pickMfr(event)">Change</button></div>';
+    }
+  }else if(st.deliveries){
+    var ord=num(rec.qty), got=received(rec), n=(rec.dels||[]).length;
+    inner='<div class="srec">'+(n?(n+' consignment'+(n===1?'':'s')+' recorded'+(ord?', '+got+' of '+ord+' '+esc(rec.unit||'')+' accepted':'')):'Nothing has arrived yet')+'</div>'
+      +'<div style="margin-top:11px"><button class="btn '+(x.now?'btn-p ':'')+'btn-s" onclick="addDel()">Record a delivery</button></div>';
+  }else{
+    var bits=[];
+    if(d.status)bits.push('<span class="tag t-'+(state==='done'?'ok':state==='bad'?'bad':state==='wait'?'wait':'na')+'">'+esc(d.status)+'</span>');
+    if(d.ref)bits.push('<span class="mono">'+esc(d.ref)+'</span>');
+    if(d.date)bits.push('<span class="dim">'+esc(dateLabel(st))+' '+show(d.date)+'</span>');
+    if(d.by)bits.push('<span class="dim">'+esc(d.by)+'</span>');
+    if(bits.length)inner+='<div class="srec">'+bits.join('')+'</div>';
+    var due=st.due?st.due(rec,d):null;
+    if(due){
+      /* two different things wear a date: a deadline you can miss, and
+         a permission that simply has not arrived yet. Only the first
+         is ever late. */
+      var n2=daysTo(due.on);
+      var cls=due.soft?(n2>0?'d-soon':'d-ok'):(n2<0?'d-late':n2<=14?'d-soon':'d-ok');
+      inner+='<div class="sdue '+cls+'">'+((!due.soft&&n2<0)?ICON.alert:ICON.clock)
+        +'<span>'+esc(due.t)+' <b>'+show(due.on)+'</b>'+(due.soft&&n2<=0?'':' · '+when(due.on))+'</span></div>';
+    }
+    var warn=st.warn?st.warn(rec,d):'';
+    if(warn)inner+='<div class="sdue d-soon">'+ICON.alert+'<span>'+esc(warn)+'</span></div>';
+    /* an inspector who is not approved must not pass unremarked */
+    if(d.by){
+      var who=(DB.people||[]).find(function(p){return key(p.name)===key(d.by);});
+      if(!who)inner+='<div class="sdue d-soon">'+ICON.alert+'<span><b>'+esc(d.by)+'</b> is not in your inspector list. Clause 2.2.17 has SEVEN approve every inspector.</span></div>';
+      else if((who.status||'Pending')!=='Approved')
+        inner+='<div class="sdue '+((who.status==='Suspended')?'d-late':'d-soon')+'">'+ICON.alert
+          +'<span><b>'+esc(who.name)+'</b> is '+esc(String(who.status||'pending').toLowerCase())+', not approved.</span></div>';
+    }
+    inner+=editing?form(rec,st,d,kind)
+      :'<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
+        +'<button class="btn '+(x.now?'btn-p ':'')+'btn-s" onclick="openStep(\''+kind+':'+st.k+'\')">'
+        +(d.status||d.ref||d.date?'Update':'Record it')+'</button>'
+        /* when the detail does not matter, one press settles it */
+        +((state!=='done'&&!editing)?'<button class="btn btn-s" onclick="quickDone(\''+kind+'\',\''+st.k+'\')">Mark done</button>':'')
+        +'</div>';
+    /* the two dossiers carry a contents list the procedure writes out */
+    if(kind==='mat'&&DOSSIER[st.k]&&!editing)
+      inner+=checklist(rec,st.k+'List',DOSSIER[st.k].items,DOSSIER[st.k].clause,'What it must contain');
+    if(kind==='mfr'&&st.k==='pqd'&&!editing)
+      inner+=checklist(rec,'pq',pqList(rec),'2.1.14','The pre-qualification file');
+  }
+
+  return '<div class="step'+(x.now?' now':'')+(x.ahead&&!editing?' ahead':'')+'">'
+    +'<div class="dot '+dot+'">'+(state==='done'?ICON.tick:(i+1))+'</div>'
+    +'<div class="sbody">'
+      +'<div class="stitle">'+esc(st.n)+'<span class="sclause">'+esc(st.clause)+'</span></div>'
+      +'<div class="swhy">'+esc(st.why)+'</div>'
+      +inner
+    +'</div></div>';
+}
+function dateLabel(st){
+  var f=(st.f||[]).find(function(x){return x[0]==='date';});
+  return f?f[1].toLowerCase():'on';
+}
+function form(rec,st,d,kind){
+  var h='<div class="form">';
+  st.f.forEach(function(f){
+    var k=f[0],lab=f[1],ty=f[2],opts=f[3];
+    h+='<div class="f'+(k==='ref'?' wide':'')+'"><label for="i-'+k+'">'+esc(lab)+'</label>';
+    if(ty==='date')h+='<input class="mono" id="i-'+k+'" value="'+attr(show(d[k]))+'" placeholder="dd/mm/yyyy" autocomplete="off">';
+    else if(ty==='status'||ty==='sel'){
+      var list=(ty==='status')?STATUS:opts, cur=d[k]||list[0];
+      h+='<select id="i-'+k+'">'+list.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select>';
+    }else if(ty==='person'){
+      var people=(DB.people||[]).slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
+      var cur=d[k]||'';
+      var known=people.some(function(p){return key(p.name)===key(cur);});
+      h+='<select id="i-'+k+'" onchange="personPicked(this)">'
+        +'<option value=""'+(cur?'':' selected')+'>\u2014</option>'
+        +people.map(function(p){
+            return '<option value="'+attr(p.name)+'"'+(key(p.name)===key(cur)?' selected':'')+'>'
+              +esc(p.name)+(p.status!=='Approved'?(' \u00b7 '+esc(String(p.status||'pending').toLowerCase())):'')
+              +(p.agency?(' \u00b7 '+esc(p.agency)):'')+'</option>';}).join('')
+        +(cur&&!known?'<option value="'+attr(cur)+'" selected>'+esc(cur)+' \u00b7 not on your list</option>':'')
+        +'<option value="__new">Add someone new\u2026</option></select>';
+    }else h+='<input id="i-'+k+'" value="'+attr(d[k]||'')+'" autocomplete="off">';
+    h+='<span class="err" id="e-'+k+'"></span></div>';
+  });
+  h+='<div class="f-act"><button class="btn btn-p" onclick="saveStep(\''+kind+'\',\''+st.k+'\')">Save</button>'
+    +'<button class="btn-q" onclick="openStep(null)">Cancel</button></div>';
+  return h+'</div>'+dataList();
+}
+function dataList(){
+  var names={};
+  (DB.mats||[]).forEach(function(m){Object.keys(m.steps||{}).forEach(function(k){if(m.steps[k].by)names[m.steps[k].by]=1;});});
+  (DB.mfrs||[]).forEach(function(v){Object.keys(v.steps||{}).forEach(function(k){if(v.steps[k].by)names[v.steps[k].by]=1;});});
+  return '<datalist id="people">'+Object.keys(names).map(function(n){return '<option value="'+attr(n)+'">';}).join('')+'</datalist>';
+}
+window.personPicked=function(el){
+  if(el.value!=='__new')return;
+  el.value='';
+  popText(el,'Inspector name','','They are added as <b>pending</b> until SEVEN approves them — clause 2.2.17.',
+    function(n){
+      if(!n)return;
+      var p={id:uid(),name:n,agency:'',disc:'',status:'Pending',ref:'',added:today()};
+      DB.people.push(p);touch();
+      var opt=document.createElement('option');opt.value=n;opt.textContent=n+' \u00b7 pending';
+      el.insertBefore(opt,el.lastChild);el.value=n;
+      toast('Added to your inspector list as pending');
+    });
+};
+window.openStep=function(k){
+  OPEN=k;rPane();
+  if(k){var f=document.querySelector('.form input,.form select');if(f)f.focus();}
+};
+window.quickDone=function(kind,k){
+  var rec=(kind==='mat')?mat(SEL.mat):mfr(SEL.mfr);if(!rec)return;
+  var st=(kind==='mat'?MAT_ROAD:MFR_ROAD).find(function(x){return x.k===k;});
+  /* take the first settled word this step offers, so "done" means what
+     the step itself calls done rather than a word invented here */
+  var f=(st.f||[]).find(function(x){return x[0]==='status';});
+  var list=f?(f[2]==='status'?STATUS:f[3]):STATUS;
+  var word=list.find(function(o){return settled(o);})||'Approved';
+  rec.steps=rec.steps||{};
+  var d=rec.steps[k]||{};
+  d.status=word;if(!d.date)d.date=today();
+  rec.steps[k]=d;
+  touch();rList();rPane();toast(st.n+' — '+word);
+};
+window.saveStep=function(kind,k){
+  var rec=(kind==='mat')?mat(SEL.mat):mfr(SEL.mfr);
+  if(!rec)return;
+  var st=(kind==='mat'?MAT_ROAD:MFR_ROAD).find(function(x){return x.k===k;});
+  var out={},bad=null;
+  st.f.forEach(function(f){
+    var el=document.getElementById('i-'+f[0]);if(!el)return;
+    var v=el.value.trim();
+    if(f[2]==='date'&&v){
+      var iso=parseDate(v);
+      if(iso===null){bad=bad||f[0];el.setAttribute('aria-invalid','true');
+        var e=document.getElementById('e-'+f[0]);if(e)e.textContent='Use dd/mm/yyyy';return;}
+      out[f[0]]=iso;
+    }else out[f[0]]=v;
+  });
+  if(bad)return;
+  rec.steps=rec.steps||{};rec.steps[k]=out;
+  touch();OPEN=null;rList();rPane();
+};
+</script>
+
+<script>
+/* ================================================================
+   6. DELIVERIES AND NON-CONFORMANCES
+   A material rarely arrives all at once, and the closing dossier is
+   due a week after the last quantity is accepted — so consignments
+   are recorded one by one and the deadline follows from them.
+   ================================================================ */
+function delPanel(m){
+  var dels=(m.dels||[]).slice().sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
+  var ord=num(m.qty), got=received(m);
+  var pct=ord?Math.min(100,Math.round(got/ord*100)):(got?100:0);
+  return '<div class="sec">Deliveries</div><div class="panel">'
+    +'<div class="panel-h"><div class="panel-t">Consignments</div>'
+      +'<button class="btn btn-s no-print" onclick="addDel()">Record a delivery</button></div>'
+    +'<div class="panel-b">'
+    +(ord?'<div style="margin-bottom:14px"><div class="bar"><i style="width:'+pct+'%"></i></div>'
+      +'<div class="dim" style="font-size:12.5px;margin-top:6px">'+got+' of '+ord+' '+esc(m.unit||'')+' accepted · '+pct+'%'
+      +(got<ord?(' · '+(ord-got)+' still to come'):'')+'</div></div>':'')
+    +(dels.length
+      ? dels.map(function(d){
+          var t=settled(d.status)?'ok':failed(d.status)?'bad':'wait';
+          return '<div class="line">'
+            +'<span class="tag t-'+t+'">'+esc(d.status||'Pending')+'</span>'
+            +'<div class="line-m"><div>'+esc(d.qty||'—')+' '+esc(m.unit||'')
+              +(d.ref?' <span class="mono dim">· '+esc(d.ref)+'</span>':'')+'</div>'
+            +(d.note?'<div class="dim" style="font-size:12.5px;margin-top:2px">'+esc(d.note)+'</div>':'')+'</div>'
+            +'<span class="meta">'+esc(show(d.date))+'</span>'
+            +'<button class="btn-q no-print" onclick="editDel('+d.id+')">Edit</button></div>';
+        }).join('')
+      : '<span class="dim">Nothing has arrived yet. Record each consignment as it lands, with its inspection request number.</span>')
+    +'</div></div>';
+}
+window.addDel=function(){editDel(null);};
+window.editDel=function(id){
+  var m=mat(SEL.mat);if(!m)return;
+  var d=(m.dels||[]).find(function(x){return String(x.id)===String(id);})||{};
+  sheet(id?'Edit consignment':'Record a delivery',
+     '<div class="form" style="margin:0;padding:0;border:none">'
+    +fld('d-qty','Quantity received',d.qty||'','')
+    +fld('d-date','Date received',show(d.date||today()),'mono')
+    +fld('d-ref','Inspection request number',d.ref||'','mono')
+    +'<div class="f"><label for="d-status">Outcome</label><select id="d-status">'
+      +['Pending','Received','Approved with comments','Rejected'].map(function(o){
+        return '<option'+((d.status||'Pending')===o?' selected':'')+'>'+o+'</option>';}).join('')+'</select></div>'
+    +'<div class="f wide"><label for="d-note">Note</label><input id="d-note" value="'+attr(d.note||'')+'" placeholder="batch or heat number, damage, shortage…"></div>'
+    +'<div class="f-act"><button class="btn btn-p" onclick="saveDel('+(id||'null')+')">Save</button>'
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button>'
+    +(id?'<span style="flex:1"></span><button class="btn btn-d btn-s" data-pop onclick="delDel(event,'+id+')">Delete</button>':'')
+    +'</div></div>');
+};
+function fld(id,lab,val,cls){
+  return '<div class="f"><label for="'+id+'">'+esc(lab)+'</label>'
+    +'<input id="'+id+'" class="'+(cls||'')+'" value="'+attr(val)+'" autocomplete="off">'
+    +'<span class="err" id="e-'+id+'"></span></div>';
+}
+window.saveDel=function(id){
+  var m=mat(SEL.mat);if(!m)return;
+  var date=parseDate(document.getElementById('d-date').value);
+  if(date===null){document.getElementById('e-d-date').textContent='Use dd/mm/yyyy';return;}
+  var o={id:id||uid(),qty:document.getElementById('d-qty').value.trim(),date:date,
+    ref:document.getElementById('d-ref').value.trim(),status:document.getElementById('d-status').value,
+    note:document.getElementById('d-note').value.trim()};
+  m.dels=m.dels||[];
+  if(id){var i=m.dels.findIndex(function(x){return String(x.id)===String(id);});if(i>-1)m.dels[i]=o;}
+  else m.dels.push(o);
+  touch();closeSheet();rList();rPane();
+};
+window.delDel=function(ev,id){
+  var m=mat(SEL.mat);if(!m)return;
+  popConfirm(ev.currentTarget,'Delete this consignment?',
+    'The quantity it carried is taken back off the running total.','Delete',function(){
+      m.dels=(m.dels||[]).filter(function(x){return String(x.id)!==String(id);});
+      touch();closeSheet();rList();rPane();});
+};
+
+function ncrPanel(m){
+  var list=(m.ncrs||[]).slice().sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
+  var open=list.filter(function(n){return n.status!=='Closed';}).length;
+  return '<div class="sec">Non-conformances</div><div class="panel">'
+    +'<div class="panel-h"><div class="panel-t">Reports'+(open?' <span class="tag t-now" style="margin-left:8px">'+open+' open</span>':'')+'</div>'
+      +'<button class="btn btn-s no-print" onclick="addNCR()">Raise one</button></div>'
+    +'<div class="panel-b">'
+    +(list.length
+      ? list.map(function(n){
+          var t=n.status==='Closed'?'ok':'bad';
+          return '<div class="line">'
+            +'<span class="tag t-'+t+'">'+esc(n.status||'Open')+'</span>'
+            +'<div class="line-m"><div>'+(n.no?'<span class="mono">'+esc(n.no)+'</span> ':'')+esc(n.what||'')+'</div>'
+            +(n.fix?'<div class="dim" style="font-size:12.5px;margin-top:2px">Disposition: '+esc(n.fix)+'</div>':'')+'</div>'
+            +'<span class="meta">'+esc(show(n.date))+'</span>'
+            +'<button class="btn-q no-print" onclick="editNCR('+n.id+')">Edit</button></div>';
+        }).join('')
+      : '<span class="dim">None raised. The closing dossier has to carry every one of these with its final disposition — clause 2.2.21.</span>')
+    +'</div></div>';
+}
+window.addNCR=function(){editNCR(null);};
+window.editNCR=function(id){
+  var m=mat(SEL.mat);if(!m)return;
+  var n=(m.ncrs||[]).find(function(x){return String(x.id)===String(id);})||{};
+  sheet(id?'Edit the report':'Raise a non-conformance',
+     '<div class="form" style="margin:0;padding:0;border:none">'
+    +fld('n-no','Report number',n.no||'','mono')
+    +fld('n-date','Raised',show(n.date||today()),'mono')
+    +'<div class="f wide"><label for="n-what">What is wrong</label><input id="n-what" value="'+attr(n.what||'')+'"></div>'
+    +'<div class="f wide"><label for="n-fix">Final disposition</label><input id="n-fix" value="'+attr(n.fix||'')+'" placeholder="repair, rework, use as is, reject"></div>'
+    +'<div class="f"><label for="n-status">State</label><select id="n-status">'
+      +['Open','Closed'].map(function(o){return '<option'+((n.status||'Open')===o?' selected':'')+'>'+o+'</option>';}).join('')+'</select></div>'
+    +'<div class="f-act"><button class="btn btn-p" onclick="saveNCR('+(id||'null')+')">Save</button>'
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button>'
+    +(id?'<span style="flex:1"></span><button class="btn btn-d btn-s" data-pop onclick="delNCR(event,'+id+')">Delete</button>':'')
+    +'</div></div>');
+};
+window.saveNCR=function(id){
+  var m=mat(SEL.mat);if(!m)return;
+  var date=parseDate(document.getElementById('n-date').value);
+  if(date===null){document.getElementById('e-n-date').textContent='Use dd/mm/yyyy';return;}
+  var o={id:id||uid(),no:document.getElementById('n-no').value.trim(),date:date,
+    what:document.getElementById('n-what').value.trim(),fix:document.getElementById('n-fix').value.trim(),
+    status:document.getElementById('n-status').value};
+  m.ncrs=m.ncrs||[];
+  if(id){var i=m.ncrs.findIndex(function(x){return String(x.id)===String(id);});if(i>-1)m.ncrs[i]=o;}
+  else m.ncrs.push(o);
+  touch();closeSheet();rPane();
+};
+window.delNCR=function(ev,id){
+  var m=mat(SEL.mat);if(!m)return;
+  popConfirm(ev.currentTarget,'Delete this report?',
+    'The closing dossier has to carry every non-conformance with its disposition — clause 2.2.21.','Delete',function(){
+      m.ncrs=(m.ncrs||[]).filter(function(x){return String(x.id)!==String(id);});
+      touch();closeSheet();rPane();});
+};
+
+/* ---------- the small edits on the header chips ---------- */
+function current(){return (TAB==='mat')?mat(SEL.mat):(TAB==='mfr')?mfr(SEL.mfr):insp(SEL.insp);}
+window.editText=function(ev,k,label,hint){
+  var rec=current();if(!rec)return;
+  popText(ev.currentTarget,label,rec[k],hint||'',function(v){
+    rec[k]=v;touch();rPane();rList();});
+};
+var CAT_OPTS=[{v:'C0',l:'C0'},{v:'C1',l:'C1'},{v:'C2',l:'C2'},{v:'C3',l:'C3'},{v:'',l:'clear'}];
+window.editCat=function(ev){
+  var m=mat(SEL.mat);if(!m)return;
+  var f=lookCat(m.name);
+  popPick(ev.currentTarget,'Inspection category',CAT_OPTS,m.cat||'',
+    f?('Attachment 1 lists <b>'+esc(f.c.n)+'</b> as '+esc(topCat(f.c.c))+'.')
+     :'No entry in Attachment 1 matches this name. Clause 2.2.8 leaves the choice with SEVEN.',
+    function(v){m.cat=v;m.catFrom=v?'set by you':'';m.catSure=true;touch();rPane();rList();});
+};
+window.editKind=function(ev){
+  var v=mfr(SEL.mfr);if(!v)return;
+  popPick(ev.currentTarget,'What kind of company is this?',KIND_OPTS,kindOf(v),
+    KINDS[kindOf(v)].d+' Changing this changes the steps it has to clear.',
+    function(k){
+      v.kind=k;
+      /* anything already recorded stays put — a step that no longer
+         applies is simply not shown, and returns if you switch back */
+      touch();rPane();rList();
+      toast(KINDS[k].l+' \u2014 '+KINDS[k].steps.length+' steps');
+    });
+};
+window.editMfrCat=function(ev){
+  var v=mfr(SEL.mfr);if(!v)return;
+  popPick(ev.currentTarget,'Highest category supplied',CAT_OPTS,v.cat||'',
+    'This decides whether a physical assessment is required — a survey is due for C1, C2 and C3.',
+    function(x){
+      var was=needsQual(v);
+      v.cat=x;
+      touch();rPane();rList();
+      var now=needsQual(v);
+      if(was!==now)toast(now?(KINDS[kindOf(v)].steps.length+' qualification steps now apply')
+                            :'C0 — no qualification needed');
+    });
+};
+window.editQty=function(ev){
+  var m=mat(SEL.mat);if(!m)return;
+  pop(ev.currentTarget,'Quantity on the purchase order',
+     '<div style="display:flex;gap:8px"><input id="pop-q" value="'+attr(m.qty||'')+'" placeholder="how many" style="flex:2">'
+    +'<input id="pop-u" value="'+attr(m.unit||'')+'" placeholder="unit" style="flex:1"></div>'
+    +'<div class="pop-hint">Consignments are counted against this, and the closing dossier falls due a week after the last one is accepted.</div>'
+    +'<div class="pop-f"><button class="btn btn-p btn-s" onclick="saveQty()">Save</button>'
+    +'<button class="btn-q" onclick="closePop()">Cancel</button></div>');
+  window.saveQty=function(){
+    m.qty=document.getElementById('pop-q').value.trim();
+    m.unit=document.getElementById('pop-u').value.trim();
+    closePop();touch();rPane();rList();};
+  ['pop-q','pop-u'].forEach(function(id){
+    document.getElementById(id).addEventListener('keydown',function(e){
+      if(e.key==='Enter'){e.preventDefault();saveQty();}
+      if(e.key==='Escape'){e.preventDefault();closePop();}});});
+};
+window.fixName=function(){
+  var p=insp(SEL.insp);if(!p)return;
+  var n=(document.getElementById('fix-name')||{value:''}).value.trim();
+  if(!n)return toast('Enter a name');
+  p.name=n;touch();rList();rPane();
+};
+window.cycleInsp=function(ev){
+  var p=insp(SEL.insp);if(!p)return;
+  popPick(ev.currentTarget,'Approval',['Pending','Approved','Suspended'],p.status||'Pending',
+    'Clause 2.2.17 has SEVEN review and approve every inspector before an assignment.',
+    function(v){p.status=v;touch();rPane();rList();});
+};
+window.pickMfr=function(){
+  var m=mat(SEL.mat);if(!m)return;
+  /* you do not buy a material from an inspection agency, so it is not
+     offered here — it appears where inspections are assigned instead */
+  var list=(DB.mfrs||[]).filter(function(v){return kindOf(v)!=='agency';}).sort(function(a,b){
+    var A=mfrState(a).ok?0:1, B=mfrState(b).ok?0:1;
+    return A-B||String(a.name).localeCompare(String(b.name));});
+  sheet('Vendor',
+     '<div class="dim" style="font-size:13.5px;margin-bottom:16px">Qualification is recorded once on the vendor and read by every material it supplies. '
+      +'Naming one that is not yet qualified is allowed — the material simply will not clear that step.</div>'
+    +(list.length?list.map(function(v){
+        var ms=mfrState(v), cur=(String(m.mfr)===String(v.id));
+        return '<div class="row row-a" onclick="setMfr('+v.id+')">'
+          +'<span class="tag t-'+ms.tone+'" style="min-width:96px;text-align:center;flex-shrink:0">'+esc(ms.word)+'</span>'
+          +'<div style="flex:1;min-width:0"><div>'+esc(v.name)
+            +' <span class="dim">· '+esc(KINDS[kindOf(v)].l.toLowerCase())+'</span>'
+            +(v.cat?' <span class="dim">· '+esc(v.cat)+'</span>':'')+'</div>'
+          +'<div class="dim" style="font-size:12.5px;margin-top:2px">'
+            +(ms.ok?((needsQual(v)?'qualified':'C0 \u2014 no qualification needed')+(v.country?' · '+esc(v.country):''))
+                   :esc(ms.short.slice(0,2).join(' · ')+(ms.short.length>2?(' · +'+(ms.short.length-2)+' more'):'')))
+          +'</div></div>'
+          +(cur?'<span class="tag t-wait">current</span>':'')+'</div>';
+      }).join(''):'<div class="dim">No vendors of this sort yet.</div>')
+    +'<div class="f-act" style="margin-top:20px"><button class="btn btn-p" onclick="newMfrFor()">Add a new vendor</button>'
+    +(m.mfr?'<button class="btn-q" onclick="setMfr(\'\')">Remove the link</button>':'')+'</div>');
+};
+window.setMfr=function(id){
+  var m=mat(SEL.mat);if(!m)return;
+  m.mfr=id?String(id):'';
+  touch();closeSheet();rPane();rList();
+  if(!id)return;
+  var ms=mfrState(mfr(id));
+  if(!ms.ok)toast(ms.v.name+' — '+ms.short[0].toLowerCase());
+};
+window.newMfrFor=function(){
+  var m=mat(SEL.mat);if(!m)return;
+  var box=document.getElementById('sheet-b');
+  box.insertAdjacentHTML('beforeend',
+    '<div class="panel" style="margin-top:16px"><div class="panel-b">'
+    +'<div class="f"><label for="nm-name">New vendor</label>'
+    +'<input id="nm-name" placeholder="company name" autocomplete="off"></div>'
+    +'<div class="pop-f"><button class="btn btn-p btn-s" onclick="createMfrFor()">Add and link</button></div>'
+    +'</div></div>');
+  var i=document.getElementById('nm-name');i.focus();
+  i.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();createMfrFor();}});
+};
+window.createMfrFor=function(){
+  var m=mat(SEL.mat);if(!m)return;
+  var n=(document.getElementById('nm-name')||{value:''}).value.trim();
+  if(!n)return toast('Give it a name');
+  var v={id:uid(),name:n,kind:'maker',cat:m.cat||'',country:'',site:'',scope:'',steps:{},pq:{},added:today()};
+  DB.mfrs.push(v);m.mfr=String(v.id);
+  touch();closeSheet();rPane();rList();
+  toast('Added — its qualification is recorded on the vendor');
+};
+</script>
+
+<script>
+/* ================================================================
+   7. WHAT IS DUE, THE LOOK-AHEAD, THE FILE
+   ================================================================ */
+/* Late matters more the longer it has been late, but a certificate
+   that lapsed two years ago must not bury today's deadline — so the
+   scale is capped. A permission that has simply not arrived scores
+   below anything you can actually miss. */
+function score(n,soft){
+  if(soft)return Math.max(10,30-n);
+  return n<0?Math.min(99,80+Math.min(Math.abs(n),19)):Math.max(20,62-n);
+}
+function findings(){
+  var out=[];
+  function add(p,tone,word,title,line,id,tab){out.push({p:p,tone:tone,word:word,t:title,s:line,id:id,tab:tab});}
+
+  (DB.mfrs||[]).forEach(function(v){
+    if(!needsQual(v))return;
+    mfrRoad(v).forEach(function(x){
+      var d=x.data, st=x.s;
+      if(st.k==='iso'&&d.date){
+        var n=daysTo(d.date);
+        if(n<0)add(score(n),'bad','expired',v.name,'ISO 9001 expired '+show(d.date)+', '+when(d.date),v.id,'mfr');
+        else if(n<=60)add(70-n/2,'now','in '+n+'d',v.name,'ISO 9001 expires '+show(d.date),v.id,'mfr');
+      }
+      if(x.state==='bad'&&st.k!=='iso')add(90,'bad','blocked',v.name,st.n+' came back '+String(d.status||'').toLowerCase(),v.id,'mfr');
+      if(x.now&&x.state==='open')add(45,'now','your move',v.name,'waiting on you — '+st.n,v.id,'mfr');
+      var due=st.due?st.due(v,d):null;
+      if(due&&st.k!=='iso'&&!(due.soft&&daysTo(due.on)<=0)){
+        var n2=daysTo(due.on);
+        if(n2<=21)add(score(n2,due.soft),(!due.soft&&n2<0)?'bad':'now',
+          (!due.soft&&n2<0)?(Math.abs(n2)+'d late'):('in '+Math.max(n2,0)+'d'),
+          v.name,st.n+' — '+due.t+' '+show(due.on),v.id,'mfr');}
+    });
+  });
+  (DB.mats||[]).forEach(function(m){
+    if(!m.cat)add(50,'now','set it',m.name,'no category, so its road is unknown',m.id,'mat');
+    if(m.cat&&m.cat!=='C0'&&!m.mfr)add(52,'now','name it',m.name,'no vendor named, and one is required above category 0',m.id,'mat');
+    /* the material inherits whatever its vendor is short of */
+    if(m.cat&&m.cat!=='C0'&&m.mfr&&needsQual(mfrOf(m))){
+      var ms=mfrState(mfrOf(m));
+      if(!ms.ok)add(ms.tone==='bad'?78:44,ms.tone==='bad'?'bad':'wait',
+        ms.tone==='bad'?'blocked':'waiting',m.name,
+        ms.v.name+' ('+KINDS[kindOf(ms.v)].l.toLowerCase()+') — '+ms.short[0].toLowerCase()
+        +(ms.short.length>1?(' and '+(ms.short.length-1)+' more'):''),m.id,'mat');
+    }
+    openNCR(m)&&add(72,'bad',openNCR(m)+' open',m.name,'non-conformances still open — the closing dossier cannot be settled',m.id,'mat');
+    matRoad(m).steps.forEach(function(x){
+      var d=x.data, st=x.s;
+      if(x.state==='bad'&&!st.linked)add(88,'bad','blocked',m.name,st.n+' came back '+String(d.status||'rejected').toLowerCase(),m.id,'mat');
+      else if(x.now&&x.state==='open')add(42,'now','your move',m.name,'waiting on you — '+st.n,m.id,'mat');
+      else if(x.now&&x.state==='wait')add(24,'wait','waiting',m.name,'with the reviewer — '+st.n,m.id,'mat');
+      var due=st.due?st.due(m,d):null;
+      if(due&&!(due.soft&&daysTo(due.on)<=0)){
+        var n=daysTo(due.on);
+        if(n<=21)add(score(n,due.soft),(!due.soft&&n<0)?'bad':'now',
+          (!due.soft&&n<0)?(Math.abs(n)+'d late'):('in '+Math.max(n,0)+'d'),
+          m.name,st.n+' — '+due.t+' '+show(due.on),m.id,'mat');}
+    });
+  });
+  (DB.people||[]).forEach(function(p){
+    if((p.status||'Pending')==='Approved')return;
+    var n=assignments(p).length;
+    if(n)add(p.status==='Suspended'?86:64,p.status==='Suspended'?'bad':'now',
+      String(p.status||'pending').toLowerCase(),p.name||'Unnamed inspector',
+      'named on '+n+' inspection'+(n===1?'':'s')+' but not approved by SEVEN — clause 2.2.17',p.id,'insp');
+    else if(!p.name)add(30,'now','no name','Unnamed inspector','an inspector record with no name — give it one or delete it',p.id,'insp');
+  });
+  return out.sort(function(a,b){return b.p-a.p;});
+}
+window.showDue=function(){
+  var f=findings();
+  sheet('What is due',f.length
+    ? f.map(function(o){
+        return '<div class="row row-a" onclick="jump(\''+o.tab+'\','+o.id+')">'
+          +'<span class="tag t-'+o.tone+'" style="min-width:82px;text-align:center;flex-shrink:0">'+esc(o.word)+'</span>'
+          +'<div style="flex:1;min-width:0"><div>'+esc(o.t)+'</div>'
+          +'<div class="dim" style="font-size:13px;margin-top:2px">'+esc(o.s)+'</div></div></div>';
+      }).join('')
+    : '<div class="dim" style="padding:30px 0;text-align:center">Nothing is late and nothing is waiting on you.</div>');
+};
+window.jump=function(tab,id){
+  closeSheet();
+  if(!id)return setTab(tab);
+  TAB=tab;SEL[tab]=id;
+  ['home','cal','mat','mfr','insp'].forEach(function(k){
+    var b=document.getElementById('tab-'+k);if(b)b.setAttribute('aria-selected',tab===k);});
+  document.getElementById('side-body').classList.remove('hidden');
+  document.getElementById('add-btn').textContent='Add '+NOUN[tab];
+  document.getElementById('q').value='';
+  rList();rPane();};
+
+/* the weekly submission SEVEN asks for, clause 2.2.6 */
+window.lookAhead=function(){
+  var t0=today(), end=addDays(t0,14), rows=[];
+  function add(date,what,who){if(date&&date>=t0&&date<=end)rows.push({d:date,w:what,who:who});}
+  (DB.mfrs||[]).forEach(function(v){
+    var s=v.steps||{};
+    if(s.pa&&s.pa.date&&s.pa.status==='Scheduled')add(s.pa.date,'Factory survey — '+v.name,s.pa.by||'');
+    if(s.iso&&s.iso.date)add(s.iso.date,'ISO 9001 expires — '+v.name,'');
+  });
+  (DB.mats||[]).forEach(function(m){
+    var s=m.steps||{};
+    if(s.pfm&&s.pfm.date&&s.pfm.status!=='Approved')add(s.pfm.date,'Pre-fabrication meeting — '+m.name,'');
+    if(s.fat&&s.fat.date&&['Pending','Scheduled'].indexOf(s.fat.status)>=0)add(s.fat.date,'Final inspection or FAT — '+m.name,s.fat.by||'');
+    if(s.ipi&&s.ipi.date)add(s.ipi.date,'In-process inspection — '+m.name,s.ipi.by||'');
+    matRoad(m).steps.forEach(function(x){
+      var due=x.s.due?x.s.due(m,x.data):null;
+      if(due)add(due.on,x.s.n+' — '+due.t+' — '+m.name,'');
+    });
+    (m.dels||[]).forEach(function(d){if(d.status==='Pending')add(d.date,'Delivery to inspect — '+m.name,'');});
+  });
+  (DB.events||[]).forEach(function(e){
+    if(!e.date)return;
+    occurs(e,t0,end).forEach(function(d){add(d,e.title,EV_KIND[e.type||'other'].l.toLowerCase());});
+  });
+  rows.sort(function(a,b){return a.d.localeCompare(b.d);});
+  var days=[];
+  for(var i=0;i<14;i++){var d=addDays(t0,i);days.push({d:d,items:rows.filter(function(r){return r.d===d;})});}
+  sheet('Two-week look-ahead',
+     '<div class="dim" style="font-size:13.5px;margin-bottom:16px">'+esc(DB.project||'')+' · '
+      +new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})
+      +' · submitted weekly under clause 2.2.6.</div>'
+    +days.map(function(x){
+        var dt=new Date(x.d);
+        return '<div class="row" style="align-items:flex-start">'
+          +'<div style="width:104px;flex-shrink:0"><div class="meta">'+show(x.d)+'</div>'
+          +'<div class="dim" style="font-size:12px">'+dt.toLocaleDateString('en-GB',{weekday:'long'})+'</div></div>'
+          +'<div style="flex:1">'+(x.items.length
+            ? x.items.map(function(r){return '<div style="padding:2px 0">'+esc(r.w)+(r.who?' <span class="dim">· '+esc(r.who)+'</span>':'')+'</div>';}).join('')
+            : '<span class="dim">—</span>')+'</div></div>';
+      }).join('')
+    +'<div class="f-act" style="margin-top:18px"><button class="btn" onclick="window.print()">Print</button></div>');
+};
+/* a single sheet with everything on one material, for a meeting or a file */
+window.printRecord=function(){
+  var m=mat(SEL.mat);if(!m)return;
+  var v=mfrOf(m), r=matRoad(m);
+  var rows=r.steps.map(function(x,i){
+    var d=x.data, st=x.s;
+    var val=st.linked?(v?(!needsQual(v)?'Not required for C0':(mfrRoad(v).every(function(y){return y.state==='done';})?'Qualified':'In qualification')):'No vendor')
+      :st.deliveries?((m.dels||[]).length+' consignment'+((m.dels||[]).length===1?'':'s')+', '+received(m)+' accepted')
+      :[d.status||'—',d.ref||'',d.date?show(d.date):'',d.by||''].filter(Boolean).join('  ·  ');
+    return '<div class="row"><div style="width:26px" class="meta">'+(i+1)+'</div>'
+      +'<div style="flex:1"><div>'+esc(st.n)+' <span class="sclause">'+esc(st.clause)+'</span></div>'
+      +'<div class="dim" style="font-size:13px;margin-top:2px">'+esc(val)+'</div></div>'
+      +'<span class="tag t-'+(x.state==='done'?'ok':x.state==='bad'?'bad':x.state==='wait'?'wait':'na')+'">'
+      +(x.state==='done'?'done':x.state==='bad'?'returned':x.state==='wait'?'with reviewer':'not started')+'</span></div>';
+  }).join('');
+  var ncr=(m.ncrs||[]);
+  sheet('Record — '+m.name,
+     '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'+esc(DB.project||'')+' · '
+      +new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})+'</div>'
+    +'<div class="row"><div style="width:150px" class="dim">Category</div><div>'+esc(m.cat||'—')
+      +(m.catFrom?' <span class="dim">· '+esc(m.catFrom)+'</span>':'')+'</div></div>'
+    +'<div class="row"><div style="width:150px" class="dim">Vendor</div><div>'+esc(v?v.name:'—')
+      +(v?' <span class="dim">· '+esc(KINDS[kindOf(v)].l.toLowerCase())+'</span>':'')
+      +(v&&v.site?' <span class="dim">· '+esc(v.site)+'</span>':'')+'</div></div>'
+    +'<div class="row"><div style="width:150px" class="dim">Reference</div><div class="mono">'+esc(m.ref||'—')+'</div></div>'
+    +'<div class="row"><div style="width:150px" class="dim">Quantity</div><div>'
+      +(m.qty?(received(m)+' of '+m.qty+' '+esc(m.unit||'')+' accepted'):'—')+'</div></div>'
+    +'<div class="sec">Steps</div>'+rows
+    +(ncr.length?('<div class="sec">Non-conformances</div>'+ncr.map(function(n){
+        return '<div class="row"><span class="tag t-'+(n.status==='Closed'?'ok':'bad')+'">'+esc(n.status||'Open')+'</span>'
+          +'<div style="flex:1"><div>'+(n.no?'<span class="mono">'+esc(n.no)+'</span> ':'')+esc(n.what||'')+'</div>'
+          +(n.fix?'<div class="dim" style="font-size:13px;margin-top:2px">'+esc(n.fix)+'</div>':'')+'</div>'
+          +'<span class="meta">'+esc(show(n.date))+'</span></div>';}).join('')):'')
+    +'<div class="f-act" style="margin-top:18px"><button class="btn" onclick="window.print()">Print</button></div>');
+};
+function unapproved(){return (DB.people||[]).filter(function(p){return (p.status||'Pending')!=='Approved';}).length;}
+/* Clause 2.2.7 asks for this every week, for every C1 to C3 material.
+   Nothing here is entered twice — it is the same records read across
+   instead of down. */
+window.fabStatus=function(){
+  var rows=(DB.mats||[]).filter(function(m){
+    return ['C1','C2','C3'].indexOf(m.cat)>=0;
+  }).sort(function(a,b){return matRoad(a).at-matRoad(b).at;});
+
+  function stage(m){
+    var r=matRoad(m);
+    if(r.at<0)return {t:'Delivered and closed',k:'ok'};
+    var cur=r.steps[r.at];
+    if(cur.state==='bad'){
+      /* the linked step has no status of its own — its trouble belongs
+         to the vendor, so say that rather than a made-up phrase */
+      if(cur.s.linked){
+        var ms=mfrState(mfrOf(m));
+        return {t:'Held — '+(ms.short[0]||'vendor not qualified').toLowerCase(),k:'bad'};
+      }
+      var st=String((cur.data||{}).status||'').toLowerCase();
+      return {t:cur.s.n+(st?(' — '+st):' returned'),k:'bad'};
+    }
+    var order=['mts','mfr','pid','pfm','itp','ipi','fat','irn','del','post'];
+    var word={mts:'Awaiting submittal approval',mfr:'Vendor not yet qualified',
+      pid:'Dossier with the reviewer',pfm:'Before the pre-fabrication meeting',
+      itp:'Inspection plan not agreed',ipi:'In fabrication',fat:'Awaiting final inspection',
+      irn:'Released, awaiting shipment',del:'In transit or being delivered',post:'Closing dossier outstanding'};
+    return {t:word[cur.s.k]||cur.s.n,k:cur.state==='wait'?'wait':'now'};
+  }
+  function late(m){
+    var out=[];
+    matRoad(m).steps.forEach(function(x){
+      var d=x.s.due?x.s.due(m,x.data):null;
+      if(d&&!d.soft&&daysTo(d.on)<0)out.push(x.s.n+' '+Math.abs(daysTo(d.on))+'d');
+    });
+    var v=mfrOf(m), ms=v?mfrState(v):null;
+    if(ms&&ms.tone==='bad')out.push(ms.short[0]);
+    return out;
+  }
+
+  sheet('Quality fabrication status',
+     '<div class="dim" style="font-size:13.5px;margin-bottom:16px">'+esc(DB.project||'')+' · week of '
+      +new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})
+      +' · categories 1 to 3, submitted weekly under clause 2.2.7.</div>'
+    +(rows.length
+      ? rows.map(function(m){
+          var st=stage(m), l=late(m), v=mfrOf(m), r=matRoad(m);
+          var ord=num(m.qty), got=received(m), n=openNCR(m);
+          return '<div class="row row-a" style="align-items:flex-start" onclick="jump(\'mat\','+m.id+')">'
+            +'<span class="tag t-'+st.k+'" style="min-width:112px;text-align:center;flex-shrink:0">'+esc(m.cat)+'</span>'
+            +'<div style="flex:1;min-width:0">'
+              +'<div style="font-weight:500">'+esc(m.name)+'</div>'
+              +'<div class="dim" style="font-size:13px;margin-top:3px">'+esc(st.t)
+                +(v?(' · '+esc(v.name)):'')+' · step '+(r.at<0?r.steps.length:(r.at+1))+' of '+r.steps.length+'</div>'
+              +(ord?('<div class="dim" style="font-size:13px;margin-top:2px">'+got+' of '+ord+' '+esc(m.unit||'')+' delivered</div>'):'')
+              +(l.length?('<div style="font-size:13px;margin-top:4px;color:var(--bad-t)">Late: '+esc(l.join(' · '))+'</div>'):'')
+              +(n?('<div style="font-size:13px;margin-top:2px;color:var(--now-t)">'+n+' non-conformance'+(n===1?'':'s')+' open</div>'):'')
+            +'</div>'
+            +'<div class="feed-w"><span class="meta">'+r.done+'/'+r.steps.length+'</span></div></div>';
+        }).join('')
+      : '<div class="dim" style="padding:26px 0;text-align:center">No category 1 to 3 material is on record yet.</div>')
+    +'<div class="f-act" style="margin-top:20px">'
+    +'<button class="btn" onclick="window.print()">Print</button>'
+    +'<button class="btn" onclick="fabCSV()">Export a spreadsheet</button></div>');
+};
+window.fabCSV=function(){
+  var head=['Material','Category','Vendor','Vendor qualified','Stage','Step','Ordered','Delivered','Late','Open NCRs'].join(',');
+  var lines=(DB.mats||[]).filter(function(m){return ['C1','C2','C3'].indexOf(m.cat)>=0;}).map(function(m){
+    var r=matRoad(m), v=mfrOf(m), ms=v?mfrState(v):null, cur=r.at>=0?r.steps[r.at]:null;
+    var l=[];
+    r.steps.forEach(function(x){
+      var d=x.s.due?x.s.due(m,x.data):null;
+      if(d&&!d.soft&&daysTo(d.on)<0)l.push(x.s.n+' '+Math.abs(daysTo(d.on))+'d');
+    });
+    return [m.name,m.cat,v?v.name:'',ms?(!needsQual(v)?'Not required':(ms.ok?'Yes':'No')):'',
+      cur?cur.s.n:'All steps cleared',(r.at<0?r.steps.length:(r.at+1))+' of '+r.steps.length,
+      m.qty?(m.qty+' '+(m.unit||'')):'',received(m),l.join(' | '),openNCR(m)]
+      .map(function(c){return '"'+String(c==null?'':c).replace(/"/g,'""')+'"';}).join(',');
+  });
+  var blob=new Blob(['\ufeff'+[head].concat(lines).join('\r\n')],{type:'text/csv;charset=utf-8'});
+  var u=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=u;a.download=(DB.project||'fabrication')+'-status.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(u);},800);
+  toast('Exported');
+};
+window.showMenu=function(){
+  var mats=(DB.mats||[]).length, mfrs=(DB.mfrs||[]).length;
+  var ncr=(DB.mats||[]).reduce(function(a,m){return a+openNCR(m);},0);
+  sheet('More',
+     '<div class="row"><div style="width:170px" class="dim">Project</div><div style="flex:1">'+esc(DB.project||'—')
+      +' <button class="btn-q" data-pop onclick="rename(event)">rename</button></div></div>'
+    +'<div class="row"><div style="width:170px" class="dim">Signed in as</div><div style="flex:1">'
+      +esc((USER&&USER.email)||'—')+'</div></div>'
+    +'<div class="row"><div style="width:170px" class="dim">Materials</div><div>'+mats+'</div></div>'
+    +'<div class="row"><div style="width:170px" class="dim">Vendors</div><div>'+mfrs+'</div></div>'
+    +'<div class="row"><div style="width:170px" class="dim">Open non-conformances</div><div>'+ncr+'</div></div>'
+    +'<div class="row"><div style="width:170px" class="dim">Inspectors</div><div>'+(DB.people||[]).length
+      +(unapproved()?(' <span class="tag t-now" style="margin-left:8px">'+unapproved()+' not approved</span>'):'')+'</div></div>'
+    +'<div class="row"><div style="width:170px" class="dim">Saved</div><div>'
+      +(SAVED?('to the database at '+SAVED.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})):'—')+'</div></div>'
+    +'<div class="row"><div style="width:170px" class="dim">Categories</div><div>'+CATS.length+' components from Attachment 1</div></div>'
+    +'<div class="f-act" style="margin-top:20px">'
+    +'<button class="btn btn-p" onclick="lookAhead()">Two-week look-ahead</button>'
+    +'<button class="btn btn-p" onclick="fabStatus()">Fabrication status</button>'
+    +'<button class="btn" onclick="refresh()">Refresh</button>'
+    +'<button class="btn" onclick="exportCSV()">Export a spreadsheet</button>'
+    +'<button class="btn" onclick="backup()">Download a backup</button>'
+    +'<span style="flex:1"></span>'
+    +'<button class="btn btn-d btn-s" onclick="signOut()">Sign out</button></div>');
+};
+/* the free plan keeps no backups of its own, so this stays */
+window.backup=function(){
+  var b=new Blob([JSON.stringify({_v:4,project:DB.project,mfrs:DB.mfrs,mats:DB.mats,
+    people:DB.people,events:DB.events,saved:new Date().toISOString()},null,1)],{type:'application/json'});
+  var u=URL.createObjectURL(b),a=document.createElement('a');
+  a.href=u;a.download=(DB.project||'materials').replace(/[^\w -]/g,'').trim()+'-'+today()+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(u);},800);
+  toast('Backup downloaded');
+};
+window.rename=function(ev){
+  popText(ev.currentTarget,'Project name',DB.project||'','',function(v){
+    DB.project=v||DB.project;
+    document.getElementById('proj').textContent=DB.project;
+    touch();showMenu();});
+};
+window.exportCSV=function(){
+  var cols=MAT_ROAD.filter(function(s){return s.f;}).map(function(s){return s.n;});
+  var head=['Material','Category','Vendor','Vendor kind','Vendor qualified','Ordered','Received','Open NCRs'].concat(cols).join(',');
+  var lines=(DB.mats||[]).map(function(m){
+    var v=mfrOf(m), r=v?mfrRoad(v):null;
+    var cells=[m.name,m.cat,v?v.name:'',v?KINDS[kindOf(v)].l:'',
+      v?(!needsQual(v)?'Not required':(r.every(function(x){return x.state==='done';})?'Yes':'No')):'',
+      m.qty?(m.qty+' '+(m.unit||'')):'',received(m),openNCR(m)]
+      .concat(MAT_ROAD.filter(function(s){return s.f;}).map(function(s){
+        if(!applies(s,m.cat))return '';
+        var d=(m.steps||{})[s.k]||{};
+        return [d.status||'',d.ref||'',d.date?show(d.date):''].filter(Boolean).join(' ');
+      }));
+    return cells.map(function(c){return '"'+String(c==null?'':c).replace(/"/g,'""')+'"';}).join(',');
+  });
+  var blob=new Blob(['\ufeff'+[head].concat(lines).join('\r\n')],{type:'text/csv;charset=utf-8'});
+  var u=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=u;a.download=(DB.project||'materials')+'.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(u);},800);
+  toast('Exported');
+};
+/* ---------------------------------------------------------------
+   Small edits open here rather than in a browser prompt: they keep
+   the page visible, they can be cancelled with Escape, and they can
+   offer choices instead of asking someone to type a code correctly.
+   --------------------------------------------------------------- */
+var POP=null;
+function pop(anchor,title,html,onOpen){
+  var el=document.getElementById('pop');
+  el.innerHTML='<div class="pop-t">'+esc(title)+'</div>'+html;
+  el.classList.add('on');
+  var r=anchor.getBoundingClientRect(), w=el.offsetWidth, h=el.offsetHeight;
+  var left=Math.min(Math.max(10,r.left),window.innerWidth-w-10);
+  var top=(r.bottom+h+10>window.innerHeight&&r.top>h+10)?(r.top-h-8):(r.bottom+8);
+  el.style.left=left+'px';el.style.top=Math.max(10,top)+'px';
+  POP=true;
+  if(onOpen)onOpen(el);
+  var f=el.querySelector('input');if(f){f.focus();f.select&&f.select();}
+}
+window.closePop=function(){document.getElementById('pop').classList.remove('on');POP=null;};
+document.addEventListener('mousedown',function(e){
+  if(!POP)return;
+  if(document.getElementById('pop').contains(e.target))return;
+  if(e.target.closest&&e.target.closest('[data-pop]'))return;
+  closePop();
+});
+/* one text field, saved on Enter */
+function popText(anchor,title,value,hint,onSave){
+  pop(anchor,title,'<input id="pop-v" value="'+attr(value||'')+'" autocomplete="off">'
+    +(hint?'<div class="pop-hint">'+hint+'</div>':'')
+    +'<div class="pop-f"><button class="btn btn-p btn-s" onclick="popSave()">Save</button>'
+    +'<button class="btn-q" onclick="closePop()">Cancel</button></div>');
+  window.popSave=function(){var v=document.getElementById('pop-v').value.trim();closePop();onSave(v);};
+  var i=document.getElementById('pop-v');
+  i.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){e.preventDefault();popSave();}
+    if(e.key==='Escape'){e.preventDefault();closePop();}
+  });
+}
+/* Deleting is the one action that cannot be undone here, so it asks
+   in place and the confirming button is the red one — the habit of
+   pressing OK without reading has nothing to land on. */
+function popConfirm(anchor,title,body,label,onYes){
+  pop(anchor,title,'<div class="pop-hint" style="margin-top:0;margin-bottom:12px">'+body+'</div>'
+    +'<div class="pop-f"><button class="btn btn-d btn-s" id="pop-yes">'+esc(label)+'</button>'
+    +'<button class="btn-q" onclick="closePop()">Keep it</button></div>',
+    function(el){el.querySelector('#pop-yes').addEventListener('click',function(){closePop();onYes();});});
+}
+/* a row of choices, saved on click */
+function popPick(anchor,title,options,current,hint,onPick){
+  pop(anchor,title,'<div class="pop-r">'+options.map(function(o,i){
+      var val=(typeof o==='string')?o:o.v, lab=(typeof o==='string')?o:o.l;
+      return '<button class="opt'+(val===current?' on':'')+'" data-v="'+attr(val)+'">'+esc(lab)+'</button>';
+    }).join('')+'</div>'+(hint?'<div class="pop-hint">'+hint+'</div>':''),
+    function(el){
+      el.querySelectorAll('.opt').forEach(function(b){
+        b.addEventListener('click',function(){var v=b.getAttribute('data-v');closePop();onPick(v);});
+      });
+    });
+}
+/* ---------------------------------------------------------------
+   One box for the lot. Searching inside the open list is fine while
+   you know where a thing is; the moment you do not, a reference or a
+   batch number has to be findable without guessing which tab holds
+   it. Everything a record carries is searched, down to the note on a
+   consignment.
+   --------------------------------------------------------------- */
+function hunt(q){
+  q=key(q);
+  if(q.length<2)return [];
+  var terms=q.split(/\s+/).filter(Boolean), out=[];
+  function hit(hay){var h=key(hay);return terms.every(function(t){return h.indexOf(t)>=0;});}
+  function add(tab,id,title,where,line){out.push({tab:tab,id:id,t:title,w:where,s:line});}
+
+  (DB.mats||[]).forEach(function(m){
+    var v=mfrOf(m);
+    if(hit([m.name,m.ref,m.cat,v?v.name:''].join(' ')))
+      add('mat',m.id,m.name,'material',[m.cat||'no category',v?v.name:'',m.ref].filter(Boolean).join(' \u00b7 '));
+    Object.keys(m.steps||{}).forEach(function(k){
+      var d=m.steps[k]||{}, st=MAT_ROAD.find(function(x){return x.k===k;});
+      if(!st)return;
+      if(hit([d.ref,d.by,d.status].join(' ')))
+        add('mat',m.id,m.name,st.n,[d.status,d.ref,d.by,d.date?show(d.date):''].filter(Boolean).join(' \u00b7 '));
+    });
+    (m.dels||[]).forEach(function(d){
+      if(hit([d.ref,d.note,d.qty,d.status].join(' ')))
+        add('mat',m.id,m.name,'consignment',
+          [d.status,d.ref,(d.qty?d.qty+' '+(m.unit||''):''),d.date?show(d.date):'',d.note].filter(Boolean).join(' \u00b7 '));
+    });
+    (m.ncrs||[]).forEach(function(n){
+      if(hit([n.no,n.what,n.fix,n.status].join(' ')))
+        add('mat',m.id,m.name,'non-conformance',[n.status,n.no,n.what,n.fix].filter(Boolean).join(' \u00b7 '));
+    });
+  });
+  (DB.mfrs||[]).forEach(function(v){
+    if(hit([v.name,v.country,v.site,v.scope,v.cat,KINDS[kindOf(v)].l].join(' ')))
+      add('mfr',v.id,v.name,KINDS[kindOf(v)].l.toLowerCase(),
+        [v.cat,v.country,v.site,v.scope].filter(Boolean).join(' \u00b7 '));
+    Object.keys(v.steps||{}).forEach(function(k){
+      var d=v.steps[k]||{}, st=MFR_ROAD.find(function(x){return x.k===k;});
+      if(!st)return;
+      if(hit([d.ref,d.by,d.status].join(' ')))
+        add('mfr',v.id,v.name,st.n,[d.status,d.ref,d.by,d.date?show(d.date):''].filter(Boolean).join(' \u00b7 '));
+    });
+  });
+  (DB.people||[]).forEach(function(p){
+    if(hit([p.name,p.agency,p.disc,p.ref,p.status].join(' ')))
+      add('insp',p.id,p.name||'Unnamed','inspector',
+        [p.status,p.agency,p.disc,p.ref].filter(Boolean).join(' \u00b7 '));
+  });
+  /* one record can match on several fields; keep each field it matched
+     on, since that is the thing that was actually looked for */
+  var seen={};
+  return out.filter(function(o){
+    var k2=o.tab+o.id+o.w;
+    if(seen[k2])return false;seen[k2]=1;return true;
+  }).slice(0,60);
+}
+window.huntNow=function(){
+  showHunt((document.getElementById('q')||{value:''}).value.trim());
+};
+window.showHunt=function(q){
+  var rows=hunt(q);
+  sheet('Everywhere \u201c'+esc(q)+'\u201d appears',
+    rows.length
+      ? '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'+rows.length
+        +' match'+(rows.length===1?'':'es')+' across materials, vendors and inspectors.</div>'
+        +rows.map(function(o){
+          return '<div class="row row-a" onclick="jump(\''+o.tab+'\','+o.id+')">'
+            +'<span class="tag t-na" style="min-width:118px;text-align:center;flex-shrink:0">'+esc(o.w)+'</span>'
+            +'<div style="flex:1;min-width:0"><div>'+esc(o.t)+'</div>'
+            +(o.s?'<div class="dim" style="font-size:13px;margin-top:2px">'+esc(o.s)+'</div>':'')+'</div></div>';
+        }).join('')
+      : '<div class="dim" style="padding:26px 0;text-align:center">Nothing anywhere matches \u201c'+esc(q)+'\u201d.</div>');
+};
+function sheet(title,html){
+  document.getElementById('sheet-t').textContent=title;
+  document.getElementById('sheet-b').innerHTML=html;
+  document.getElementById('ov').classList.add('on');
+  var f=document.querySelector('#sheet-b input,#sheet-b select');if(f)f.focus();
+}
+window.closeSheet=function(){document.getElementById('ov').classList.remove('on');};
+document.getElementById('ov').addEventListener('click',function(e){if(e.target===this)closeSheet();});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){
+    if(POP)closePop();
+    else if(document.getElementById('ov').classList.contains('on'))closeSheet();
+    else if(OPEN)openStep(null);
+    return;}
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();save();}
+  if((e.ctrlKey||e.metaKey)&&(e.key==='r'||e.key==='R')&&e.shiftKey){e.preventDefault();refresh();}
+  if(e.key==='/'&&!/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName||'')){
+    e.preventDefault();
+    if(TAB==='home')setTab('mat');
+    document.getElementById('q').focus();}
+  /* add from anywhere, including while a record is open */
+  if((e.ctrlKey||e.metaKey)&&(e.key==='n'||e.key==='N')){e.preventDefault();addNew();}
+});
+if(!window.CATS)gmsg('The file <b>cats.js</b> was not found beside this page, so categories must be set by hand.');
+</script>
+</body>
+</html>
