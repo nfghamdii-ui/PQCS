@@ -478,9 +478,17 @@ function rowToRaw(line){
 }
 /* the identity of a row. The MAT number is the one thing that is
    filled on every line and never repeats. */
+/* A row is known by its reference, and only by its description when it
+   has none. The description is the thing a person edits — merging two
+   entries, fixing a spelling — and a key that changes when someone
+   tidies the file is not a key. */
 function idOf(raw){
   var n=trim(raw['MAT Number']);
-  return n?('mat:'+K(n)):('name:'+K(raw['Item Description']));
+  if(n)return 'mat:'+K(n);
+  var alt='';
+  ['ITP Number','Method Statement Number','PID Number','MIR Number','WIR Number']
+    .some(function(c){var v=splitRefs(raw[c])[0];if(v){alt=v;return true;}return false;});
+  return alt?('ref:'+K(alt)):('name:'+K(raw['Item Description']));
 }
 
 /* Identifiers have to be unique or the database rejects the whole batch,
@@ -614,17 +622,31 @@ function planFrom(rows){
   var seen=head.map(trim);
   var miss=COLS.filter(function(c,i){return K(seen[i]||'')!==K(c);});
   var out={add:[],change:[],same:[],gone:[],skipped:0,dividers:0,header:miss.length};
-  var byId={};
-  (DB.mats||[]).forEach(function(m){if(m.raw)byId[idOf(m.raw)]=m;});
+  var byId={},byRef={};
+  (DB.mats||[]).forEach(function(m){
+    if(m.raw){
+      byId[idOf(m.raw)]=m;
+      REF_FIELDS.forEach(function(c){
+        splitRefs(m.raw[c]).forEach(function(r){if(!byRef[K(r)])byRef[K(r)]=m;});
+      });
+    }
+  });
   var hit={};
 
   rows.slice(1).forEach(function(line,n){
     var desc=trim(line[0]);
     if(!desc)return;
-    if(!trim(line[1])){out.dividers++;return;}          /* a section divider */
+    /* A section divider carries a heading and nothing else. Reading it
+       off the category column alone was wrong the moment materials
+       without a category existed — and the register brings in more than
+       a hundred of those, every one of which was being skipped. */
+    var lone=true;
+    for(var q=1;q<COLS.length&&lone;q++)if(trim(line[q])!=='')lone=false;
+    if(lone){out.dividers++;return;}
     var raw=rowToRaw(line), id=idOf(raw);
-    var have=byId[id]||(DB.mats||[]).filter(function(m){
-      return !m.raw&&K(m.name)===K(desc);})[0];
+    var have=byId[id]||byRef[K(trim(raw['MAT Number']))]
+      ||(DB.mats||[]).filter(function(m){
+        return !m.raw&&K(m.name)===K(desc);})[0];
     if(!have){out.add.push({raw:raw,row:n+2});return;}
     hit[id]=1;
     var diff=COLS.filter(function(c){
@@ -634,6 +656,11 @@ function planFrom(rows){
     else out.same.push({rec:have});
   });
   (DB.mats||[]).forEach(function(m){
+    /* A document has no row in a log shaped one-per-material, so its
+       absence from the file means nothing. Counting it as missing would
+       put sixteen hundred records under a heading that invites deleting
+       them. */
+    if(isDoc(m))return;
     if(m.raw&&!hit[idOf(m.raw)])out.gone.push(m);
   });
 
