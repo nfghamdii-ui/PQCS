@@ -510,9 +510,29 @@ function idMaker(){
    per row, overwrite forty rows that never named it. So a row with no
    manufacturer gets no vendor, which is the truth and is exactly the
    gap the board is built to show. */
+/* The sub-contractor column names the company that brought the maker
+   onto the project — FIRST FIX brought twenty-two of them in this file.
+   It is a company in its own right, so it gets a record of its own and
+   the maker remembers who brought it. */
+function subOf(name,made){
+  var n=trim(name);
+  if(!n||n==='-')return '';
+  var have=(DB.mfrs||[]).filter(function(v){return K(v.name)===K(n);})[0];
+  if(!have){
+    have={id:made.id(),name:n,kind:'sub',cat:'',country:'',site:'',scope:'',
+      steps:{},pq:{},added:today()};
+    DB.mfrs.push(have);made.vendors.push(n);
+  }
+  return have.name;
+}
+
 function vendorFor(raw,made){
+  var subName=trim(raw['Sub-contractor Name']);
   var name=trim(raw['Manufacturer']);
-  if(!name||name==='-')return null;
+  if(!name||name==='-'){
+    if(subName)subOf(subName,made);      /* the sub is worth keeping even alone */
+    return null;
+  }
   var found=(DB.mfrs||[]).filter(function(v){return K(v.name)===K(name);})[0];
   if(!found){
     found={id:made.id(),name:name,kind:'maker',
@@ -520,6 +540,7 @@ function vendorFor(raw,made){
       site:'',scope:trim(raw['Discipline'])||'',steps:{},pq:{},added:today()};
     DB.mfrs.push(found);made.vendors.push(found.name);
   }
+  if(subName&&!found.by&&K(subName)!==K(found.name))found.by=subOf(subName,made);
   /* the pre-qualification lives on the vendor, so it is written there */
   var pq=trim(raw['PQD Number']), st=normStatus(raw['PQD Status']);
   if(pq||st){
@@ -1765,6 +1786,12 @@ function liftTabs(){
     if(after&&after.parentNode===tabs){tabs.insertBefore(b,after.nextSibling);after=b;}
     else tabs.appendChild(b);
   });
+  var rep=document.createElement('button');
+  rep.className='tab';rep.id='tab-rep';rep.setAttribute('role','tab');
+  rep.setAttribute('aria-selected','false');
+  rep.appendChild(document.createTextNode('Reports'));
+  rep.onclick=function(){setTab('rep');};
+  tabs.appendChild(rep);
 }
 
 function paintTabs(){
@@ -1779,6 +1806,8 @@ function paintTabs(){
     var t=document.getElementById('tab-'+k);
     if(t)t.setAttribute('aria-selected',String(TAB==='mat'&&VIEW===k));
   });
+  var r=document.getElementById('tab-rep');
+  if(r)r.setAttribute('aria-selected',String(TAB==='rep'));
 }
 
 /* ---------------------------------------------------------------
@@ -1822,6 +1851,16 @@ function install2(){
   var origSetTab=window.setTab;
   window.setTab=function(t){
     if(t==='mir'||t==='doc'){VIEW=t;if(t!=='doc')DOCKIND='';origSetTab('mat');}
+    else if(t==='rep'){
+      VIEW='mat';DOCKIND='';
+      origSetTab('home');          /* borrows the shape of a page with no list */
+      window.TAB='rep';
+      var sb=document.getElementById('side-body');
+      if(sb)sb.classList.add('hidden');
+      var add=document.getElementById('add-btn');
+      if(add)add.style.display='none';
+      rPane();
+    }
     else{VIEW='mat';DOCKIND='';origSetTab(t);}
     paintTabs();
   };
@@ -1837,8 +1876,22 @@ function install2(){
 
   var origPane=window.rPane;
   window.rPane=function(){
+    if(TAB==='rep'){
+      var el=document.getElementById('pane');
+      if(el)el.innerHTML=reportsPane();
+      return;
+    }
     if(TAB!=='mat')return origPane();
     withSubset(origPane);
+  };
+
+  /* the vendor's page gains the one about who brought them */
+  var origMfr=window.mfrPane;
+  window.mfrPane=function(v){
+    var html=origMfr(v);
+    var i=html.lastIndexOf('</div></div>');
+    if(i<0)return html+broughtPanel(v);
+    return html.slice(0,i)+broughtPanel(v)+html.slice(i);
   };
 
   /* the material's page gains the panel where the linking happens */
@@ -1945,6 +1998,297 @@ window.linkAdd=function(matId,docId){
     +(d?servedBy(d).length:1)+' material'+((d&&servedBy(d).length!==1)?'s':''));
 };
 
+/* ================================================================
+   WHO BROUGHT WHOM
+   ----------------------------------------------------------------
+   A pre-qualification qualifies a company, and the company is often
+   the subcontractor rather than the factory: 4MAKA08-...-ME-PRQ-00024
+   is Faisal Abdullah Awad Binladen Contracting, and the three
+   manufacturers the file hangs off it — GRUNDFOS, PROMINENT/ITC,
+   SOLICO — are the makers that subcontractor brought.
+
+   In this project FIRST FIX brought twenty-two manufacturers and not
+   one manufacturer was brought by two subcontractors, so this is one
+   field and not a list. If a maker later works through somebody else,
+   the question this answers is still who brought them first.
+   ================================================================ */
+function broughtBy(v){
+  if(!v||!v.by)return null;
+  return (DB.mfrs||[]).filter(function(x){return K(x.name)===K(v.by);})[0]||{name:v.by};
+}
+function brought(sub){
+  return (DB.mfrs||[]).filter(function(v){return v.by&&K(v.by)===K(sub.name);});
+}
+
+window.pickBroughtBy=function(id,q){
+  var v=mfr(id);if(!v)return;
+  var need=K(q||'');
+  var subs=(DB.mfrs||[]).filter(function(x){
+    return String(x.id)!==String(v.id)&&(!need||K(x.name).indexOf(need)>=0);
+  }).sort(function(a,b){
+    var A=(a.kind==='sub')?0:1,B=(b.kind==='sub')?0:1;
+    return A-B||String(a.name).localeCompare(String(b.name));
+  });
+  sheet('Who brought '+v.name+'?',
+     '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'
+    +'The subcontractor that first brought this company onto the project. '
+    +'Subcontractors are listed first; anyone on the vendor list can be chosen.</div>'
+    +'<div class="f" style="margin-bottom:14px"><label for="bb">Search</label>'
+    +'<input id="bb" value="'+attr(q||'')+'" autocomplete="off" '
+    +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();pickBroughtBy('+id+',this.value);}">'
+    +'</div>'
+    +'<div class="panel"><div class="panel-b">'
+    +subs.slice(0,60).map(function(x){
+        return '<div class="line row-a" onclick="setBroughtBy('+id+','+x.id+')">'
+          +'<span class="tag t-na" style="min-width:96px;text-align:center">'
+          +esc(KINDS[kindOf(x)].l.toLowerCase())+'</span>'
+          +'<div class="line-m">'+esc(x.name)+'</div>'
+          +(v.by&&K(v.by)===K(x.name)?'<span class="tag t-wait">current</span>':'')+'</div>';
+      }).join('')
+    +(subs.length>60?('<div class="dim" style="font-size:13px;padding-top:10px">and '
+      +(subs.length-60)+' more — narrow the search</div>'):'')
+    +'</div></div>'
+    +'<div class="f-act" style="margin-top:18px">'
+    +'<button class="btn btn-p" onclick="newSubFor('+id+')">Add a subcontractor</button>'
+    +(v.by?'<button class="btn-q" onclick="setBroughtBy('+id+',0)">Nobody — clear it</button>':'')
+    +'</div>');
+  var f=document.getElementById('bb');
+  if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
+};
+window.setBroughtBy=function(id,subId){
+  var v=mfr(id);if(!v)return;
+  if(!subId){delete v.by;}
+  else{var s=mfr(subId);if(!s)return;v.by=s.name;}
+  touch();closeSheet();rPane();rList();
+};
+window.newSubFor=function(id){
+  var box=document.getElementById('sheet-b');if(!box)return;
+  box.insertAdjacentHTML('beforeend',
+    '<div class="panel" style="margin-top:14px"><div class="panel-b">'
+    +'<div class="f"><label for="nsub">New subcontractor</label>'
+    +'<input id="nsub" placeholder="company name" autocomplete="off"></div>'
+    +'<div class="pop-f"><button class="btn btn-p btn-s" onclick="createSubFor('+id+')">'
+    +'Add and use</button></div></div></div>');
+  var i=document.getElementById('nsub');
+  if(i){i.focus();i.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){e.preventDefault();createSubFor(id);}});}
+};
+window.createSubFor=function(id){
+  var n=(document.getElementById('nsub')||{value:''}).value.trim();
+  if(!n)return toast('Give it a name');
+  var twin=(DB.mfrs||[]).filter(function(x){return K(x.name)===K(n);})[0];
+  var s=twin||{id:idMaker()(),name:n,kind:'sub',cat:'',country:'',site:'',scope:'',
+    steps:{},pq:{},added:today()};
+  if(!twin)DB.mfrs.push(s);
+  setBroughtBy(id,s.id);
+};
+
+function broughtPanel(v){
+  var mine=brought(v);
+  var by=broughtBy(v);
+  var out='<div class="sec">Who brought them</div><div class="panel"><div class="panel-b">'
+    +'<div class="line"><div class="line-m">'
+    +(by?('Brought onto the project by <b>'+esc(by.name)+'</b>')
+        :'<span class="dim">Nobody recorded. A manufacturer usually comes onto a project '
+         +'through a subcontractor, and that is worth knowing when something goes wrong.</span>')
+    +'</div>'
+    +(by&&by.id?('<button class="btn-q" onclick="jump(\'mfr\','+by.id+')">Open</button>'):'')
+    +'<button class="btn btn-s" onclick="pickBroughtBy('+v.id+')">'+(by?'Change':'Set it')
+    +'</button></div></div></div>';
+  if(mine.length)out+='<div class="sec">Companies this one brought <span class="dim">'
+    +mine.length+'</span></div><div class="panel"><div class="panel-b">'
+    +mine.map(function(x){
+      return '<div class="line row-a" onclick="jump(\'mfr\','+x.id+')">'
+        +'<span class="tag t-na" style="min-width:96px;text-align:center">'
+        +esc(KINDS[kindOf(x)].l.toLowerCase())+'</span>'
+        +'<div class="line-m"><div>'+esc(x.name)+'</div>'
+        +(x.country?('<div class="dim" style="font-size:12.5px;margin-top:2px">'
+          +esc(x.country)+'</div>'):'')+'</div>'
+        +'<span class="meta">'+matsOf(x).length+' material'+(matsOf(x).length===1?'':'s')
+        +'</span></div>';}).join('')
+    +'</div></div>';
+  return out;
+}
+
+/* ================================================================
+   REPORTS
+   ----------------------------------------------------------------
+   A tab of its own, because a report is a thing you go to rather
+   than a button you happen upon. Excel only — every one of these ends
+   up in somebody else's spreadsheet anyway.
+   ================================================================ */
+
+/* Documents are records of their own now, so the general log folds them
+   back into the material they serve: one row per material, with the
+   numbers of its documents in the columns the Main Log keeps them in.
+   Exactly the shape the project already reads. */
+var FOLD={
+  MES:{n:'Method Statement Number',r:'MES Revision',s:'MES Status',d:null},
+  ITP:{n:'ITP Number',r:'ITP Revision',s:'ITP Status',d:'ITP Submittal Date'},
+  PID:{n:'PID Number',r:'PID Revision',s:'PID Status',d:'PID Submittal Date'},
+  MIR:{n:'MIR Number',r:null,s:'MIR Status',d:'MIR Approval Date'},
+  WIR:{n:'WIR Number',r:null,s:'WIR Status',d:'WIR Approval Date'},
+  PQD:{n:'PQD Number',r:'PQD Revision',s:'PQD Status',d:'PQD Submittal Date'}
+};
+function foldDocs(m,raw){
+  var by={};
+  docsOf(m).forEach(function(d){
+    var w=FOLD[d.doc];if(!w)return;
+    (by[d.doc]=by[d.doc]||[]).push(d);
+  });
+  Object.keys(by).forEach(function(kind){
+    var w=FOLD[kind],list=by[kind];
+    /* several documents of one kind go into one cell separated by
+       newlines, which is how the original file already holds them */
+    function join(col,pick){
+      if(!col)return;
+      var vals=list.map(pick).filter(function(x){return x!==''&&x!=null;});
+      if(vals.length)raw[col]=vals.join('\n');
+    }
+    join(w.n,function(d){return refOf(d);});
+    join(w.s,function(d){return (d.raw||{})[w.s]||(d.raw||{})['MAT Status']||'';});
+    join(w.r,function(d){return (d.raw||{})[w.r]||'';});
+    join(w.d,function(d){return (d.raw||{})[w.d]||'';});
+  });
+  return raw;
+}
+
+function generalRows(){
+  var mats=(DB.mats||[]).filter(function(m){return !isDoc(m);});
+  var groups={},order=[];
+  mats.forEach(function(m){
+    var g=(m.disc||'Uncategorised').trim();
+    if(!groups[g]){groups[g]=[];order.push(g);}
+    groups[g].push(m);
+  });
+  var rows=[COLS.slice()];
+  order.forEach(function(g,gi){
+    if(gi>0){var div=new Array(COLS.length);div[0]=g;div.head=true;rows.push(div);}
+    groups[g].forEach(function(m){
+      var raw=foldDocs(m,rawOut(m));
+      rows.push(COLS.map(function(c){
+        var v=raw[c];
+        if(v==null||v==='')return '';
+        if(DATE_COLS[c]&&/^\d{4}-\d{2}-\d{2}$/.test(String(v)))return {date:String(v)};
+        return v;
+      }));
+    });
+  });
+  return rows;
+}
+
+/* a document attached to nothing would vanish from a report shaped
+   one-row-per-material, so it is written to a sheet of its own rather
+   than quietly dropped */
+function looseRows(){
+  var loose=(DB.mats||[]).filter(function(m){
+    return isDoc(m)&&servedBy(m).length===0;
+  });
+  var rows=[['Kind','Reference','Title','Discipline','Revision','Outcome','Note']];
+  loose.forEach(function(d){
+    var r=d.raw||{};
+    rows.push([d.doc,refOf(d),d.name,d.disc||'',
+      r['MAT Revision']||r['ITP Revision']||r['MES Revision']||r['PID Revision']||'',
+      r['MAT Status']||r['ITP Status']||r['MES Status']||r['PID Status']||r['MIR Status']||'',
+      'not linked to any material']);
+  });
+  return rows;
+}
+
+function vendorRows(){
+  var rows=[['Vendor','Kind','Brought by','Country','Discipline','PQD Number','PQD Status',
+             'PQD Date','Assessment','Materials']];
+  (DB.mfrs||[]).forEach(function(v){
+    var pq=(v.steps||{}).pqd||{};
+    rows.push([v.name,KINDS[kindOf(v)].l,v.by||'',v.country||'',v.scope||v.disc||'',
+      pq.ref||'',pq.status||'',pq.date?{date:pq.date}:'',
+      (v.steps&&v.steps.pa&&v.steps.pa.status)||'',matsOf(v).length]);
+  });
+  return rows;
+}
+
+function aheadRows(){
+  var t0=today(),end=addDays(t0,14),out=[];
+  function add(date,what,who){if(date&&date>=t0&&date<=end)out.push([{date:date},what,who||'']);}
+  (DB.mats||[]).forEach(function(m){
+    if(isDoc(m))return;
+    var s=m.steps||{};
+    if(s.pfm&&s.pfm.date&&s.pfm.status!=='Approved')add(s.pfm.date,'Pre-fabrication meeting — '+m.name,'');
+    if(s.fat&&s.fat.date)add(s.fat.date,'Final inspection or FAT — '+m.name,s.fat.by||'');
+    matRoad(m).steps.forEach(function(x){
+      var due=x.s.due?x.s.due(m,x.data):null;
+      if(due)add(due.on,x.s.n+' — '+due.t+' — '+m.name,'');
+    });
+    (m.dels||[]).forEach(function(d){
+      if(d.status==='Pending')add(d.date,'Delivery to inspect — '+m.name,'');});
+  });
+  out.sort(function(a,b){return String(a[0].date).localeCompare(String(b[0].date));});
+  return [['Date','What','Who']].concat(out);
+}
+
+var REPORTS=[
+ {k:'log',t:'The general log',
+  d:'Every material on one row, with its documents folded back into the columns the project '
+    +'already reads — the same seventy-seven columns in the same order. Documents attached to '
+    +'nothing are written to a second sheet rather than dropped.',
+  go:function(){
+    var name=(DB.project||'Project Materials').replace(/[^\w \-]/g,'').trim();
+    var sheets=[{name:'Main Log',rows:generalRows(),widths:widths()},
+                {name:'Summary',rows:summaryRows()}];
+    var loose=looseRows();
+    if(loose.length>1)sheets.push({name:'Not linked',rows:loose});
+    download(workbook(sheets),name+' — '+today()+'.xlsx');
+  }},
+ {k:'ven',t:'Vendors and who brought them',
+  d:'Every company on the project, what kind it is, its pre-qualification, and the '
+    +'subcontractor that first brought it on.',
+  go:function(){
+    download(workbook([{name:'Vendors',rows:vendorRows()}]),
+      (DB.project||'Vendors')+' — vendors '+today()+'.xlsx');
+  }},
+ {k:'ahead',t:'Two-week look-ahead',
+  d:'Everything falling due in the next fourteen days, drawn from the dates the steps '
+    +'already carry. Submitted weekly under clause 2.2.6.',
+  go:function(){
+    download(workbook([{name:'Look-ahead',rows:aheadRows()}]),
+      (DB.project||'Look-ahead')+' — look-ahead '+today()+'.xlsx');
+  }}
+];
+
+function reportsPane(){
+  var mats=(DB.mats||[]).filter(function(m){return !isDoc(m);}).length;
+  var docs=(DB.mats||[]).length-mats;
+  var loose=(DB.mats||[]).filter(function(m){
+    return isDoc(m)&&servedBy(m).length===0;}).length;
+  return '<div class="head"><div class="wrap"><div class="head-t">Reports</div>'
+    +'<div class="head-m">'
+    +'<span class="chip flat">'+mats+' materials</span>'
+    +'<span class="chip flat">'+docs+' documents</span>'
+    +'<span class="chip flat">'+(DB.mfrs||[]).length+' vendors</span>'
+    +(loose?('<span class="chip warn">'+loose+' documents linked to nothing</span>'):'')
+    +'</div></div></div>'
+    +'<div class="body"><div class="wrap">'
+    +REPORTS.map(function(r){
+      return '<div class="panel"><div class="panel-b">'
+        +'<div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap">'
+        +'<div style="flex:1;min-width:260px">'
+        +'<div class="panel-t">'+esc(r.t)+'</div>'
+        +'<div class="swhy" style="margin-top:6px">'+esc(r.d)+'</div></div>'
+        +'<button class="btn btn-p" onclick="runReport(\''+r.k+'\')">Download Excel</button>'
+        +'</div></div></div>';
+    }).join('')
+    +'<div class="dim" style="font-size:13px;margin-top:18px;line-height:1.7">'
+    +'More of these as you send the shapes you use. Each one comes out as a workbook — '
+    +'nothing is printed from here.</div>'
+    +'</div></div>';
+}
+window.runReport=function(k){
+  var r=REPORTS.filter(function(x){return x.k===k;})[0];
+  if(!r)return;
+  try{r.go();toast(r.t+' — downloaded');}
+  catch(e){toast('Could not build it — '+(e.message||e));}
+};
+
 /* ---------------------------------------------------------------
    10. WHERE THE BUTTONS LIVE
    The page's own menu is left as it is and added to, so this file
@@ -2022,5 +2366,5 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 else start();
 
 /* handy from the console, and for anything built on top later */
-window.EXCEL={cols:COLS,isDoc:isDoc,docsOf:docsOf,servedBy:servedBy,labelDocuments:labelDocuments,createFromRegister:createFromRegister,pending:pending,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:logRows,summary:summaryRows,book:workbook};
+window.EXCEL={cols:COLS,generalRows:generalRows,looseRows:looseRows,vendorRows:vendorRows,isDoc:isDoc,docsOf:docsOf,servedBy:servedBy,labelDocuments:labelDocuments,createFromRegister:createFromRegister,pending:pending,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:logRows,summary:summaryRows,book:workbook};
 })();
