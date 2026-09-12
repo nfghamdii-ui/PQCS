@@ -806,28 +806,11 @@ function rawOut(m){
     if(d.date)set(dCol,d.date);
   }
 }
-function logRows(){
-  var groups={},order=[];
-  (DB.mats||[]).forEach(function(m){
-    var g=(m.disc||'Uncategorised').trim();
-    if(!groups[g]){groups[g]=[];order.push(g);}
-    groups[g].push(m);
-  });
-  var rows=[COLS.slice()];
-  order.forEach(function(g,gi){
-    if(gi>0){var div=new Array(COLS.length);div[0]=g;div.head=true;rows.push(div);}
-    groups[g].forEach(function(m){
-      var raw=rawOut(m);
-      rows.push(COLS.map(function(c){
-        var v=raw[c];
-        if(v==null||v==='')return '';
-        if(DATE_COLS[c]&&/^\d{4}-\d{2}-\d{2}$/.test(String(v)))return {date:String(v)};
-        return v;
-      }));
-    });
-  });
-  return rows;
-}
+/* logRows once wrote the log with a heading row between disciplines,
+   the way the file originally arrived. The headings are gone — they are
+   a thing a spreadsheet does with sorting — and generalRows is the only
+   way the log is written now. */
+
 /* the same figures the dashboard sheet carried, recomputed */
 function summaryRows(){
   var mats=(DB.mats||[]);
@@ -889,10 +872,11 @@ function widths(){
 window.excelOut=function(){
   try{
     var name=(DB.project||'Project Materials').replace(/[^\w \-]/g,'').trim();
-    download(workbook([
-      {name:'Main Log',rows:logRows(),widths:widths()},
-      {name:'Summary',rows:summaryRows()}
-    ]),name+' — Live Tracking '+today()+'.xlsx');
+    var sheets=[{name:'Main Log',rows:generalRows(),widths:widths()},
+                {name:'Summary',rows:summaryRows()}];
+    var loose=looseRows();
+    if(loose.length>1)sheets.push({name:'Not linked',rows:loose});
+    download(workbook(sheets),name+' — Live Tracking '+today()+'.xlsx');
     toast('Workbook written — '+(DB.mats||[]).length+' items');
   }catch(e){toast('Could not write the workbook — '+(e.message||e));}
 };
@@ -1520,7 +1504,12 @@ function companyOf(title){
      .replace(/^[\s\-:–,]+/,'');
   /* the name runs until the work it is qualified for starts */
   var cut=t.split(/\s[-–]\s|\s*[-–]\s|\(|,|\u2013/)[0];
-  cut=trim(cut).replace(/[\s\-:]+$/,'');
+  /* the stripping above leaves the punctuation that held the removed
+     words together — "- - -Sodamco" was the result for a real title */
+  /* these never belong to a company's name, and they end it */
+  cut=cut.split(/\b(?:category|all zones|rev\.?\s*\d|material\b)/i)[0];
+  cut=trim(cut).replace(/^[\s\-–:.,]+/,'').replace(/[\s\-–:.,]+$/,'')
+       .replace(/\s{2,}/g,' ');
   if(cut.length<3||cut.length>60)cut=trim(t).slice(0,60);
   return cut||'(name not in the title)';
 }
@@ -1915,7 +1904,7 @@ function install2(){
   /* the vendor's page gains the one about who brought them */
   var origMfr=window.mfrPane;
   window.mfrPane=function(v){
-    var html=origMfr(v);
+    var html=nameable(origMfr(v),'mfr',v.id);
     var i=html.lastIndexOf('</div></div>');
     if(i<0)return html+broughtPanel(v);
     return html.slice(0,i)+broughtPanel(v)+html.slice(i);
@@ -1924,12 +1913,47 @@ function install2(){
   /* the material's page gains the panel where the linking happens */
   var origMat=window.matPane;
   window.matPane=function(m){
-    var html=origMat(m);
+    var html=nameable(origMat(m),'mat',m.id);
     var i=html.lastIndexOf('</div></div>');
     if(i<0)return html+linkPanel(m);
     return html.slice(0,i)+linkPanel(m)+html.slice(i);
   };
 }
+
+/* Every chip on these pages opens an editor except the one that matters
+   most. A name pulled out of an Aconex title comes through as
+   "- - -Sodamco-Concrete Admixtures & Mortar Based Solutions", and until
+   now there was nowhere to fix it. */
+function nameable(html,kind,id,cur){
+  var i=html.indexOf('<div class="head-t">');
+  if(i<0)return html;
+  var j=html.indexOf('</div>',i);
+  if(j<0)return html;
+  var btn='<button class="head-t" style="background:none;border:none;padding:0;text-align:left;'
+    +'cursor:pointer;font:inherit;color:inherit" title="Click to rename" data-pop '
+    +'onclick="rename'+(kind==='mat'?'Mat':'Ven')+'(event,'+id+')">'
+    +html.slice(i+20,j)+'</button>';
+  return html.slice(0,i)+btn+html.slice(j+6);
+}
+window.renameMat=function(ev,id){
+  var m=mat(id);if(!m)return;
+  popText(ev.currentTarget,'Name of this record',m.name,
+    'The reference is what ties this row to the register, so renaming it breaks nothing.',
+    function(v){if(!v)return;m.name=v;if(m.raw)m.raw['Item Description']=v;
+      touch();rList();rPane();});
+};
+window.renameVen=function(ev,id){
+  var v=mfr(id);if(!v)return;
+  var old=v.name;
+  popText(ev.currentTarget,'Name of this company',v.name,
+    'Anything that named this company — a maker that it brought on — follows the change.',
+    function(n){
+      if(!n||K(n)===K(old))return;
+      v.name=n;
+      (DB.mfrs||[]).forEach(function(x){if(x.by&&K(x.by)===K(old))x.by=n;});
+      touch();rList();rPane();
+    });
+};
 
 function linkPanel(m){
   if(isDoc(m)){
@@ -2180,26 +2204,25 @@ function foldDocs(m,raw){
   return raw;
 }
 
+/* Grouped by discipline, but without the heading rows the old file used
+   to separate them. A row that is a heading and not a material has to be
+   recognised again on the way back in, and sorting is what a spreadsheet
+   is for. */
 function generalRows(){
   var mats=(DB.mats||[]).filter(function(m){return !isDoc(m);});
-  var groups={},order=[];
-  mats.forEach(function(m){
-    var g=(m.disc||'Uncategorised').trim();
-    if(!groups[g]){groups[g]=[];order.push(g);}
-    groups[g].push(m);
+  mats.sort(function(a,b){
+    var d=String(a.disc||'~').localeCompare(String(b.disc||'~'));
+    return d||String(a.name).localeCompare(String(b.name));
   });
   var rows=[COLS.slice()];
-  order.forEach(function(g,gi){
-    if(gi>0){var div=new Array(COLS.length);div[0]=g;div.head=true;rows.push(div);}
-    groups[g].forEach(function(m){
-      var raw=foldDocs(m,rawOut(m));
-      rows.push(COLS.map(function(c){
-        var v=raw[c];
-        if(v==null||v==='')return '';
-        if(DATE_COLS[c]&&/^\d{4}-\d{2}-\d{2}$/.test(String(v)))return {date:String(v)};
-        return v;
-      }));
-    });
+  mats.forEach(function(m){
+    var raw=foldDocs(m,rawOut(m));
+    rows.push(COLS.map(function(c){
+      var v=raw[c];
+      if(v==null||v==='')return '';
+      if(DATE_COLS[c]&&/^\d{4}-\d{2}-\d{2}$/.test(String(v)))return {date:String(v)};
+      return v;
+    }));
   });
   return rows;
 }
@@ -2222,16 +2245,133 @@ function looseRows(){
   return rows;
 }
 
+/* Every column here can be edited and sent back, including the name and
+   the pre-qualification number — which is why the first column exists.
+   It is the only thing on the row that must not be touched: it is how a
+   row finds its way home after somebody has corrected everything else
+   about it. */
+var VEN_COLS=['ID','Vendor','Kind','Brought by','Country','Production site','Scope',
+  'PQD Number','PQD Status','PQD Date','ISO Number','ISO Expires','ISO Status',
+  'Assessment','Materials'];
+var VEN_KINDS={'manufacturer':'maker','maker':'maker','subcontractor':'sub','sub':'sub',
+  'supplier':'supplier','inspection agency':'agency','agency':'agency'};
+
 function vendorRows(){
-  var rows=[['Vendor','Kind','Brought by','Country','Discipline','PQD Number','PQD Status',
-             'PQD Date','Assessment','Materials']];
+  var rows=[VEN_COLS.slice()];
   (DB.mfrs||[]).forEach(function(v){
-    var pq=(v.steps||{}).pqd||{};
-    rows.push([v.name,KINDS[kindOf(v)].l,v.by||'',v.country||'',v.scope||v.disc||'',
+    var st=v.steps||{}, pq=st.pqd||{}, iso=st.iso||{};
+    rows.push([v.id,v.name,KINDS[kindOf(v)].l,v.by||'',v.country||'',v.site||'',v.scope||'',
       pq.ref||'',pq.status||'',pq.date?{date:pq.date}:'',
-      (v.steps&&v.steps.pa&&v.steps.pa.status)||'',matsOf(v).length]);
+      iso.ref||'',iso.date?{date:iso.date}:'',iso.status||'',
+      (st.pa&&st.pa.status)||'',matsOf(v).length]);
   });
   return rows;
+}
+
+/* reading it back: the identifier first, then the pre-qualification
+   number, then the name — each a weaker claim than the one before */
+async function readVendorSheet(file){
+  var book=await openBook(file);
+  for(var i=0;i<book.sheets.length;i++){
+    var rows=await book.rows(book.sheets[i]);
+    for(var h=0;h<Math.min(rows.length,10);h++){
+      var head=(rows[h]||[]).map(function(x){return K(x);});
+      if(head.indexOf('vendor')>=0&&head.indexOf('kind')>=0){
+        var col={};head.forEach(function(n,j){if(n)col[n]=j;});
+        var out=[];
+        rows.slice(h+1).forEach(function(line){
+          var name=trim(line[col['vendor']]);
+          if(!name)return;
+          var o={};
+          VEN_COLS.forEach(function(c){
+            var j=col[K(c)];
+            o[c]=(j==null)?'':line[j];
+          });
+          out.push(o);
+        });
+        if(out.length)return {rows:out,sheet:book.sheets[i].name};
+      }
+    }
+  }
+  throw new Error('No sheet in that file has a Vendor and a Kind column. '
+    +'This reads the vendor report back — download it from Reports first.');
+}
+
+function planVendors(rows){
+  var byId={},byPq={},byName={};
+  (DB.mfrs||[]).forEach(function(v){
+    byId[String(v.id)]=v;
+    var pq=((v.steps||{}).pqd||{}).ref;
+    if(pq&&!byPq[K(pq)])byPq[K(pq)]=v;
+    byName[K(v.name)]=v;
+  });
+  var p={add:[],change:[],same:[],gone:[]};
+  var hit={};
+  rows.forEach(function(r){
+    var v=byId[String(trim(r['ID']))]||byPq[K(trim(r['PQD Number']))]||byName[K(trim(r['Vendor']))];
+    if(!v){p.add.push(r);return;}
+    hit[String(v.id)]=1;
+    var diff=vendorDiff(v,r);
+    if(diff.length)p.change.push({v:v,r:r,diff:diff});
+    else p.same.push(v);
+  });
+  (DB.mfrs||[]).forEach(function(v){if(!hit[String(v.id)])p.gone.push(v);});
+  return p;
+}
+function vendorDiff(v,r){
+  var st=v.steps||{}, pq=st.pqd||{}, iso=st.iso||{}, out=[];
+  function cmp(label,now,want){
+    want=trim(want);now=trim(now);
+    if(want!==''&&K(now)!==K(want))out.push(label);
+  }
+  cmp('Vendor',v.name,r['Vendor']);
+  cmp('Kind',KINDS[kindOf(v)].l,r['Kind']);
+  cmp('Brought by',v.by,r['Brought by']);
+  cmp('Country',v.country,r['Country']);
+  cmp('Production site',v.site,r['Production site']);
+  cmp('Scope',v.scope,r['Scope']);
+  cmp('PQD Number',pq.ref,r['PQD Number']);
+  cmp('PQD Status',pq.status,r['PQD Status']);
+  cmp('PQD Date',pq.date,anyDate(r['PQD Date']));
+  cmp('ISO Number',iso.ref,r['ISO Number']);
+  cmp('ISO Expires',iso.date,anyDate(r['ISO Expires']));
+  cmp('ISO Status',iso.status,r['ISO Status']);
+  return out;
+}
+function applyVendors(p){
+  var made={n:1,vendors:[],id:idMaker()};
+  function write(v,r){
+    function set(k,val){val=trim(val);if(val!=='')v[k]=val;}
+    set('name',r['Vendor']);
+    var k=VEN_KINDS[K(r['Kind'])];
+    if(k)v.kind=k;
+    set('by',r['Brought by']);
+    set('country',r['Country']);
+    set('site',r['Production site']);
+    set('scope',r['Scope']);
+    v.steps=v.steps||{};
+    var pq=v.steps.pqd||{}, iso=v.steps.iso||{};
+    if(trim(r['PQD Number']))pq.ref=trim(r['PQD Number']);
+    if(trim(r['PQD Status']))pq.status=trim(r['PQD Status']);
+    if(anyDate(r['PQD Date']))pq.date=anyDate(r['PQD Date']);
+    if(pq.ref||pq.status)v.steps.pqd=pq;
+    if(trim(r['ISO Number']))iso.ref=trim(r['ISO Number']);
+    if(anyDate(r['ISO Expires']))iso.date=anyDate(r['ISO Expires']);
+    if(trim(r['ISO Status']))iso.status=trim(r['ISO Status']);
+    /* a certificate with a date and no word said about it is valid until
+       that date, which is what a certificate means */
+    if((iso.ref||iso.date)&&!iso.status)iso.status='Valid';
+    if(iso.ref||iso.date||iso.status)v.steps.iso=iso;
+  }
+  p.change.forEach(function(c){write(c.v,c.r);});
+  p.add.forEach(function(r){
+    var v={id:made.id(),name:trim(r['Vendor']),kind:VEN_KINDS[K(r['Kind'])]||'maker',
+      cat:'',country:'',site:'',scope:'',steps:{},pq:{},added:today()};
+    write(v,r);
+    DB.mfrs.push(v);
+  });
+  touch();rList();rPane();
+  return {changed:p.change.length,added:p.add.length};
 }
 
 function aheadRows(){
@@ -2254,10 +2394,12 @@ function aheadRows(){
 }
 
 var REPORTS=[
- {k:'log',t:'The general log',
+ {k:'log',t:'The general log',back:true,
   d:'Every material on one row, with its documents folded back into the columns the project '
-    +'already reads — the same seventy-seven columns in the same order. Documents attached to '
-    +'nothing are written to a second sheet rather than dropped.',
+    +'already reads — the same seventy-seven columns in the same order, sorted by discipline '
+    +'and no heading rows between them. Documents attached to nothing are written to a second '
+    +'sheet rather than dropped. Edit it and send it back; a row is found by its reference, '
+    +'so renaming one changes it rather than doubling it.',
   go:function(){
     var name=(DB.project||'Project Materials').replace(/[^\w \-]/g,'').trim();
     var sheets=[{name:'Main Log',rows:generalRows(),widths:widths()},
@@ -2266,9 +2408,11 @@ var REPORTS=[
     if(loose.length>1)sheets.push({name:'Not linked',rows:loose});
     download(workbook(sheets),name+' — '+today()+'.xlsx');
   }},
- {k:'ven',t:'Vendors and who brought them',
-  d:'Every company on the project, what kind it is, its pre-qualification, and the '
-    +'subcontractor that first brought it on.',
+ {k:'ven',t:'Vendors and who brought them',back:true,
+  d:'Every company on the project, what kind it is, its pre-qualification, its ISO '
+    +'certificate, and the subcontractor that first brought it on. Correct any of it — '
+    +'including the name and the pre-qualification number — and send it back. Leave the '
+    +'first column alone; it is how a row finds its way home.',
   go:function(){
     download(workbook([{name:'Vendors',rows:vendorRows()}]),
       (DB.project||'Vendors')+' — vendors '+today()+'.xlsx');
@@ -2281,6 +2425,70 @@ var REPORTS=[
       (DB.project||'Look-ahead')+' — look-ahead '+today()+'.xlsx');
   }}
 ];
+
+window.repPick=function(k){
+  REP_WANT=k;
+  document.getElementById('xl-rep').click();
+};
+var REP_WANT='';
+window.repRead=async function(ev){
+  var f=ev.target.files[0];ev.target.value='';
+  if(!f)return;
+  if(REP_WANT==='log')return window.excelRead({target:{files:[f],value:''}});
+  if(typeof busy==='function')busy(true,'Reading the vendor sheet');
+  try{
+    var got=await readVendorSheet(f);
+    VENP=planVendors(got.rows);
+    VENP.file=f.name;VENP.count=got.rows.length;
+    if(typeof busy==='function')busy(false);
+    showVendors();
+  }catch(e){
+    if(typeof busy==='function')busy(false);
+    sheet('That sheet could not be read',
+      '<div style="font-size:14px;line-height:1.75">'+esc(e.message||String(e))+'</div>');
+  }
+};
+var VENP=null;
+function showVendors(){
+  var p=VENP;
+  sheet('From '+p.file,
+    '<div class="dim" style="font-size:13.5px;margin-bottom:16px">'
+    +p.count+' rows read. A row is found by its ID first, then by its pre-qualification '
+    +'number, then by its name — so everything else on it can be corrected freely. '
+    +'Nothing has been changed yet, and a vendor missing from the sheet is kept.</div>'
+    +'<div class="grid" style="margin-bottom:18px">'
+    +stat(p.add.length,'New')+stat(p.change.length,'Changed')
+    +stat(p.same.length,'Unchanged')+stat(p.gone.length,'Not in the sheet')
+    +'</div>'
+    +(p.change.length?('<div class="sec">Changed</div><div class="panel"><div class="panel-b">'
+      +p.change.slice(0,40).map(function(c){
+        return '<div class="line"><span class="tag t-wait">'+c.diff.length+'</span>'
+          +'<div class="line-m"><div>'+esc(c.v.name)
+          +(K(c.v.name)!==K(trim(c.r['Vendor']))?(' → <b>'+esc(trim(c.r['Vendor']))+'</b>'):'')
+          +'</div><div class="dim" style="font-size:12.5px;margin-top:2px">'
+          +esc(c.diff.join(', '))+'</div></div></div>';}).join('')
+      +more(p.change.length,40)+'</div></div>'):'')
+    +(p.add.length?('<div class="sec">New</div><div class="panel"><div class="panel-b">'
+      +p.add.slice(0,30).map(function(r){
+        return '<div class="line"><span class="tag t-ok">new</span>'
+          +'<div class="line-m"><div>'+esc(trim(r['Vendor']))+'</div>'
+          +'<div class="dim" style="font-size:12.5px;margin-top:2px">'
+          +esc([trim(r['Kind']),trim(r['Country']),trim(r['PQD Number'])].filter(Boolean).join(' · '))
+          +'</div></div></div>';}).join('')
+      +more(p.add.length,30)+'</div></div>'):'')
+    +'<div class="f-act" style="margin-top:22px">'
+    +((p.add.length||p.change.length)
+      ?('<button class="btn btn-p" onclick="repApplyVendors()">Apply — '
+        +(p.add.length+p.change.length)+'</button>'):'')
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button></div>');
+}
+window.repApplyVendors=function(){
+  if(!VENP)return;
+  var n=applyVendors(VENP);
+  closeSheet();
+  toast(n.changed+' updated, '+n.added+' added');
+  VENP=null;
+};
 
 function reportsPane(){
   var mats=(DB.mats||[]).filter(function(m){return !isDoc(m);}).length;
@@ -2301,8 +2509,10 @@ function reportsPane(){
         +'<div style="flex:1;min-width:260px">'
         +'<div class="panel-t">'+esc(r.t)+'</div>'
         +'<div class="swhy" style="margin-top:6px">'+esc(r.d)+'</div></div>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
         +'<button class="btn btn-p" onclick="runReport(\''+r.k+'\')">Download Excel</button>'
-        +'</div></div></div>';
+        +(r.back?('<button class="btn" onclick="repPick(\''+r.k+'\')">Upload edited</button>'):'')
+        +'</div></div></div></div>';
     }).join('')
     +'<div class="dim" style="font-size:13px;margin-top:18px;line-height:1.7">'
     +'More of these as you send the shapes you use. Each one comes out as a workbook — '
@@ -2327,6 +2537,12 @@ function install(){
     i.type='file';i.id='xl-file';i.accept='.xlsx';i.style.display='none';
     i.addEventListener('change',window.excelRead);
     document.body.appendChild(i);
+  }
+  if(!document.getElementById('xl-rep')){
+    var p=document.createElement('input');
+    p.type='file';p.id='xl-rep';p.accept='.xlsx';p.style.display='none';
+    p.addEventListener('change',window.repRead);
+    document.body.appendChild(p);
   }
   if(!document.getElementById('xl-reg')){
     var g=document.createElement('input');
@@ -2393,5 +2609,5 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 else start();
 
 /* handy from the console, and for anything built on top later */
-window.EXCEL={cols:COLS,generalRows:generalRows,looseRows:looseRows,vendorRows:vendorRows,isDoc:isDoc,docsOf:docsOf,servedBy:servedBy,labelDocuments:labelDocuments,createFromRegister:createFromRegister,pending:pending,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:logRows,summary:summaryRows,book:workbook};
+window.EXCEL={cols:COLS,vendorRows:vendorRows,readVendorSheet:readVendorSheet,planVendors:planVendors,applyVendors:applyVendors,generalRows:generalRows,looseRows:looseRows,vendorRows:vendorRows,isDoc:isDoc,docsOf:docsOf,servedBy:servedBy,labelDocuments:labelDocuments,createFromRegister:createFromRegister,pending:pending,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:generalRows,summary:summaryRows,book:workbook};
 })();
