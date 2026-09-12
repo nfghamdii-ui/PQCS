@@ -1693,10 +1693,20 @@ window.regUndoYes=function(tag){
    and it keeps the material as the single place a link is edited.
    ================================================================ */
 
-var DOCVIEW=false;                         /* the Materials tab, showing documents */
-var DOC_KINDS=['MES','ITP','MIR','PID','PQD','WIR','Report','Procedure'];
+/* The Materials machinery draws three lists now. Inspection requests
+   are twelve hundred of the fifteen hundred documents, so leaving them
+   in with the rest would bury everything else — they get a tab of their
+   own, and the remaining kinds are sorted out inside Documents. */
+var VIEW='mat';                            /* mat | mir | doc */
+var DOCKIND='';                            /* which kind, inside Documents */
+var DOC_KINDS=['MES','ITP','PID','PQD','Report','Procedure','WIR'];
 
 function isDoc(m){return !!(m&&m.doc);}
+function inView(m){
+  if(VIEW==='mat')return !isDoc(m);
+  if(VIEW==='mir')return m.doc==='MIR';
+  return isDoc(m)&&m.doc!=='MIR'&&(!DOCKIND||m.doc===DOCKIND);
+}
 function docsOf(m){
   var ids=(m&&m.docs)||[];
   return ids.map(function(id){
@@ -1741,29 +1751,34 @@ function liftTabs(){
   col.appendChild(tabs);
   col.appendChild(main);
 
-  /* Documents sits beside Materials, not inside it */
-  var b=document.createElement('button');
-  b.className='tab';b.id='tab-doc';b.setAttribute('role','tab');
-  b.setAttribute('aria-selected','false');
-  b.appendChild(document.createTextNode('Documents '));
-  var cnt=document.createElement('span');
-  cnt.className='n';cnt.id='n-doc';cnt.textContent='0';
-  b.appendChild(cnt);
-  b.onclick=function(){setTab('doc');};
+  /* Inspections and Documents sit beside Materials, not inside it */
   var after=document.getElementById('tab-mat');
-  if(after&&after.parentNode===tabs)tabs.insertBefore(b,after.nextSibling);
-  else tabs.appendChild(b);
+  [['mir','Inspections'],['doc','Documents']].forEach(function(pair){
+    var b=document.createElement('button');
+    b.className='tab';b.id='tab-'+pair[0];b.setAttribute('role','tab');
+    b.setAttribute('aria-selected','false');
+    b.appendChild(document.createTextNode(pair[1]+' '));
+    var cnt=document.createElement('span');
+    cnt.className='n';cnt.id='n-'+pair[0];cnt.textContent='0';
+    b.appendChild(cnt);
+    b.onclick=function(){setTab(pair[0]);};
+    if(after&&after.parentNode===tabs){tabs.insertBefore(b,after.nextSibling);after=b;}
+    else tabs.appendChild(b);
+  });
 }
 
 function paintTabs(){
-  var docs=(DB.mats||[]).filter(isDoc).length;
-  var mats=(DB.mats||[]).length-docs;
-  var a=document.getElementById('n-doc');if(a)a.textContent=docs;
-  var b=document.getElementById('n-mat');if(b)b.textContent=mats;
-  var d=document.getElementById('tab-doc');
-  if(d)d.setAttribute('aria-selected',String(TAB==='mat'&&DOCVIEW));
-  var m=document.getElementById('tab-mat');
-  if(m)m.setAttribute('aria-selected',String(TAB==='mat'&&!DOCVIEW));
+  var n={mat:0,mir:0,doc:0};
+  (DB.mats||[]).forEach(function(m){
+    if(!isDoc(m))n.mat++;
+    else if(m.doc==='MIR')n.mir++;
+    else n.doc++;
+  });
+  ['mat','mir','doc'].forEach(function(k){
+    var c=document.getElementById('n-'+k);if(c)c.textContent=n[k];
+    var t=document.getElementById('tab-'+k);
+    if(t)t.setAttribute('aria-selected',String(TAB==='mat'&&VIEW===k));
+  });
 }
 
 /* ---------------------------------------------------------------
@@ -1773,9 +1788,31 @@ function paintTabs(){
    --------------------------------------------------------------- */
 function withSubset(fn){
   var all=DB.mats;
-  DB.mats=all.filter(function(m){return DOCVIEW?isDoc(m):!isDoc(m);});
+  DB.mats=all.filter(inView);
   try{return fn();}finally{DB.mats=all;}
 }
+
+/* inside Documents the kinds are separated, because a method statement
+   and a transmittal are not the same errand */
+function kindChips(){
+  if(TAB!=='mat'||VIEW!=='doc')return;
+  var box=document.getElementById('filters');
+  if(!box)return;
+  var n={};
+  (DB.mats||[]).forEach(function(m){
+    if(isDoc(m)&&m.doc!=='MIR')n[m.doc]=(n[m.doc]||0)+1;
+  });
+  var total=Object.keys(n).reduce(function(a,k){return a+n[k];},0);
+  var html='<button class="fchip" aria-pressed="'+(!DOCKIND)+'" onclick="setKind(\'\')">'
+    +'All<span class="fn">'+total+'</span></button>';
+  DOC_KINDS.forEach(function(k){
+    if(!n[k])return;
+    html+='<button class="fchip" aria-pressed="'+(DOCKIND===k)+'" onclick="setKind(\''+k+'\')">'
+      +esc(k)+'<span class="fn">'+n[k]+'</span></button>';
+  });
+  box.innerHTML=html+box.innerHTML;
+}
+window.setKind=function(k){DOCKIND=(DOCKIND===k?'':k);rList();rPane();};
 
 function install2(){
   if(window.__docs)return;
@@ -1784,8 +1821,8 @@ function install2(){
 
   var origSetTab=window.setTab;
   window.setTab=function(t){
-    if(t==='doc'){DOCVIEW=true;origSetTab('mat');}
-    else{DOCVIEW=false;origSetTab(t);}
+    if(t==='mir'||t==='doc'){VIEW=t;if(t!=='doc')DOCKIND='';origSetTab('mat');}
+    else{VIEW='mat';DOCKIND='';origSetTab(t);}
     paintTabs();
   };
 
@@ -1794,6 +1831,7 @@ function install2(){
     if(TAB!=='mat')
       {origList();paintTabs();return;}
     withSubset(origList);
+    kindChips();
     paintTabs();
   };
 
@@ -1954,15 +1992,31 @@ function install(){
   };
   window.showMenu.__xl=true;
 }
+/* The records arrive from the database after the page has loaded, so
+   labelling them at load time labels nothing. It runs when the workspace
+   opens and again after every reload of it — and does nothing at all
+   once everything already carries a label. */
+function sortOut(){
+  try{
+    if(labelDocuments()){rList();rPane();}
+    else paintTabs();
+  }catch(e){}
+}
 function start(){
   install();
   install2();
-  /* records that came in before the Documents tab existed carry no
-     label; one is worked out from the reference each of them holds */
-  try{
-    var n=labelDocuments();
-    if(n){rList();rPane();}
-  }catch(e){}
+  ['enter','refresh','loadAll'].forEach(function(fn){
+    var orig=window[fn];
+    if(typeof orig!=='function'||orig.__sorted)return;
+    window[fn]=function(){
+      var r=orig.apply(this,arguments);
+      if(r&&typeof r.then==='function')return r.then(function(v){sortOut();return v;});
+      sortOut();
+      return r;
+    };
+    window[fn].__sorted=true;
+  });
+  sortOut();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);
 else start();

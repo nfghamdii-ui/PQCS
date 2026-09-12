@@ -185,8 +185,17 @@ The percentage beside the project name says how far a long save has got.
 ## Documents
 
 A method statement is not a material. It arrives as a record of its own
-because no column in the register says which material it belongs to, and
-it lives under **Documents** — its own tab, beside Materials.
+because no column in the register says which material it belongs to.
+
+Inspection requests have a tab to themselves — twelve hundred of the
+fifteen hundred documents in this project are inspection requests, and
+leaving them in with the rest buries everything else. The remaining
+kinds sit under **Documents**, separated by chips: method statements,
+inspection plans, dossiers, pre-qualifications.
+
+What a record is gets read off the middle of its reference, so a record
+that came in before any of this existed is sorted out the first time the
+workspace opens.
 
 The link is made from the material, which is the thing everything hangs
 off: open it, and attach the documents that serve it. One document can
