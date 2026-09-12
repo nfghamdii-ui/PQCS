@@ -156,7 +156,7 @@ function dist(a,b){
   return prev[n];
 }
 function anyDate(v){
-  if(v==null||v==='')return '';
+  if(v==null||v===''||v===0||v==='0')return '';
   if(typeof v==='number')return serialToIso(v);
   var t=trim(v);
   if(/^\d+(\.\d+)?$/.test(t)&&+t>20000&&+t<80000)return serialToIso(+t);
@@ -467,6 +467,12 @@ function rowToRaw(line){
   COLS.forEach(function(c,i){
     var v=line[i];
     if(v==null||v==='')return;
+    /* A spreadsheet fills a blank with zero more readily than anyone
+       expects — a dragged formula, a cleared cell that kept its format.
+       Zero is a date in Excel's reckoning (the thirtieth of December
+       1899) and a name in nobody's. Ten cells of this file hold one.
+       Everywhere here it means the cell is empty. */
+    if(v===0||v==='0')return;
     if(DATE_COLS[c]){
       var iso=anyDate(v);
       raw[c]=iso||trim(v);            /* unreadable dates keep their words */
@@ -680,7 +686,7 @@ function planFrom(rows){
       if(!v)return;
       /* a dash, AVL, or N/A is a deliberate "does not apply", not a
          date somebody mistyped, so it is left in peace */
-      if(/^(-+|n\/?a|avl|alv|tbd|tba|na)$/i.test(trim(v)))return;
+      if(/^(-+|0+|n\/?a|avl|alv|tbd|tba|na)$/i.test(trim(v)))return;
       if(!/^\d{4}-\d{2}-\d{2}$/.test(String(v))&&out.badDates.length<40)
         out.badDates.push({row:r.row,col:c,val:String(v),what:desc,
           many:/[\n\r]/.test(String(v))||(String(v).match(/\d{1,2}[-\/ ][A-Za-z]{3}/g)||[]).length>1});
@@ -1883,8 +1889,13 @@ function install2(){
 
   var origList=window.rList;
   window.rList=function(){
-    if(TAB!=='mat')
-      {origList();paintTabs();return;}
+    /* Reports has no list beside it, and the page's filter row reads
+       BUCKETS[TAB] — which for a tab the page has never heard of is
+       undefined. Applying a file while standing on Reports threw there,
+       and the throw came before the save, so the work sat in memory
+       looking as though it were being written. */
+    if(TAB==='rep'){paintTabs();return;}
+    if(TAB!=='mat'){origList();paintTabs();return;}
     withSubset(origList);
     kindChips();
     paintTabs();
@@ -1900,6 +1911,17 @@ function install2(){
     if(TAB!=='mat')return origPane();
     withSubset(origPane);
   };
+
+  /* Redrawing must never be able to stop a save. Everything above is
+     display; the writing to the database happens after it, and a broken
+     screen is a small thing beside work that never leaves the tab. */
+  ['rList','rPane'].forEach(function(fn){
+    var draw=window[fn];
+    window[fn]=function(){
+      try{return draw.apply(this,arguments);}
+      catch(e){if(window.console)console.error(fn+' failed',e);}
+    };
+  });
 
   /* the vendor's page gains the one about who brought them */
   var origMfr=window.mfrPane;
@@ -2491,16 +2513,21 @@ window.repApplyVendors=function(){
 };
 
 function reportsPane(){
-  var mats=(DB.mats||[]).filter(function(m){return !isDoc(m);}).length;
-  var docs=(DB.mats||[]).length-mats;
-  var loose=(DB.mats||[]).filter(function(m){
-    return isDoc(m)&&servedBy(m).length===0;}).length;
+  /* counted the way the tabs count, so the same thing is not given two
+     different numbers on two screens */
+  var n={mat:0,mir:0,doc:0,loose:0};
+  (DB.mats||[]).forEach(function(m){
+    if(!isDoc(m)){n.mat++;return;}
+    if(m.doc==='MIR')n.mir++;else n.doc++;
+    if(servedBy(m).length===0)n.loose++;
+  });
   return '<div class="head"><div class="wrap"><div class="head-t">Reports</div>'
     +'<div class="head-m">'
-    +'<span class="chip flat">'+mats+' materials</span>'
-    +'<span class="chip flat">'+docs+' documents</span>'
+    +'<span class="chip flat">'+n.mat+' materials</span>'
+    +'<span class="chip flat">'+n.mir+' inspections</span>'
+    +'<span class="chip flat">'+n.doc+' documents</span>'
     +'<span class="chip flat">'+(DB.mfrs||[]).length+' vendors</span>'
-    +(loose?('<span class="chip warn">'+loose+' documents linked to nothing</span>'):'')
+    +(n.loose?('<span class="chip warn">'+n.loose+' linked to no material</span>'):'')
     +'</div></div></div>'
     +'<div class="body"><div class="wrap">'
     +REPORTS.map(function(r){
