@@ -1028,6 +1028,9 @@ function refIndex(){
   (DB.mfrs||[]).forEach(function(v){
     var pq=(v.steps||{}).pqd||{};
     if(pq.ref)(idx[K(pq.ref)]=idx[K(pq.ref)]||[]).push({v:v,col:'PQD Number',shared:1});
+    (v.pq2||[]).forEach(function(x){
+      (idx[K(x.ref)]=idx[K(x.ref)]||[]).push({v:v,col:'PQD Number',shared:1,second:true});
+    });
   });
   return idx;
 }
@@ -1107,7 +1110,9 @@ function planRegister(reg){
       var where=STATUS_OF[h.col];
       var rec=h.m||h.v;
       var now=h.m?trim((h.m.raw||{})[where?where.s:''])
-                 :trim(((h.v.steps||{}).pqd||{}).status);
+                 :trim(h.second?(((h.v.pq2||[]).filter(function(x){
+                     return K(x.ref)===K(d.no);})[0]||{}).status)
+                   :(((h.v.steps||{}).pqd||{}).status));
       var item={d:d,h:h,rec:rec,where:where,now:now,want:want};
       if(!where||!want){p.same.push(item);return;}
       /* Both sides are read through the same reduction before being
@@ -1261,13 +1266,21 @@ function showRegister(){
   body+=regBlock('New · category 0 and 1 — this tracker does not follow these',p.newC01,newRow,10);
   body+=regBlock('Shares a cell with other references',p.locked,regRow,15);
 
+  var fresh=p.newC23.length+p.newPlain.length+p.newC01.length;
   body+='<div class="f-act" style="margin-top:22px">'
    +(p.moved.length?('<button class="btn btn-p" onclick="regApply(false)">Apply the '
       +p.moved.length+' that moved</button>'):'')
    +(p.ended.length?('<button class="btn" onclick="regApply(true)">Apply those and mark the '
       +p.ended.length+' terminated</button>'):'')
+   +(fresh?('<button class="btn" onclick="regAddAll()">Bring in all '+fresh
+      +' new for review</button>'):'')
    +'<button class="btn" onclick="regCSV()">Export the whole list</button>'
-   +'<button class="btn-q" onclick="closeSheet()">Close</button></div>';
+   +'<button class="btn-q" onclick="closeSheet()">Close</button></div>'
+   +(fresh?('<div class="dim" style="font-size:13px;margin-top:10px;line-height:1.7">'
+     +'Bringing them in creates '+fresh+' records at once and marks every one of them '
+     +'unreviewed, so they can be told apart from what was already here — and the whole '
+     +'upload can be taken back in one action if it turns out wrong. '
+     +'Download a backup first.</div>'):'');
 
   var a=p.about||{};
   sheet('From '+p.file,
@@ -1283,6 +1296,16 @@ window.regApply=function(alsoEnded){
   closeSheet();
   toast(n+' document'+(n===1?'':'s')+' brought up to date');
   REG=null;
+};
+window.regAddAll=function(){
+  if(!REG)return;
+  var p=REG;
+  var tag=(REG.file||'a register')+' · '+new Date().toLocaleString('en-GB',
+    {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  var n=createFromRegister(p,tag);
+  closeSheet();
+  toast(n.mats+' materials and '+n.vendors+' vendors brought in — all marked for review');
+  setTimeout(regReview,400);
 };
 window.regCSV=function(){
   if(!REG)return;
@@ -1307,6 +1330,211 @@ window.regCSV=function(){
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(function(){URL.revokeObjectURL(u);},900);
   toast('Exported '+lines.length+' rows');
+};
+
+/* ================================================================
+   THE REGISTER, BROUGHT IN WHOLE
+   ----------------------------------------------------------------
+   Everything the register holds becomes a record, and the sorting out
+   happens afterwards inside the tracker rather than in a spreadsheet
+   beforehand. That is a deliberate trade: it is faster to get started
+   and it puts three thousand rows in front of a person who can judge
+   them, at the cost of a file that is briefly untidy.
+
+   Two things make the untidiness survivable. Every record created this
+   way is stamped with the upload it came from and marked unreviewed,
+   so it can always be told from what was there before. And an upload
+   can be taken back whole, so a bad import is a button rather than an
+   afternoon.
+   ================================================================ */
+
+/* the register writes its disciplines with a code in front */
+function plainDisc(s){return trim(String(s||'').replace(/^[A-Z]{2,4}\s*-\s*/,''));}
+
+/* Which columns of the Main Log a document of this type belongs in.
+   A document that lands here is the only thing on its row, so the
+   number, the date, the revision and the outcome all go together. */
+var NEW_AS={
+ 'material submittal':          {n:'MAT Number',d:'MAT Submittal Date',r:'MAT Revision',s:'MAT Status'},
+ 'inspection & test plan':      {n:'ITP Number',d:'ITP Submittal Date',r:'ITP Revision',s:'ITP Status'},
+ 'method statement':            {n:'Method Statement Number',d:null,r:'MES Revision',s:'MES Status'},
+ 'material inspection request': {n:'MIR Number',d:'MIR Approval Date',r:null,s:'MIR Status'}
+};
+
+/* The company a pre-qualification is about, dug out of its title.
+   The titles are written by hand and no two agree: "P4- Makkah-
+   Prequalification-Sodamco-Concrete Admixtures…", "PRQ for Dar
+   Al-Rokham - Marble Cladding work", "P4-Makkah-Prequalification-
+   Supplier- JAZEERA PAINTS…". This gets most of them and will get
+   some of them wrong, which is why the whole title is kept beside the
+   name and the record is marked for review rather than trusted. */
+function companyOf(title){
+  var t=' '+String(title||'').replace(/\s+/g,' ').trim()+' ';
+  t=t.replace(/^\s*P4\s*-?\s*/i,' ')
+     .replace(/\bmakkah\b/i,' ')
+     .replace(/\b(pre[- ]?qualification|prequalification|PRQ)\b/ig,' ')
+     .replace(/\bfor\b/i,' ')
+     .replace(/\b(supplier|sub[- ]?contractor|subcontractor|manufacturer|vendor)\b\s*[-:]?/ig,' ')
+     .replace(/^[\s\-:–,]+/,'');
+  /* the name runs until the work it is qualified for starts */
+  var cut=t.split(/\s[-–]\s|\s*[-–]\s|\(|,|\u2013/)[0];
+  cut=trim(cut).replace(/[\s\-:]+$/,'');
+  if(cut.length<3||cut.length>60)cut=trim(t).slice(0,60);
+  return cut||'(name not in the title)';
+}
+function kindOfTitle(t){
+  var k=K(t);
+  if(/sub[- ]?contractor/.test(k))return 'sub';
+  if(/supplier|agency letter|distributor/.test(k))return 'supplier';
+  if(/third party|inspection agency|tuv|bureau veritas/.test(k))return 'agency';
+  return 'maker';
+}
+
+/* a raw row of the Main Log, built from one line of the register */
+function rawFromDoc(d){
+  var raw={};
+  raw['Item Description']=d.title||d.no;
+  if(d.cat)raw['Material Category']='Category '+d.cat;
+  if(d.disc)raw['Discipline']=plainDisc(d.disc);
+  var w=NEW_AS[K(d.type)];
+  if(w){
+    raw[w.n]=d.no;
+    if(w.d&&d.date)raw[w.d]=d.date;
+    if(w.r&&d.rev!=='')raw[w.r]=d.rev;
+    if(w.s&&d.want)raw[w.s]=d.want;
+  }else{
+    /* a type with no home of its own still keeps its number somewhere
+       it can be found again */
+    raw['MAT Number']=d.no;
+    if(d.want)raw['MAT Status']=d.want;
+    if(d.date)raw['MAT Submittal Date']=d.date;
+  }
+  return raw;
+}
+
+function createFromRegister(p,tag){
+  var made={n:1,vendors:[]},mats=0,vends=0;
+  var all=p.newC23.concat(p.newPlain,p.newC01);
+  all.forEach(function(d){
+    if(K(d.type)==='pre-qualification'){
+      var name=companyOf(d.title);
+      var twin=(DB.mfrs||[]).filter(function(v){return K(v.name)===K(name);})[0];
+      var v=twin||{id:uid()+(made.n++),name:name,kind:kindOfTitle(d.title),cat:d.cat||'',
+        country:'',site:'',scope:'',steps:{},pq:{},added:today()};
+      v.scope=v.scope||d.title;
+      v.steps=v.steps||{};
+      if(!(v.steps.pqd&&v.steps.pqd.ref)){
+        v.steps.pqd={ref:d.no,date:d.date||'',
+          status:d.want==='Approved as Noted'?'Approved with comments':(d.want||'Pending')};
+      }else if(K(v.steps.pqd.ref)!==K(d.no)){
+        /* the same company qualified twice. The page holds one
+           qualification per vendor, so the second is kept beside it
+           rather than dropped — losing it would make this document
+           look new again on the next upload, for ever. */
+        v.pq2=v.pq2||[];
+        if(!v.pq2.some(function(x){return K(x.ref)===K(d.no);}))
+          v.pq2.push({ref:d.no,date:d.date||'',status:d.want||'',title:d.title||''});
+      }
+      if(!twin){v.reg=tag;v.review=1;DB.mfrs.push(v);vends++;}
+      return;
+    }
+    var m={id:uid()+(made.n++),name:'',cat:'',ref:'',mfr:'',qty:'',unit:'',
+      steps:{},dels:[],ncrs:[],added:today()};
+    applyRaw(m,rawFromDoc(d),made);
+    m.reg=tag;m.review=1;
+    DB.mats.push(m);mats++;
+  });
+  touch();rList();rPane();
+  return {mats:mats,vendors:vends};
+}
+
+/* ---------------------------------------------------------------
+   The review pass. Everything brought in this way is listed here
+   until it is looked at, whatever tab it ended up in.
+   --------------------------------------------------------------- */
+function pending(){
+  var out=[];
+  (DB.mats||[]).forEach(function(m){if(m.review)out.push({k:'mat',r:m});});
+  (DB.mfrs||[]).forEach(function(v){if(v.review)out.push({k:'mfr',r:v});});
+  return out;
+}
+function batches(){
+  var b={};
+  pending().forEach(function(x){
+    var t=x.r.reg||'(unknown upload)';
+    b[t]=(b[t]||0)+1;
+  });
+  return b;
+}
+window.regReview=function(){
+  var list=pending();
+  if(!list.length)return sheet('Nothing waiting',
+    '<div class="dim" style="padding:26px 0;text-align:center">'
+    +'Nothing is waiting to be reviewed. Records brought in from a register appear here '
+    +'until you have been through them.</div>');
+  var b=batches();
+  var cap=60;
+  sheet('Waiting to be reviewed',
+    '<div class="dim" style="font-size:13.5px;margin-bottom:16px">'
+    +list.length+' record'+(list.length===1?'':'s')+' came in from a register and have not '
+    +'been looked at. They sit in Materials and Vendors like any other, and this list is '
+    +'only a way of finding them again.</div>'
+    +'<div class="panel"><div class="panel-b">'
+    +Object.keys(b).map(function(t){
+      return '<div class="line"><span class="tag t-na">'+b[t]+'</span>'
+        +'<div class="line-m">'+esc(t)+'</div>'
+        +'<button class="btn btn-s btn-d" onclick="regUndo(\''+attr(t)+'\')">Take this upload back</button>'
+        +'</div>';}).join('')
+    +'</div></div>'
+    +'<div class="sec">The records</div><div class="panel"><div class="panel-b">'
+    +list.slice(0,cap).map(function(x){
+      return '<div class="line row-a" onclick="closeSheet();jump(\''+(x.k==='mat'?'mat':'mfr')
+        +'\','+x.r.id+')">'
+        +'<span class="tag t-'+(x.k==='mat'?'na':'wait')+'" style="min-width:64px;text-align:center">'
+        +(x.k==='mat'?'material':'vendor')+'</span>'
+        +'<div class="line-m"><div>'+esc(x.r.name||'(no name)')+'</div>'
+        +'<div class="dim" style="font-size:12.5px;margin-top:2px">'
+        +esc([x.r.cat,x.r.disc,x.r.ref].filter(Boolean).join(' · '))+'</div></div>'
+        +'<button class="btn-q" onclick="event.stopPropagation();regDone('+x.r.id+')">Reviewed</button>'
+        +'</div>';}).join('')
+    +(list.length>cap?('<div class="dim" style="font-size:13px;padding-top:10px">and '
+      +(list.length-cap)+' more</div>'):'')
+    +'</div></div>'
+    +'<div class="f-act" style="margin-top:20px">'
+    +'<button class="btn" onclick="regDoneAll()">Mark all '+list.length+' reviewed</button>'
+    +'<button class="btn-q" onclick="closeSheet()">Close</button></div>');
+};
+window.regDone=function(id){
+  (DB.mats||[]).concat(DB.mfrs||[]).forEach(function(r){
+    if(String(r.id)===String(id)){delete r.review;}
+  });
+  touch();rList();regReview();
+};
+window.regDoneAll=function(){
+  pending().forEach(function(x){delete x.r.review;});
+  touch();rList();rPane();closeSheet();toast('All marked reviewed');
+};
+window.regUndo=function(tag){
+  var n=pending().filter(function(x){return (x.r.reg||'(unknown upload)')===tag;}).length;
+  sheet('Take back '+n+' record'+(n===1?'':'s')+'?',
+    '<div style="font-size:14px;line-height:1.75">Everything that came in from '
+    +'<b>'+esc(tag)+'</b> and has not yet been reviewed will be deleted. Anything you '
+    +'have already marked reviewed stays, and nothing that was in the file before the '
+    +'upload is touched.</div>'
+    +'<div class="f-act" style="margin-top:20px">'
+    +'<button class="btn btn-d" onclick="regUndoYes(\''+attr(tag)+'\')">Delete them</button>'
+    +'<button class="btn-q" onclick="regReview()">Keep them</button></div>');
+};
+window.regUndoYes=function(tag){
+  function drop(r){return r.review&&(r.reg||'(unknown upload)')===tag;}
+  var before=(DB.mats||[]).length+(DB.mfrs||[]).length;
+  DB.mats=(DB.mats||[]).filter(function(m){return !drop(m);});
+  DB.mfrs=(DB.mfrs||[]).filter(function(v){return !drop(v);});
+  var gone=before-(DB.mats.length+DB.mfrs.length);
+  if(SEL.mat&&!mat(SEL.mat))SEL.mat=DB.mats.length?DB.mats[0].id:null;
+  if(SEL.mfr&&!mfr(SEL.mfr))SEL.mfr=DB.mfrs.length?DB.mfrs[0].id:null;
+  touch();rList();rPane();closeSheet();
+  toast(gone+' record'+(gone===1?'':'s')+' taken back');
 };
 
 /* ---------------------------------------------------------------
@@ -1351,6 +1579,7 @@ function install(){
      +'is shown and left alone.</div>'
      +'<div class="f-act" style="margin-top:14px">'
      +'<button class="btn btn-p" onclick="regPick()">Upload the register</button>'
+     +'<button class="btn" onclick="regReview()">Waiting to be reviewed</button>'
      +'</div></div></div>');
   };
   window.showMenu.__xl=true;
@@ -1359,5 +1588,5 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 else install();
 
 /* handy from the console, and for anything built on top later */
-window.EXCEL={cols:COLS,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:logRows,summary:summaryRows,book:workbook};
+window.EXCEL={cols:COLS,createFromRegister:createFromRegister,pending:pending,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:logRows,summary:summaryRows,book:workbook};
 })();
