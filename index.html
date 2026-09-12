@@ -692,13 +692,31 @@ function snapshot(){
    this tab last read them. Two people on different materials never
    collide; two people on the same one would otherwise have the second
    save quietly erase the first, and a warning is cheap next to that. */
+/* A hundred records fit in one request and two thousand do not: the
+   ids of a bulk import overflow the query string, and their contents
+   overflow the body. So every call that carries a list is cut into
+   lengths the database will actually accept. Without this a large
+   import appears to work, fails on the way out, and is gone at the
+   next reload — which is the worst way for a thing to break. */
+var BATCH=150;
+function chunks(a,n){
+  var out=[];
+  for(var i=0;i<a.length;i+=(n||BATCH))out.push(a.slice(i,i+(n||BATCH)));
+  return out;
+}
 async function conflicts(c,changed){
   var hits=[];
   for(var key in changed){
     var ids=changed[key];
     if(!ids.length)continue;
-    var r=await c.from(TABLES[key]).select('id,updated_at,updated_by').in('id',ids);
-    if(r.error)throw r.error;
+    var rowsBack=[];
+    var parts=chunks(ids);
+    for(var pi=0;pi<parts.length;pi++){
+      var r=await c.from(TABLES[key]).select('id,updated_at,updated_by').in('id',parts[pi]);
+      if(r.error)throw r.error;
+      rowsBack=rowsBack.concat(r.data||[]);
+    }
+    var r={data:rowsBack,error:null};
     (r.data||[]).forEach(function(row){
       var mine=(STAMPS[key]||{})[row.id];
       if(!mine)return;                                   /* new row of ours */
@@ -753,12 +771,22 @@ window.save=async function(force){
     for(var key3 in TABLES){
       var table=TABLES[key3];
       if(plan[key3].length){
-        var r2=await c.from(table).upsert(plan[key3].map(function(o){return {id:o.id,data:o};}),{onConflict:'id'});
-        if(r2.error)throw r2.error;
+        var up=chunks(plan[key3]);
+        for(var ui=0;ui<up.length;ui++){
+          if(up.length>1)busy(true,'Saving '+Math.min((ui+1)*BATCH,plan[key3].length)
+            +' of '+plan[key3].length);
+          var r2=await c.from(table).upsert(up[ui].map(function(o){return {id:o.id,data:o};}),
+            {onConflict:'id'});
+          if(r2.error)throw r2.error;
+        }
+        if(up.length>1)busy(false);
       }
       if(dels[key3].length){
-        var d=await c.from(table).delete().in('id',dels[key3].map(Number));
-        if(d.error)throw d.error;
+        var dparts=chunks(dels[key3].map(Number));
+        for(var di=0;di<dparts.length;di++){
+          var d=await c.from(table).delete().in('id',dparts[di]);
+          if(d.error)throw d.error;
+        }
         dels[key3].forEach(function(id){if(STAMPS[key3])delete STAMPS[key3][id];});
       }
     }
@@ -770,17 +798,32 @@ window.save=async function(force){
     if(any){
       for(var key4 in TABLES){
         if(!plan[key4].length)continue;
-        var fresh=await c.from(TABLES[key4]).select('id,updated_at,updated_by')
-          .in('id',plan[key4].map(function(o){return o.id;}));
-        if(!fresh.error)(fresh.data||[]).forEach(function(row){
-          STAMPS[key4]=STAMPS[key4]||{};
-          STAMPS[key4][row.id]={at:row.updated_at,by:row.updated_by};
-        });
+        var fparts=chunks(plan[key4].map(function(o){return o.id;}));
+        for(var fi=0;fi<fparts.length;fi++){
+          var fresh=await c.from(TABLES[key4]).select('id,updated_at,updated_by').in('id',fparts[fi]);
+          if(!fresh.error)(fresh.data||[]).forEach(function(row){
+            STAMPS[key4]=STAMPS[key4]||{};
+            STAMPS[key4][row.id]={at:row.updated_at,by:row.updated_by};
+          });
+        }
       }
     }
     snapshot();DIRTY=false;SAVED=new Date();stamp();
   }catch(e){
-    toast('Could not save — '+niceError(e));
+    busy(false);
+    /* A toast disappears. Work that never reached the database and is
+       about to be reloaded away deserves more than four seconds of
+       notice, so this one stays until it is read. */
+    sheet('Not saved',
+      '<div style="font-size:14px;line-height:1.75">'
+      +esc(niceError(e))
+      +'<br><br>Nothing was lost yet — it is still on this screen — but it is not in the '
+      +'database, and reloading the page now would lose it. Try again, and if it keeps '
+      +'failing, use <b>More \u2192 Download a backup</b> before you close this tab.</div>'
+      +'<div class="f-act" style="margin-top:20px">'
+      +'<button class="btn btn-p" onclick="closeSheet();save()">Try again</button>'
+      +'<button class="btn" onclick="closeSheet();backup()">Download a backup</button>'
+      +'<button class="btn-q" onclick="closeSheet()">Later</button></div>');
   }
   SYNCING=false;
   if(PENDING){PENDING=false;save();}
