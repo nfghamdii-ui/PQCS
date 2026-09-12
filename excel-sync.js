@@ -480,6 +480,25 @@ function idOf(raw){
   return n?('mat:'+K(n)):('name:'+K(raw['Item Description']));
 }
 
+/* Identifiers have to be unique or the database rejects the whole batch,
+   and the page's own uid() is the millisecond plus a random number —
+   which collides the moment a hundred records are made inside the same
+   millisecond. Two thousand of them collide as good as certainly. So a
+   run gets a counter of its own that knows what is already taken and
+   never repeats. */
+function idMaker(){
+  var used={};
+  ['mats','mfrs','people','events'].forEach(function(k){
+    (DB[k]||[]).forEach(function(o){used[String(o.id)]=1;});
+  });
+  var n=Date.now()*1000;
+  return function(){
+    while(used[String(n)])n++;
+    used[String(n)]=1;
+    return n++;
+  };
+}
+
 /* the vendor a row points at, made once and shared afterwards */
 /* The vendor is whoever made the material. The subcontractor column
    holds the trade doing the installation — FIRST FIX against half the
@@ -493,7 +512,7 @@ function vendorFor(raw,made){
   if(!name||name==='-')return null;
   var found=(DB.mfrs||[]).filter(function(v){return K(v.name)===K(name);})[0];
   if(!found){
-    found={id:uid()+(made.n++),name:name,kind:'maker',
+    found={id:made.id(),name:name,kind:'maker',
       cat:normCat(raw['Material Category']),country:trim(raw['Country of Origin of Manufacture'])||'',
       site:'',scope:trim(raw['Discipline'])||'',steps:{},pq:{},added:today()};
     DB.mfrs.push(found);made.vendors.push(found.name);
@@ -545,7 +564,7 @@ function applyRaw(m,raw,made){
   if(mir&&mir!=='-'){
     m.dels=m.dels||[];
     var seen=m.dels.filter(function(d){return K(d.ref)===K(mir);})[0];
-    var rec={id:seen?seen.id:(uid()+(made.n++)),qty:raw['Delivered No']!=null?String(raw['Delivered No']):'',
+    var rec={id:seen?seen.id:(made.id()),qty:raw['Delivered No']!=null?String(raw['Delivered No']):'',
       date:anyDate(raw['MIR Approval Date'])||today(),ref:mir,
       status:normStatus(raw['MIR Status'])==='Approved'?'Received':(normStatus(raw['MIR Status'])||'Pending'),
       note:'from the Main Log'};
@@ -631,9 +650,9 @@ function planFrom(rows){
   return out;
 }
 function applyPlan(p,dropGone){
-  var made={n:1,vendors:[]};
+  var made={n:1,vendors:[],id:idMaker()};
   p.add.forEach(function(a){
-    var m={id:uid()+(made.n++),name:'',cat:'',ref:'',mfr:'',qty:'',unit:'',
+    var m={id:made.id(),name:'',cat:'',ref:'',mfr:'',qty:'',unit:'',
       steps:{},dels:[],ncrs:[],added:today()};
     applyRaw(m,a.raw,made);
     DB.mats.push(m);
@@ -1413,13 +1432,13 @@ function rawFromDoc(d){
 }
 
 function createFromRegister(p,tag){
-  var made={n:1,vendors:[]},mats=0,vends=0;
+  var made={n:1,vendors:[],id:idMaker()},mats=0,vends=0;
   var all=p.newC23.concat(p.newPlain,p.newC01);
   all.forEach(function(d){
     if(K(d.type)==='pre-qualification'){
       var name=companyOf(d.title);
       var twin=(DB.mfrs||[]).filter(function(v){return K(v.name)===K(name);})[0];
-      var v=twin||{id:uid()+(made.n++),name:name,kind:kindOfTitle(d.title),cat:d.cat||'',
+      var v=twin||{id:made.id(),name:name,kind:kindOfTitle(d.title),cat:d.cat||'',
         country:'',site:'',scope:'',steps:{},pq:{},added:today()};
       v.scope=v.scope||d.title;
       v.steps=v.steps||{};
@@ -1438,7 +1457,7 @@ function createFromRegister(p,tag){
       if(!twin){v.reg=tag;v.review=1;DB.mfrs.push(v);vends++;}
       return;
     }
-    var m={id:uid()+(made.n++),name:'',cat:'',ref:'',mfr:'',qty:'',unit:'',
+    var m={id:made.id(),name:'',cat:'',ref:'',mfr:'',qty:'',unit:'',
       steps:{},dels:[],ncrs:[],added:today()};
     applyRaw(m,rawFromDoc(d),made);
     m.reg=tag;m.review=1;
