@@ -88,6 +88,9 @@ var OWNED=['Item Description','Material Category','Discipline','Sub-contractor N
    --------------------------------------------------------------- */
 function pad2(n){return ('0'+n).slice(-2);}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+/* the host page has one of these too, but a module that borrows a
+   global it did not define breaks quietly the day the global moves */
+function attr(s){return String(s==null?'':s).replace(/"/g,'&quot;');}
 function xml(s){return String(s==null?'':s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
   .replace(/"/g,'&quot;').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');}
@@ -1001,6 +1004,14 @@ function verdictOf(s){
   return '';                       /* Closed, Reviewed: a step, not a verdict */
 }
 
+function delMeans(s){
+  var k=K(s);
+  if(k==='received')return 'Approved';
+  if(k==='approved with comments')return 'Approved as Noted';
+  if(k==='pending')return 'Under Review';
+  return s;
+}
+
 /* where a reference lives decides where its outcome is written. The
    column the tracker actually holds it in is more reliable than the
    type the register gives it, because a transmittal number sitting in
@@ -1037,11 +1048,25 @@ function trim(s){return String(s==null?'':s).replace(/\u00a0/g,' ').trim();}
 function refIndex(){
   var idx={};
   (DB.mats||[]).forEach(function(m){
+    var here={};
     REF_FIELDS.forEach(function(c){
       var all=splitRefs((m.raw||{})[c]);
       all.forEach(function(ref){
+        here[K(ref)]=1;
         (idx[K(ref)]=idx[K(ref)]||[]).push({m:m,col:c,shared:all.length});
       });
+    });
+    /* An inspection request moved onto the material it belongs to lives
+       in a consignment, not in a column, and would otherwise look new on
+       every upload for ever. But while it is still in a column as well,
+       the column is its home — indexing both would have one reference
+       answering twice and disagreeing with itself. */
+    (m.dels||[]).forEach(function(d){
+      if(d.ref&&!here[K(d.ref)])
+        (idx[K(d.ref)]=idx[K(d.ref)]||[]).push({m:m,col:'MIR Number',shared:1,del:d});
+    });
+    (m.ncrs||[]).forEach(function(n){
+      if(n.no)(idx[K(n.no)]=idx[K(n.no)]||[]).push({m:m,col:'',shared:1,ncr:n});
     });
   });
   (DB.mfrs||[]).forEach(function(v){
@@ -1128,7 +1153,8 @@ function planRegister(reg){
     hits.forEach(function(h){
       var where=STATUS_OF[h.col];
       var rec=h.m||h.v;
-      var now=h.m?trim((h.m.raw||{})[where?where.s:''])
+      var now=h.del?trim(h.del.status)
+             :h.m?trim((h.m.raw||{})[where?where.s:''])
                  :trim(h.second?(((h.v.pq2||[]).filter(function(x){
                      return K(x.ref)===K(d.no);})[0]||{}).status)
                    :(((h.v.steps||{}).pqd||{}).status));
@@ -1139,7 +1165,11 @@ function planRegister(reg){
          the register writes B - Approved with Comments. Comparing the
          words themselves would report every document as moved, and
          would report it again after it had been set. */
-      if(want!=='Terminated'&&normStatus(now)===normStatus(want)){p.same.push(item);return;}
+      /* A consignment says Received where a column says Approved. Both
+         mean the material arrived and was accepted, so the comparison is
+         made on the meaning rather than on either word. */
+      var mine=h.del?delMeans(now):now;
+      if(want!=='Terminated'&&normStatus(mine)===normStatus(want)){p.same.push(item);return;}
       if(want==='Terminated'&&K(now)==='terminated'){p.same.push(item);return;}
       /* a cell holding four references cannot be given one status */
       if(h.shared>1){p.locked.push(item);return;}
@@ -1169,6 +1199,12 @@ function applyRegister(p,alsoEnded){
       pq.status=it.want==='Approved as Noted'?'Approved with comments':it.want;
       if(d.date)pq.date=d.date;
       it.h.v.steps.pqd=pq;n++;return;
+    }
+    if(it.h.del){                                 /* it lives in a consignment */
+      it.h.del.status=(it.want==='Approved as Noted')?'Approved with comments'
+        :(it.want==='Approved')?'Received':it.want;
+      if(d.date)it.h.del.date=d.date;
+      n++;return;
     }
     var m=it.h.m;
     m.raw=m.raw||{};
@@ -1287,7 +1323,9 @@ function showRegister(){
 
   var fresh=p.newC23.length+p.newPlain.length+p.newC01.length;
   body+='<div class="f-act" style="margin-top:22px">'
-   +(p.moved.length?('<button class="btn btn-p" onclick="regApply(false)">Apply the '
+   +((p.moved.length||fresh)?('<button class="btn btn-p" onclick="regAll()">Do it all — '
+      +p.moved.length+' updated, '+fresh+' brought in</button>'):'')
+   +(p.moved.length?('<button class="btn" onclick="regApply(false)">Only the '
       +p.moved.length+' that moved</button>'):'')
    +(p.ended.length?('<button class="btn" onclick="regApply(true)">Apply those and mark the '
       +p.ended.length+' terminated</button>'):'')
@@ -1315,6 +1353,43 @@ window.regApply=function(alsoEnded){
   closeSheet();
   toast(n+' document'+(n===1?'':'s')+' brought up to date');
   REG=null;
+};
+/* The morning, in one press: the outcomes that moved are written, the
+   terminated ones are marked, and everything the file has never seen is
+   brought in for review. The separate buttons stay for the times when
+   only half of that is wanted. */
+window.regAll=function(){
+  if(!REG)return;
+  var p=REG;
+  var moved=p.moved.length+p.ended.length;
+  var fresh=p.newC23.length+p.newPlain.length+p.newC01.length;
+  sheet('Do it all',
+    '<div style="font-size:14px;line-height:1.8">This will, in order:'
+    +'<br><br><b>1.</b> Update '+p.moved.length+' document'+(p.moved.length===1?'':'s')
+    +' whose outcome moved'
+    +(p.ended.length?(', and mark '+p.ended.length+' terminated'):'')+'.'
+    +'<br><b>2.</b> Bring in '+fresh+' new record'+(fresh===1?'':'s')+', every one marked '
+    +'unreviewed so it can be told from what was already here.'
+    +'<br><br>The whole intake can be taken back afterwards from '
+    +'<b>More \u2192 Waiting to be reviewed</b>, as long as you have not marked it reviewed. '
+    +'Saving '+fresh+' records takes a moment; the percentage beside the project name says '
+    +'how far it has got.</div>'
+    +'<div class="f-act" style="margin-top:22px">'
+    +'<button class="btn btn-p" onclick="regAllYes()">Go ahead</button>'
+    +'<button class="btn" onclick="regCSV()">Export the list first</button>'
+    +'<button class="btn-q" onclick="showRegister()">Back</button></div>');
+};
+window.regAllYes=function(){
+  if(!REG)return;
+  var p=REG;
+  var n=applyRegister(p,true);
+  var tag=(REG.file||'a register')+' \u00b7 '+new Date().toLocaleString('en-GB',
+    {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  var made=createFromRegister(p,tag);
+  closeSheet();
+  toast(n+' updated, '+made.mats+' materials and '+made.vendors+' vendors brought in');
+  REG=null;
+  setTimeout(regReview,600);
 };
 window.regAddAll=function(){
   if(!REG)return;
@@ -1410,6 +1485,29 @@ function kindOfTitle(t){
 }
 
 /* a raw row of the Main Log, built from one line of the register */
+/* What a reference is, read off the reference itself. The register has
+   a Type column, but a record can also arrive from the Main Log where
+   there is no such column — and the three letters in the middle of an
+   Aconex number say it either way. */
+function docKind(ref,type){
+  var t=K(type);
+  if(t==='material submittal')return '';
+  if(t==='pre-qualification')return 'PQD';
+  if(t==='method statement')return 'MES';
+  if(t==='inspection & test plan')return 'ITP';
+  if(t==='material inspection request')return 'MIR';
+  var r=String(ref||'').toUpperCase();
+  if(/-MES-/.test(r))return 'MES';
+  if(/-ITP-/.test(r))return 'ITP';
+  if(/-MIR-/.test(r))return 'MIR';
+  if(/-WIR-/.test(r))return 'WIR';
+  if(/-TRN-/.test(r))return 'PID';
+  if(/-PRQ-/.test(r))return 'PQD';
+  if(/-REP-|-RPT-/.test(r))return 'Report';
+  if(/-PRO-/.test(r))return 'Procedure';
+  return '';
+}
+
 function rawFromDoc(d){
   var raw={};
   raw['Item Description']=d.title||d.no;
@@ -1461,11 +1559,34 @@ function createFromRegister(p,tag){
       steps:{},dels:[],ncrs:[],added:today()};
     applyRaw(m,rawFromDoc(d),made);
     m.reg=tag;m.review=1;
+    var kind=docKind(d.no,d.type);
+    if(kind)m.doc=kind;          /* a document, not a material of its own */
     DB.mats.push(m);mats++;
   });
   touch();rList();rPane();
   return {mats:mats,vendors:vends};
 }
+
+/* Records brought in before this existed carry no label, so one is
+   worked out from the reference they hold. Run once, it costs nothing
+   and it is what the Documents tab reads. */
+function labelDocuments(){
+  var n=0;
+  (DB.mats||[]).forEach(function(m){
+    if(m.doc!=null)return;
+    var ref=m.ref||'';
+    if(!ref)REF_FIELDS.some(function(c){
+      var v=splitRefs((m.raw||{})[c])[0];
+      if(v){ref=v;return true;}
+      return false;
+    });
+    var kind=docKind(ref,'');
+    if(kind){m.doc=kind;n++;}
+  });
+  if(n)touch();
+  return n;
+}
+window.labelDocuments=labelDocuments;
 
 /* ---------------------------------------------------------------
    The review pass. Everything brought in this way is listed here
@@ -1556,6 +1677,236 @@ window.regUndoYes=function(tag){
   toast(gone+' record'+(gone===1?'':'s')+' taken back');
 };
 
+/* ================================================================
+   DOCUMENTS, AND THE MATERIALS THEY SERVE
+   ----------------------------------------------------------------
+   A method statement is not a material. It arrived as one because the
+   register has no column saying which material it belongs to, and
+   guessing was worse than asking. So it keeps its own record and its
+   own tab, and the link is made by hand from the material — which is
+   the thing everything else hangs off.
+
+   One document serves several materials: in this project one
+   inspection plan covers twelve. The link is therefore a list on the
+   material, and a document knows which materials point at it only by
+   being looked for. With a few thousand records that costs nothing,
+   and it keeps the material as the single place a link is edited.
+   ================================================================ */
+
+var DOCVIEW=false;                         /* the Materials tab, showing documents */
+var DOC_KINDS=['MES','ITP','MIR','PID','PQD','WIR','Report','Procedure'];
+
+function isDoc(m){return !!(m&&m.doc);}
+function docsOf(m){
+  var ids=(m&&m.docs)||[];
+  return ids.map(function(id){
+    return (DB.mats||[]).filter(function(x){return String(x.id)===String(id);})[0];
+  }).filter(Boolean);
+}
+function servedBy(doc){
+  return (DB.mats||[]).filter(function(m){
+    return (m.docs||[]).some(function(id){return String(id)===String(doc.id);});
+  });
+}
+
+/* ---------------------------------------------------------------
+   The tab bar moves out of the rail and across the top, because four
+   tabs fitted down the side and seven do not.
+   --------------------------------------------------------------- */
+function liftTabs(){
+  var tabs=document.querySelector('.side .tabs');
+  var main=document.getElementById('pane');
+  var app=document.querySelector('.app');
+  if(!tabs||!main||!app||document.querySelector('.mainwrap'))return;
+
+  var css=document.createElement('style');
+  css.textContent=
+   '.mainwrap{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}'
+  +'.main{flex:1;min-height:0}'
+  +'.topbar{display:flex;gap:2px;padding:8px 14px 0;background:var(--card);'
+  +'border-bottom:1px solid var(--line);flex-shrink:0;flex-wrap:wrap;overflow-x:auto}'
+  +'.topbar .tab{flex:0 0 auto;color:var(--ink-3);border-radius:8px 8px 0 0;min-height:42px;'
+  +'padding:10px 15px;border-bottom:2px solid transparent;background:none}'
+  +'.topbar .tab:hover{background:var(--hover);color:var(--ink)}'
+  +'.topbar .tab[aria-selected=true]{background:none;color:var(--ink);font-weight:550;'
+  +'border-bottom-color:var(--accent)}'
+  +'.topbar .tab .n{color:var(--ink-4);font-family:var(--mono);font-size:11px}'
+  +'@media(max-width:880px){.mainwrap{overflow:visible}.topbar{padding:8px 10px 0}}';
+  document.head.appendChild(css);
+
+  var col=document.createElement('div');
+  col.className='mainwrap';
+  app.insertBefore(col,main);
+  tabs.classList.add('topbar');
+  col.appendChild(tabs);
+  col.appendChild(main);
+
+  /* Documents sits beside Materials, not inside it */
+  var b=document.createElement('button');
+  b.className='tab';b.id='tab-doc';b.setAttribute('role','tab');
+  b.setAttribute('aria-selected','false');
+  b.appendChild(document.createTextNode('Documents '));
+  var cnt=document.createElement('span');
+  cnt.className='n';cnt.id='n-doc';cnt.textContent='0';
+  b.appendChild(cnt);
+  b.onclick=function(){setTab('doc');};
+  var after=document.getElementById('tab-mat');
+  if(after&&after.parentNode===tabs)tabs.insertBefore(b,after.nextSibling);
+  else tabs.appendChild(b);
+}
+
+function paintTabs(){
+  var docs=(DB.mats||[]).filter(isDoc).length;
+  var mats=(DB.mats||[]).length-docs;
+  var a=document.getElementById('n-doc');if(a)a.textContent=docs;
+  var b=document.getElementById('n-mat');if(b)b.textContent=mats;
+  var d=document.getElementById('tab-doc');
+  if(d)d.setAttribute('aria-selected',String(TAB==='mat'&&DOCVIEW));
+  var m=document.getElementById('tab-mat');
+  if(m)m.setAttribute('aria-selected',String(TAB==='mat'&&!DOCVIEW));
+}
+
+/* ---------------------------------------------------------------
+   The two views share the Materials machinery and differ only in
+   which records they are given, so the list is drawn by the page's
+   own code over a filtered set rather than reimplemented here.
+   --------------------------------------------------------------- */
+function withSubset(fn){
+  var all=DB.mats;
+  DB.mats=all.filter(function(m){return DOCVIEW?isDoc(m):!isDoc(m);});
+  try{return fn();}finally{DB.mats=all;}
+}
+
+function install2(){
+  if(window.__docs)return;
+  window.__docs=true;
+  liftTabs();
+
+  var origSetTab=window.setTab;
+  window.setTab=function(t){
+    if(t==='doc'){DOCVIEW=true;origSetTab('mat');}
+    else{DOCVIEW=false;origSetTab(t);}
+    paintTabs();
+  };
+
+  var origList=window.rList;
+  window.rList=function(){
+    if(TAB!=='mat')
+      {origList();paintTabs();return;}
+    withSubset(origList);
+    paintTabs();
+  };
+
+  var origPane=window.rPane;
+  window.rPane=function(){
+    if(TAB!=='mat')return origPane();
+    withSubset(origPane);
+  };
+
+  /* the material's page gains the panel where the linking happens */
+  var origMat=window.matPane;
+  window.matPane=function(m){
+    var html=origMat(m);
+    var i=html.lastIndexOf('</div></div>');
+    if(i<0)return html+linkPanel(m);
+    return html.slice(0,i)+linkPanel(m)+html.slice(i);
+  };
+}
+
+function linkPanel(m){
+  if(isDoc(m)){
+    var on=servedBy(m);
+    return '<div class="sec">The materials this '+esc(m.doc)+' serves</div>'
+      +'<div class="panel"><div class="panel-b">'
+      +(on.length?on.map(function(x){
+          return '<div class="line row-a" onclick="jump(\'mat\','+x.id+')">'
+            +'<span class="tag t-na">'+esc(x.cat||'—')+'</span>'
+            +'<div class="line-m">'+esc(x.name)+'</div></div>';}).join('')
+        :'<span class="dim">Not linked to any material yet. Open the material and link it '
+         +'from there — the material is where a link is made and unmade.</span>')
+      +'</div></div>';
+  }
+  var list=docsOf(m);
+  return '<div class="sec">Documents</div><div class="panel">'
+    +'<div class="panel-h"><div class="panel-t">Linked to this material</div>'
+    +'<button class="btn btn-s no-print" onclick="linkPick('+m.id+')">Link a document</button></div>'
+    +'<div class="panel-b">'
+    +(list.length?list.map(function(d){
+        var st=(d.raw&&d.raw['MAT Status'])||'';
+        return '<div class="line">'
+          +'<span class="tag t-na" style="min-width:54px;text-align:center">'+esc(d.doc)+'</span>'
+          +'<div class="line-m"><div>'+esc(d.name)+'</div>'
+          +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'
+          +esc(refOf(d))+(st?(' · '+esc(st)):'')+'</div></div>'
+          +'<button class="btn-q" onclick="jump(\'mat\','+d.id+')">Open</button>'
+          +'<button class="btn-q" onclick="unlink('+m.id+','+d.id+')">Unlink</button></div>';
+      }).join('')
+      :'<span class="dim">Nothing linked yet. A method statement or an inspection plan that '
+      +'belongs to this material is attached here, and one document can serve many materials.</span>')
+    +'</div></div>';
+}
+function refOf(d){
+  if(d.ref)return d.ref;
+  var out='';
+  REF_FIELDS.some(function(c){
+    var v=splitRefs((d.raw||{})[c])[0];
+    if(v){out=v;return true;}
+    return false;
+  });
+  return out;
+}
+
+window.unlink=function(matId,docId){
+  var m=mat(matId);if(!m)return;
+  m.docs=(m.docs||[]).filter(function(x){return String(x)!==String(docId);});
+  touch();rPane();
+};
+window.linkPick=function(matId,q){
+  var m=mat(matId);if(!m)return;
+  var has={};(m.docs||[]).forEach(function(id){has[String(id)]=1;});
+  var need=K(q||'');
+  var all=(DB.mats||[]).filter(isDoc);
+  var rows=all.filter(function(d){
+    if(has[String(d.id)])return false;
+    if(!need)return K(d.disc||'')===K(m.disc||'');   /* start with its own trade */
+    return K(d.name+' '+refOf(d)+' '+(d.doc||'')).indexOf(need)>=0;
+  });
+  sheet('Link a document to '+m.name,
+     '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'
+    +(need?('Searching all '+all.length+' documents.')
+          :('Showing the '+rows.length+' in '+esc(m.disc||'no discipline')
+            +' — search to see the other '+(all.length-rows.length)+'.'))
+    +' A document can serve many materials; linking it here does not take it from anywhere else.'
+    +'</div>'
+    +'<div class="f" style="margin-bottom:14px"><label for="lk">Search by number, title or kind</label>'
+    +'<input id="lk" value="'+attr(q||'')+'" autocomplete="off" '
+    +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();linkPick('+matId+',this.value);}">'
+    +'<span class="dim" style="font-size:12px">Press Enter to search</span></div>'
+    +'<div class="panel"><div class="panel-b">'
+    +(rows.length?rows.slice(0,60).map(function(d){
+        return '<div class="line row-a" onclick="linkAdd('+matId+','+d.id+')">'
+          +'<span class="tag t-na" style="min-width:54px;text-align:center">'+esc(d.doc)+'</span>'
+          +'<div class="line-m"><div>'+esc(d.name)+'</div>'
+          +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'+esc(refOf(d))+'</div></div>'
+          +'</div>';}).join('')
+        +(rows.length>60?('<div class="dim" style="font-size:13px;padding-top:10px">and '
+          +(rows.length-60)+' more — narrow the search</div>'):'')
+      :'<span class="dim">Nothing matches.</span>')
+    +'</div></div>');
+  var f=document.getElementById('lk');
+  if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
+};
+window.linkAdd=function(matId,docId){
+  var m=mat(matId);if(!m)return;
+  m.docs=m.docs||[];
+  if(m.docs.indexOf(docId)<0&&!m.docs.some(function(x){return String(x)===String(docId);}))
+    m.docs.push(docId);
+  touch();closeSheet();rPane();
+  var d=mat(docId);
+  toast('Linked '+(d?d.doc:'the document')+' — it still serves '
+    +(d?servedBy(d).length:1)+' material'+((d&&servedBy(d).length!==1)?'s':''));
+};
+
 /* ---------------------------------------------------------------
    10. WHERE THE BUTTONS LIVE
    The page's own menu is left as it is and added to, so this file
@@ -1603,9 +1954,19 @@ function install(){
   };
   window.showMenu.__xl=true;
 }
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);
-else install();
+function start(){
+  install();
+  install2();
+  /* records that came in before the Documents tab existed carry no
+     label; one is worked out from the reference each of them holds */
+  try{
+    var n=labelDocuments();
+    if(n){rList();rPane();}
+  }catch(e){}
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);
+else start();
 
 /* handy from the console, and for anything built on top later */
-window.EXCEL={cols:COLS,createFromRegister:createFromRegister,pending:pending,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:logRows,summary:summaryRows,book:workbook};
+window.EXCEL={cols:COLS,isDoc:isDoc,docsOf:docsOf,servedBy:servedBy,labelDocuments:labelDocuments,createFromRegister:createFromRegister,pending:pending,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:logRows,summary:summaryRows,book:workbook};
 })();

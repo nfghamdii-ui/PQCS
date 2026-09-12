@@ -655,16 +655,35 @@ window.signOut=async function(){
 /* the moment each row was last written, so a save can tell whether
    somebody else has touched it since this tab last looked */
 var STAMPS={};
+/* The database answers a plain select with a thousand rows and says
+   nothing about the rest. Everything past the first thousand simply is
+   not there — and because a save compares what is in memory against
+   what is in the database, the missing rows look deleted and the next
+   save deletes them. So a table is read a page at a time until a short
+   page says the end has been reached. */
+var PAGE=1000;
+async function readAll(c,table,cols){
+  var out=[],from=0;
+  for(var guard=0;guard<200;guard++){
+    var r=await c.from(table).select(cols).range(from,from+PAGE-1);
+    if(r.error)throw r.error;
+    var got=r.data||[];
+    out=out.concat(got);
+    if(got.length<PAGE)break;
+    from+=PAGE;
+    busy(true,'Loading — '+out.length+' records');
+  }
+  return out;
+}
 async function loadAll(){
   busy(true,'Loading your records');
   try{
     var c=client(), out=blank();
     STAMPS={};
     for(var key in TABLES){
-      var r=await c.from(TABLES[key]).select('id,data,updated_at,updated_by');
-      if(r.error)throw r.error;
+      var rows=await readAll(c,TABLES[key],'id,data,updated_at,updated_by');
       STAMPS[key]={};
-      out[key]=(r.data||[]).map(function(row){
+      out[key]=rows.map(function(row){
         STAMPS[key][row.id]={at:row.updated_at,by:row.updated_by};
         var o=row.data||{};o.id=Number(row.id);return o;});
     }
@@ -773,13 +792,12 @@ window.save=async function(force){
       if(plan[key3].length){
         var up=chunks(plan[key3]);
         for(var ui=0;ui<up.length;ui++){
-          if(up.length>1)busy(true,'Saving '+Math.min((ui+1)*BATCH,plan[key3].length)
-            +' of '+plan[key3].length);
+          progress(Math.min(ui*BATCH,plan[key3].length),plan[key3].length);
           var r2=await c.from(table).upsert(up[ui].map(function(o){return {id:o.id,data:o};}),
             {onConflict:'id'});
           if(r2.error)throw r2.error;
         }
-        if(up.length>1)busy(false);
+        progress(plan[key3].length,plan[key3].length);
       }
       if(dels[key3].length){
         var dparts=chunks(dels[key3].map(Number));
@@ -808,9 +826,9 @@ window.save=async function(force){
         }
       }
     }
-    snapshot();DIRTY=false;SAVED=new Date();stamp();
+    snapshot();DIRTY=false;SAVED=new Date();PROG=null;stamp();
   }catch(e){
-    busy(false);
+    PROG=null;busy(false);
     /* A toast disappears. Work that never reached the database and is
        about to be reloaded away deserves more than four seconds of
        notice, so this one stays until it is read. */
@@ -842,9 +860,20 @@ function touch(){
   clearTimeout(timer);
   timer=setTimeout(function(){if(SYNCING)PENDING=true;else save();},1200);
 }
+/* "saving…" for a minute tells you nothing about whether it is working
+   or stuck. A count of what has gone in tells you both. */
+var PROG=null;
+function progress(done,total){
+  PROG=(total&&total>PAGE/5)?{d:done,t:total}:null;
+  stamp();
+}
 function stamp(){
   var e=document.getElementById('saved');if(!e)return;
-  if(SYNCING||DIRTY){e.className='brand-s dirty';e.textContent='saving…';return;}
+  if(SYNCING||DIRTY){
+    e.className='brand-s dirty';
+    e.textContent=PROG?('saving… '+Math.round(PROG.d/PROG.t*100)+'%  ('+PROG.d+' of '+PROG.t+')')
+      :'saving…';
+    return;}
   e.className='brand-s';
   e.textContent=SAVED?('saved '+SAVED.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})):'';
 }
@@ -860,10 +889,9 @@ window.refresh=async function(quiet){
     var c=client(), out=blank();
     STAMPS={};
     for(var key in TABLES){
-      var r=await c.from(TABLES[key]).select('id,data,updated_at,updated_by');
-      if(r.error)throw r.error;
+      var rows=await readAll(c,TABLES[key],'id,data,updated_at,updated_by');
       STAMPS[key]={};
-      out[key]=(r.data||[]).map(function(row){
+      out[key]=rows.map(function(row){
         STAMPS[key][row.id]={at:row.updated_at,by:row.updated_by};
         var o=row.data||{};o.id=Number(row.id);return o;});
     }
