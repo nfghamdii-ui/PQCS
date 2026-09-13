@@ -1502,23 +1502,40 @@ var NEW_AS={
    name and the record is marked for review rather than trusted. */
 function companyOf(title){
   var t=' '+String(title||'').replace(/\s+/g,' ').trim()+' ';
+  /* the words that introduce a title rather than belong to it. The
+     spelling of "prequalification" varies — Prequalificatoin is in this
+     register — so the stem is matched rather than the word. */
   t=t.replace(/^\s*P4\s*-?\s*/i,' ')
-     .replace(/\bmakkah\b/i,' ')
-     .replace(/\b(pre[- ]?qualification|prequalification|PRQ)\b/ig,' ')
-     .replace(/\bfor\b/i,' ')
+     .replace(/\bmakkah\b/ig,' ')
+     .replace(/\bpre[- ]?qualificat\w*\b/ig,' ')
+     .replace(/\bprequalificat\w*\b/ig,' ')
+     .replace(/\bPRQ\b/ig,' ')
+     .replace(/\bsubmittal\b/ig,' ')
+     .replace(/^[\s\-–:]*\bfor\b/i,' ')
      .replace(/\b(supplier|sub[- ]?contractor|subcontractor|manufacturer|vendor)\b\s*[-:]?/ig,' ')
      .replace(/^[\s\-:–,]+/,'');
-  /* the name runs until the work it is qualified for starts */
+
+  /* A name ends where the work begins. These are the words this project
+     uses to start describing scope, and none of them has ever been part
+     of a company's name here. */
+  var scope=new RegExp('\\s(?:supply|supplies|supplying|subcontractor|installation|'
+    +'install|works|work\\b|for\\s+[a-z]|category|all zones|provisional|lump sum|'
+    +'prime cost)','i');
+
   var cut=t.split(/\s[-–]\s|\s*[-–]\s|\(|,|\u2013/)[0];
-  /* the stripping above leaves the punctuation that held the removed
-     words together — "- - -Sodamco" was the result for a real title */
-  /* these never belong to a company's name, and they end it */
-  cut=cut.split(/\b(?:category|all zones|rev\.?\s*\d|material\b)/i)[0];
+  var m=scope.exec(cut);
+  if(m&&m.index>2)cut=cut.slice(0,m.index);
+  cut=cut.split(/\b(?:category|all zones|rev\.?\s*\d)/i)[0];
+  /* "Al Namlah factory. Supply for…" ends at the full stop, but "A. R."
+     does not — a stop only ends it when a space and a capital follow and
+     the word before it is longer than an initial. */
+  cut=cut.replace(/([A-Za-z]{3,})\.\s+[A-Z].*$/,'$1');
   cut=trim(cut).replace(/^[\s\-–:.,]+/,'').replace(/[\s\-–:.,]+$/,'')
        .replace(/\s{2,}/g,' ');
   if(cut.length<3||cut.length>60)cut=trim(t).slice(0,60);
   return cut||'(name not in the title)';
 }
+
 function kindOfTitle(t){
   var k=K(t);
   if(/sub[- ]?contractor/.test(k))return 'sub';
@@ -1995,7 +2012,7 @@ function install2(){
   /* the vendor's page gains the one about who brought them */
   var origMfr=window.mfrPane;
   window.mfrPane=function(v){
-    var html=nameable(origMfr(v),'mfr',v.id);
+    var html=refChip(nameable(origMfr(v),'mfr',v.id),v);
     var i=html.lastIndexOf('</div></div>');
     if(i<0)return html+broughtPanel(v);
     return html.slice(0,i)+broughtPanel(v)+html.slice(i);
@@ -2224,6 +2241,28 @@ window.createSubFor=function(id){
   if(!twin)DB.mfrs.push(s);
   setBroughtBy(id,s.id);
 };
+
+/* The chip that carries the scope showed the whole Aconex title, which
+   for a pre-qualification is a paragraph — and sitting where a chip
+   normally holds a reference, it read as one. The reference goes where
+   the eye looks for it, and the title is cut to a chip's worth with the
+   rest on hover. */
+function refChip(html,v){
+  var st=v.steps||{};
+  var ref=(st.pqd&&st.pqd.ref)||(st.appr&&st.appr.ref)||'';
+  var i=html.indexOf('<div class="head-m">');
+  if(i>=0&&ref){
+    var chip='<span class="chip flat" title="'+attr(ref)+'">'
+      +'<span class="mono">'+esc(ref.length>44?(ref.slice(0,42)+'…'):ref)+'</span></span>';
+    html=html.slice(0,i+20)+chip+html.slice(i+20);
+  }
+  /* the scope chip, shortened in place */
+  html=html.replace(/(onclick="editText\(event,'scope','Scope of work'\)">)([^<]{46,})(<)/,
+    function(all,open,text,close){
+      return open+esc(trim(text).slice(0,44))+'…'+close;
+    });
+  return html;
+}
 
 function broughtPanel(v){
   var mine=brought(v);
