@@ -1437,6 +1437,29 @@ function drawFilters(rows){
 }
 window.setFilter=function(b){FILTER[TAB]=b;rList();};
 
+/* The search box looked at three fields: the name, the one loose
+   reference, and the vendor. Every other number a record holds — the
+   inspection plan, the method statement, the inspection request, the
+   number on a consignment — sat in a column it never opened, so typing
+   an Aconex reference found nothing and returned the whole list. */
+function matHay(m){
+  var v=mfrOf(m), parts=[m.name,m.ref,m.disc,m.sub,m.cat,v?v.name:''];
+  var raw=m.raw||{};
+  for(var c in raw)if(/Number|Results|Document No/i.test(c))parts.push(raw[c]);
+  (m.dels||[]).forEach(function(d){parts.push(d.ref);});
+  (m.ncrs||[]).forEach(function(n){parts.push(n.no);});
+  return key(parts.join(' '));
+}
+function mfrHay(v){
+  var st=v.steps||{}, parts=[v.name,v.country,v.site,v.scope,v.cat,v.by,
+    KINDS[kindOf(v)].l];
+  ['pqd','iso','pa','qms','origin','appr','scope'].forEach(function(k){
+    var d=st[k];if(d){parts.push(d.ref);parts.push(d.by);}
+  });
+  (v.pq2||[]).forEach(function(x){parts.push(x.ref);});
+  return key(parts.join(' '));
+}
+
 window.rList=function(){
   counts();
   if(TAB==='home'||TAB==='cal'){var fe=document.getElementById('filters');if(fe)fe.innerHTML='';return;}
@@ -1461,8 +1484,7 @@ window.rList=function(){
   var el=document.getElementById('list'), sel=SEL[TAB];
   if(TAB==='mat'){
     var all=(DB.mats||[]).filter(function(m){
-      var v=mfrOf(m);
-      return !q||key([m.name,m.ref,v?v.name:''].join(' ')).indexOf(q)>=0;
+      return !q||matHay(m).indexOf(q)>=0;
     });
     drawFilters(all);
     var rows=all.filter(function(m){return FILTER.mat==='all'||matBucket(m)===FILTER.mat;});
@@ -1496,7 +1518,7 @@ window.rList=function(){
     }).join('');
   }else{
     var all2=(DB.mfrs||[]).filter(function(v){
-      return !q||key([v.name,v.country,v.scope,KINDS[kindOf(v)].l].join(' ')).indexOf(q)>=0;});
+      return !q||mfrHay(v).indexOf(q)>=0;});
     drawFilters(all2);
     var rows2=all2.filter(function(v){return FILTER.mfr==='all'||mfrBucket(v)===FILTER.mfr;});
     var rank={blocked:0,open:1,waiting:2,done:3,exempt:4};

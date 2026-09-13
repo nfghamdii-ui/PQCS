@@ -96,15 +96,27 @@ after it had been set.
 
 ---
 
-## The order of operations
+## The loop
 
-Load the Main Log first, then the register. The register has nothing to
-compare against until the materials are in.
+1. **Upload the register** → **Do it all**. Outcomes that moved are
+   written; everything the file has never seen is brought in for review.
+2. **Reports** → **The general log** → a workbook in the Main Log shape.
+3. Work on it in Excel: rename things, fill in manufacturers and purchase
+   orders, add rows.
+4. **Upload a workbook** → the edited file goes back in.
 
-1. **Upload a workbook** → your Main Log → Apply.
-2. **Upload the register** → the Aconex export → read it → Apply.
-3. **Export the whole list** from that screen for the documents that need
-   linking by hand.
+A row is matched on its reference, not on its description. The
+description is the thing a person edits — merging two entries, fixing a
+spelling — and a key that changes when someone tidies the file is not a
+key. Rename all you like; the row is still the same row.
+
+A row with a heading and nothing else is a section divider. A row with a
+heading and no category is a material that has not been categorised, and
+it is kept. Those are different things, and reading the category column
+alone confused them until materials without categories existed.
+
+Documents do not appear in a log shaped one row per material, so their
+absence from that file means nothing and is not reported as missing.
 
 ---
 
@@ -180,6 +192,26 @@ disappeared in four seconds, after which a reload took the work with it.
 
 The percentage beside the project name says how far a long save has got.
 
+**A save always ends somewhere it can name.** It used to be possible for
+one to stop — a conflict raised, a question asked — and leave the word
+`saving…` on the screen for ever, because the work was still unsaved and
+nothing distinguished stopped from slow. There are three states now:
+saving, saved, and *not saved — waiting on you*. The lock is released in
+a `finally`, and a watchdog clears one that has been held two minutes.
+
+**An unsigned change is not somebody else's.** The conflict check asked
+whether the row had moved and who had moved it. Where the column naming
+the author is empty — no trigger fills it — every second write to a row
+looked like a stranger's, and the save stopped to ask a question nobody
+could answer. A change with no name on it is now nobody's.
+
+**Empty cells do not travel.** A material carries seventy-seven columns
+and fills perhaps a dozen; the rest were being written to the database
+on every save. An absent key and an empty one mean the same thing here,
+so the empty ones are dropped on the way out — about seventy per cent
+off the weight of a save.
+
+
 ---
 
 ## Documents
@@ -204,3 +236,72 @@ serve many materials; in this project one inspection plan covers twelve.
 A reference moved onto its material — an inspection request recorded as
 a consignment — is still found by the next upload, so it is not created a
 second time.
+
+---
+
+## Reports
+
+Their own tab, at the end of the bar. Excel only — nothing is printed
+from here, because every one of these ends up in somebody else's
+spreadsheet anyway.
+
+**The general log** is the Main Log shape: one row per material, with
+its documents folded back into the columns the project already reads.
+Several documents of one kind go into one cell separated by newlines,
+which is how the original file already holds them. A document attached
+to no material would vanish from a report shaped one row per material,
+so those are written to a second sheet rather than dropped.
+
+**Vendors and who brought them** comes back too. Every column on it can
+be corrected — the name, the kind, the country, the pre-qualification
+number, the ISO certificate and its expiry — and sent back. The first
+column is the only thing that must not be touched: it is how a row finds
+its way home after everything else about it has changed.
+
+Names pulled out of Aconex titles need correcting. `P4-
+Makkah-Prequalification-Sodamco-Concrete Admixtures & Mortar Based
+Solutions` yields something recognisable but wrong, and titles are
+written by hand so no amount of parsing will fix that. Correct them in
+the sheet, or click the name on the record — which is now editable,
+having been the one thing on the page that was not.
+
+**A two-week look-ahead** is there as well. More as the shapes you
+actually use arrive.
+
+---
+
+## Who brought whom
+
+A pre-qualification qualifies a company, and that company is often the
+subcontractor rather than the factory. `4MAKA08-…-ME-PRQ-00024` is
+Faisal Abdullah Awad Binladen Contracting; the three manufacturers the
+file hangs off it are the makers that subcontractor brought.
+
+So a vendor records who brought it onto the project, and a subcontractor
+lists what it brought. Reading the Main Log fills this in on its own:
+`FIRST FIX` brought twenty-two of the manufacturers in this file.
+
+It is one field and not a list. No manufacturer here was brought by two
+subcontractors, and if one later works through somebody else, the
+question this answers is still who brought them first.
+
+---
+
+## Finding things
+
+The search box reads every reference a record holds, not the three
+fields it used to. An inspection plan number, a method statement, the
+number on a consignment — typing any of them finds the record. It used
+to return the whole list, which looks like a search that ran and found
+everything.
+
+Vendors have a second row of chips for where the pre-qualification
+itself stands: approved, approved as noted, under review, rejected, none
+recorded. The row above it reads the whole qualification road — a vendor
+approved but with no ISO date on file shows as *in progress* there, and
+that is a different question with a different answer.
+
+The board counts materials. A method statement has a status, not a road;
+twelve hundred inspection requests each sitting at "step 1 of 2, waiting
+on you" turned a real number into four and a half thousand, which is no
+number at all.

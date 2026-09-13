@@ -1843,6 +1843,63 @@ function withSubset(fn){
   try{return fn();}finally{DB.mats=all;}
 }
 
+/* The board asks what to do today, and the answer is about materials.
+   A method statement has a status, not a road: twelve hundred inspection
+   requests each sitting at "step 1 of 2, waiting on you" turned a real
+   number into four and a half thousand, which is no number at all. */
+function withMaterials(fn){
+  var all=DB.mats;
+  DB.mats=all.filter(function(m){return !isDoc(m);});
+  try{return fn();}finally{DB.mats=all;}
+}
+
+/* Which pre-qualification a vendor is actually at — the chips already
+   there read the whole road, so a vendor approved but missing an ISO
+   date reads "in progress". This is the other question. */
+var VENSTAT='';
+var VEN_STATES=['Approved','Approved as Noted','Under Review','Revise & Resubmit',
+  'Rejected','Terminated'];
+function pqStatus(v){
+  var st=((v.steps||{}).pqd||{}).status||'';
+  if(!st)return '';
+  var k=K(st);
+  if(k==='approved with comments')return 'Approved as Noted';
+  if(k==='pending')return 'Under Review';
+  if(k==='resubmit')return 'Revise & Resubmit';
+  for(var i=0;i<VEN_STATES.length;i++)if(K(VEN_STATES[i])===k)return VEN_STATES[i];
+  return st;
+}
+function withVendors(fn){
+  if(!VENSTAT)return fn();
+  var all=DB.mfrs;
+  DB.mfrs=all.filter(function(v){
+    return VENSTAT==='(none)'?!pqStatus(v):pqStatus(v)===VENSTAT;});
+  try{return fn();}finally{DB.mfrs=all;}
+}
+function venChips(){
+  if(TAB!=='mfr')return;
+  var box=document.getElementById('filters');
+  if(!box)return;
+  var n={},none=0;
+  (DB.mfrs||[]).forEach(function(v){
+    var st=pqStatus(v);
+    if(!st)none++;else n[st]=(n[st]||0)+1;
+  });
+  var html='<div style="flex-basis:100%;height:0"></div>'
+    +'<span class="fchip" style="border:none;background:none;color:var(--rail-t3);'
+    +'cursor:default;padding-left:0">pre-qualification</span>';
+  function chip(key,label,count){
+    html+='<button class="fchip" aria-pressed="'+(VENSTAT===key)+'" '
+      +'onclick="setVenStat(\''+key+'\')">'+esc(label)
+      +'<span class="fn">'+count+'</span></button>';
+  }
+  VEN_STATES.forEach(function(st){if(n[st])chip(st,st,n[st]);});
+  if(none)chip('(none)','none recorded',none);
+  if(VENSTAT)html+='<button class="fchip" onclick="setVenStat(\'\')">clear</button>';
+  box.insertAdjacentHTML('beforeend',html);
+}
+window.setVenStat=function(k){VENSTAT=(VENSTAT===k?'':k);rList();rPane();};
+
 /* inside Documents the kinds are separated, because a method statement
    and a transmittal are not the same errand */
 function kindChips(){
@@ -1895,6 +1952,7 @@ function install2(){
        and the throw came before the save, so the work sat in memory
        looking as though it were being written. */
     if(TAB==='rep'){paintTabs();return;}
+    if(TAB==='mfr'){withVendors(origList);venChips();paintTabs();return;}
     if(TAB!=='mat'){origList();paintTabs();return;}
     withSubset(origList);
     kindChips();
@@ -1908,9 +1966,15 @@ function install2(){
       if(el)el.innerHTML=reportsPane();
       return;
     }
+    if(TAB==='home')return withMaterials(origPane);
+    if(TAB==='mfr')return withVendors(origPane);
     if(TAB!=='mat')return origPane();
     withSubset(origPane);
   };
+
+  var origDue=window.showDue;
+  if(typeof origDue==='function')
+    window.showDue=function(){return withMaterials(origDue);};
 
   /* Redrawing must never be able to stop a save. Everything above is
      display; the writing to the database happens after it, and a broken
