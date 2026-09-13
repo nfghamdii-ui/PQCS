@@ -697,11 +697,33 @@ async function loadAll(){
     gmsg(niceError(e));
   }
 }
+/* A material carries seventy-seven columns and fills perhaps a dozen.
+   The rest are empty strings, and sending two and a half thousand
+   records' worth of them is most of what a save weighs. An absent key
+   and an empty one mean the same thing everywhere in this file, so the
+   empty ones are dropped on the way out. */
+function slim(o){
+  if(o===null||typeof o!=='object')return o;
+  if(Array.isArray(o))return o.map(slim);
+  var out={};
+  for(var k in o){
+    var v=o[k];
+    if(v===''||v===null||v===undefined)continue;
+    if(typeof v==='object'){
+      var s=slim(v);
+      if(Array.isArray(s)?s.length:Object.keys(s).length)out[k]=s;
+      continue;
+    }
+    out[k]=v;
+  }
+  return out;
+}
+
 function snapshot(){
   SNAP={project:DB.project};
   for(var key in TABLES){
     SNAP[key]={};
-    (DB[key]||[]).forEach(function(o){SNAP[key][o.id]=JSON.stringify(o);});
+    (DB[key]||[]).forEach(function(o){SNAP[key][o.id]=JSON.stringify(slim(o));});
   }
 }
 /* Save what actually changed. Comparing against the last snapshot
@@ -739,8 +761,15 @@ async function conflicts(c,changed){
     (r.data||[]).forEach(function(row){
       var mine=(STAMPS[key]||{})[row.id];
       if(!mine)return;                                   /* new row of ours */
-      if(row.updated_at!==mine.at&&row.updated_by!==(USER&&USER.id))
-        hits.push({key:key,id:row.id,at:row.updated_at});
+      if(row.updated_at===mine.at)return;
+      /* The row moved. Whether that was somebody else depends on who is
+         named on it — and if the column is empty, nobody is named. A
+         write of our own that this tab simply did not hear about looks
+         exactly the same, and treating it as a stranger's stops the save
+         dead with a question nobody can answer. */
+      if(!row.updated_by)return;
+      if(row.updated_by===(USER&&USER.id))return;
+      hits.push({key:key,id:row.id,at:row.updated_at});
     });
   }
   return hits;
@@ -749,16 +778,23 @@ function nameOf(key,id){
   var list=DB[key]||[], r=list.find(function(x){return String(x.id)===String(id);});
   return r?(r.name||r.title||('record '+id)):('record '+id);
 }
+/* Held means the work is real, sitting in this tab, and waiting on a
+   person rather than on the network — a conflict nobody has answered.
+   It used to read "saving…", which is how a save that had stopped could
+   look like a save that was still going, for ever. */
+var HELD=false;
+var SYNC_AT=0;
 window.save=async function(force){
-  if(!DB||!USER||SYNCING)return;
+  if(!DB||!USER)return;
   var c=client();if(!c)return;
-  SYNCING=true;stamp();
+  if(SYNCING){PENDING=true;return;}    /* never drop it; do it after */
+  SYNCING=true;SYNC_AT=Date.now();HELD=false;stamp();
   try{
     var plan={}, dels={}, any=false;
     for(var key in TABLES){
       var now={}, ups=[];
       (DB[key]||[]).forEach(function(o){
-        now[o.id]=JSON.stringify(o);
+        now[o.id]=JSON.stringify(slim(o));
         if(SNAP[key][o.id]!==now[o.id])ups.push(o);
       });
       plan[key]=ups;
@@ -772,7 +808,7 @@ window.save=async function(force){
       }
       var clash=await conflicts(c,changed);
       if(clash.length){
-        SYNCING=false;stamp();
+        HELD=true;
         var first=clash[0];
         return sheet('Someone else got there first',
            '<div style="font-size:14px;line-height:1.75">'
@@ -783,7 +819,7 @@ window.save=async function(force){
           +'Or overwrite, if you know theirs is the stale one.</div>'
           +'<div class="f-act" style="margin-top:20px">'
           +'<button class="btn btn-p" onclick="closeSheet();refresh()">Reload theirs</button>'
-          +'<button class="btn btn-d btn-s" onclick="closeSheet();save(true)">Overwrite with mine</button>'
+          +'<button class="btn btn-d btn-s" onclick="closeSheet();HELD=false;save(true)">Overwrite with mine</button>'
           +'</div>');
       }
     }
@@ -793,7 +829,7 @@ window.save=async function(force){
         var up=chunks(plan[key3]);
         for(var ui=0;ui<up.length;ui++){
           progress(Math.min(ui*BATCH,plan[key3].length),plan[key3].length);
-          var r2=await c.from(table).upsert(up[ui].map(function(o){return {id:o.id,data:o};}),
+          var r2=await c.from(table).upsert(up[ui].map(function(o){return {id:o.id,data:slim(o)};}),
             {onConflict:'id'});
           if(r2.error)throw r2.error;
         }
@@ -826,9 +862,9 @@ window.save=async function(force){
         }
       }
     }
-    snapshot();DIRTY=false;SAVED=new Date();PROG=null;stamp();
+    snapshot();DIRTY=false;HELD=false;SAVED=new Date();PROG=null;stamp();
   }catch(e){
-    PROG=null;busy(false);
+    PROG=null;HELD=true;busy(false);
     /* A toast disappears. Work that never reached the database and is
        about to be reloaded away deserves more than four seconds of
        notice, so this one stays until it is read. */
@@ -839,13 +875,26 @@ window.save=async function(force){
       +'database, and reloading the page now would lose it. Try again, and if it keeps '
       +'failing, use <b>More \u2192 Download a backup</b> before you close this tab.</div>'
       +'<div class="f-act" style="margin-top:20px">'
-      +'<button class="btn btn-p" onclick="closeSheet();save()">Try again</button>'
+      +'<button class="btn btn-p" onclick="closeSheet();HELD=false;save()">Try again</button>'
       +'<button class="btn" onclick="closeSheet();backup()">Download a backup</button>'
       +'<button class="btn-q" onclick="closeSheet()">Later</button></div>');
+  }finally{
+    /* Whatever happened above — written, refused, thrown — the lock is
+       released here and the word on the screen is made to match. */
+    SYNCING=false;PROG=null;stamp();
+    if(PENDING){PENDING=false;setTimeout(function(){save();},60);}
   }
-  SYNCING=false;
-  if(PENDING){PENDING=false;save();}
 };
+
+/* A lock is a promise to release it, and promises get broken. If one has
+   been held for two minutes the save is not running any more, whatever
+   the flag says. */
+setInterval(function(){
+  if(SYNCING&&Date.now()-SYNC_AT>120000){
+    SYNCING=false;stamp();
+    if(DIRTY)save();
+  }
+},15000);
 function sinceWhen(iso){
   var m=Math.round((Date.now()-new Date(iso).getTime())/60000);
   if(m<1)return 'moments ago';
@@ -869,6 +918,10 @@ function progress(done,total){
 }
 function stamp(){
   var e=document.getElementById('saved');if(!e)return;
+  if(HELD&&DIRTY){
+    e.className='brand-s dirty';
+    e.textContent='not saved — waiting on you';
+    return;}
   if(SYNCING||DIRTY){
     e.className='brand-s dirty';
     e.textContent=PROG?('saving… '+Math.round(PROG.d/PROG.t*100)+'%  ('+PROG.d+' of '+PROG.t+')')
