@@ -2333,6 +2333,12 @@ function form(rec,st,d,kind){
       h+='<select id="i-'+k+'">'+list.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select>';
     }else if(ty==='person'){
       var people=(DB.people||[]).slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
+      /* a native select cannot be searched, but it can be typed into
+         once it has a list beside it */
+      h+='<input list="people" id="i-'+k+'-t" class="mono" '
+        +'value="'+attr(d[k]||'')+'" placeholder="type a name" autocomplete="off" '
+        +'oninput="document.getElementById(\'i-'+k+'\').value=this.value" '
+        +'style="margin-bottom:6px">';
       var cur=d[k]||'';
       var known=people.some(function(p){return key(p.name)===key(cur);});
       h+='<select id="i-'+k+'" onchange="personPicked(this)">'
@@ -2352,6 +2358,9 @@ function form(rec,st,d,kind){
 }
 function dataList(){
   var names={};
+  /* the inspectors first — the list was built only from names already
+     typed somewhere, so a newly approved inspector never appeared in it */
+  (DB.people||[]).forEach(function(p){if(p.name)names[p.name]=1;});
   (DB.mats||[]).forEach(function(m){Object.keys(m.steps||{}).forEach(function(k){if(m.steps[k].by)names[m.steps[k].by]=1;});});
   (DB.mfrs||[]).forEach(function(v){Object.keys(v.steps||{}).forEach(function(k){if(v.steps[k].by)names[v.steps[k].by]=1;});});
   return '<datalist id="people">'+Object.keys(names).map(function(n){return '<option value="'+attr(n)+'">';}).join('')+'</datalist>';
@@ -2610,17 +2619,27 @@ window.cycleInsp=function(ev){
     'Clause 2.2.17 has SEVEN review and approve every inspector before an assignment.',
     function(v){p.status=v;touch();rPane();rList();});
 };
-window.pickMfr=function(){
+window.pickMfr=function(q){
   var m=mat(SEL.mat);if(!m)return;
   /* you do not buy a material from an inspection agency, so it is not
      offered here — it appears where inspections are assigned instead */
-  var list=(DB.mfrs||[]).filter(function(v){return kindOf(v)!=='agency';}).sort(function(a,b){
+  var all=(DB.mfrs||[]).filter(function(v){return kindOf(v)!=='agency';}).sort(function(a,b){
     var A=mfrState(a).ok?0:1, B=mfrState(b).ok?0:1;
     return A-B||String(a.name).localeCompare(String(b.name));});
+  /* five hundred companies is not a list anyone reads to the end */
+  var need=key(q||'');
+  var list=need?all.filter(function(v){return mfrHay(v).indexOf(need)>=0;}):all;
+  var CAP=60;
   sheet('Vendor',
-     '<div class="dim" style="font-size:13.5px;margin-bottom:16px">Qualification is recorded once on the vendor and read by every material it supplies. '
+     '<div class="dim" style="font-size:13.5px;margin-bottom:14px">Qualification is recorded once on the vendor and read by every material it supplies. '
       +'Naming one that is not yet qualified is allowed — the material simply will not clear that step.</div>'
-    +(list.length?list.map(function(v){
+    +'<div class="f" style="margin-bottom:14px"><label for="pk-v">Search '
+      +all.length+' companies — name, country, reference</label>'
+      +'<input id="pk-v" value="'+attr(q||'')+'" autocomplete="off" '
+      +'oninput="pickMfrLater(this.value)"></div>'
+    +(need?('<div class="dim" style="font-size:13px;margin-bottom:10px">'
+      +list.length+' match'+(list.length===1?'':'es')+'</div>'):'')
+    +(list.length?list.slice(0,CAP).map(function(v){
         var ms=mfrState(v), cur=(String(m.mfr)===String(v.id));
         return '<div class="row row-a" onclick="setMfr('+v.id+')">'
           +'<span class="tag t-'+ms.tone+'" style="min-width:96px;text-align:center;flex-shrink:0">'+esc(ms.word)+'</span>'
@@ -2632,9 +2651,23 @@ window.pickMfr=function(){
                    :esc(ms.short.slice(0,2).join(' · ')+(ms.short.length>2?(' · +'+(ms.short.length-2)+' more'):'')))
           +'</div></div>'
           +(cur?'<span class="tag t-wait">current</span>':'')+'</div>';
-      }).join(''):'<div class="dim">No vendors of this sort yet.</div>')
+      }).join('')
+      +(list.length>CAP?('<div class="dim" style="font-size:13px;padding-top:10px">and '
+        +(list.length-CAP)+' more — narrow the search</div>'):'')
+      :'<div class="dim" style="padding:20px 0">Nothing matches.</div>')
     +'<div class="f-act" style="margin-top:20px"><button class="btn btn-p" onclick="newMfrFor()">Add a new vendor</button>'
     +(m.mfr?'<button class="btn-q" onclick="setMfr(\'\')">Remove the link</button>':'')+'</div>');
+};
+/* the sheet is rebuilt on every keystroke, so the box has to be put back
+   where it was and the typing carried across */
+var pkTimer=null;
+window.pickMfrLater=function(v){
+  clearTimeout(pkTimer);
+  pkTimer=setTimeout(function(){
+    pickMfr(v);
+    var f=document.getElementById('pk-v');
+    if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
+  },220);
 };
 window.setMfr=function(id){
   var m=mat(SEL.mat);if(!m)return;
