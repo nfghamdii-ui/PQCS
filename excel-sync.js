@@ -1808,12 +1808,15 @@ function liftTabs(){
     if(after&&after.parentNode===tabs){tabs.insertBefore(b,after.nextSibling);after=b;}
     else tabs.appendChild(b);
   });
-  var rep=document.createElement('button');
-  rep.className='tab';rep.id='tab-rep';rep.setAttribute('role','tab');
-  rep.setAttribute('aria-selected','false');
-  rep.appendChild(document.createTextNode('Reports'));
-  rep.onclick=function(){setTab('rep');};
-  tabs.appendChild(rep);
+  [['tbl','Table'],['rep','Reports']].forEach(function(p){
+    var b=document.createElement('button');
+    b.className='tab';b.id='tab-'+p[0];b.setAttribute('role','tab');
+    b.setAttribute('aria-selected','false');
+    b.appendChild(document.createTextNode(p[1]));
+    b.onclick=function(){setTab(p[0]);};
+    tabs.appendChild(b);
+  });
+  tableCSS();
 }
 
 function paintTabs(){
@@ -1828,8 +1831,10 @@ function paintTabs(){
     var t=document.getElementById('tab-'+k);
     if(t)t.setAttribute('aria-selected',String(TAB==='mat'&&VIEW===k));
   });
-  var r=document.getElementById('tab-rep');
-  if(r)r.setAttribute('aria-selected',String(TAB==='rep'));
+  ['rep','tbl'].forEach(function(k){
+    var t=document.getElementById('tab-'+k);
+    if(t)t.setAttribute('aria-selected',String(TAB===k));
+  });
 }
 
 /* ---------------------------------------------------------------
@@ -1930,10 +1935,10 @@ function install2(){
   var origSetTab=window.setTab;
   window.setTab=function(t){
     if(t==='mir'||t==='doc'){VIEW=t;if(t!=='doc')DOCKIND='';origSetTab('mat');}
-    else if(t==='rep'){
+    else if(t==='rep'||t==='tbl'){
       VIEW='mat';DOCKIND='';
       origSetTab('home');          /* borrows the shape of a page with no list */
-      window.TAB='rep';
+      window.TAB=t;
       var sb=document.getElementById('side-body');
       if(sb)sb.classList.add('hidden');
       var add=document.getElementById('add-btn');
@@ -1951,7 +1956,7 @@ function install2(){
        undefined. Applying a file while standing on Reports threw there,
        and the throw came before the save, so the work sat in memory
        looking as though it were being written. */
-    if(TAB==='rep'){paintTabs();return;}
+    if(TAB==='rep'||TAB==='tbl'){paintTabs();return;}
     if(TAB==='mfr'){withVendors(origList);venChips();paintTabs();return;}
     if(TAB!=='mat'){origList();paintTabs();return;}
     withSubset(origList);
@@ -1961,9 +1966,9 @@ function install2(){
 
   var origPane=window.rPane;
   window.rPane=function(){
-    if(TAB==='rep'){
+    if(TAB==='rep'||TAB==='tbl'){
       var el=document.getElementById('pane');
-      if(el)el.innerHTML=reportsPane();
+      if(el)el.innerHTML=(TAB==='tbl'?tablePane():reportsPane());
       return;
     }
     if(TAB==='home')return withMaterials(origPane);
@@ -2617,6 +2622,350 @@ window.runReport=function(k){
   catch(e){toast('Could not build it — '+(e.message||e));}
 };
 
+/* ================================================================
+   THE TABLE
+   ----------------------------------------------------------------
+   Rows and columns, because that is how this project already thinks.
+   Five of them — materials, inspection requests, documents, vendors,
+   inspectors — kept apart rather than folded into one, since a method
+   statement and a manufacturer have almost no columns in common and a
+   table that holds both is mostly empty.
+
+   The filters matter more than the rest. Every column has one, they
+   add together, and a column of a few repeated values offers them as
+   a list rather than asking anyone to remember how a status is spelt.
+
+   Nine hundred rows would take a while to build all at once and most
+   of them are below the fold, so a screenful is drawn and the rest
+   follows as it is scrolled to.
+   ================================================================ */
+
+var TBL='mat';                 /* mat | mir | doc | mfr | insp */
+var TBLQ={};                   /* the filters, per table */
+var TBLSORT={};                /* which column, which way */
+var TBLSHOW={};                /* which columns are visible */
+var TBLN={};                   /* how many rows have been drawn */
+var PAGE_ROWS=120;
+
+/* A column is a name, where to read it from, and what kind of filter
+   it deserves. "pick" means the values repeat and are worth listing;
+   "text" means they do not. */
+function col(t,k,read,kind,w){return {t:t,k:k,read:read,kind:kind||'text',w:w||160};}
+
+function stepOf(r,k,f){var d=((r.steps||{})[k])||{};return d[f]||'';}
+function rawOf(r,c){return ((r.raw||{})[c])||'';}
+
+var TABLES_DEF={
+ mat:{label:'Materials',rows:function(){return (DB.mats||[]).filter(function(m){return !isDoc(m);});},
+   open:function(r){jump('mat',r.id);},
+   cols:[
+    col('Item Description','name',function(r){return r.name;},'text',420),
+    col('Category','cat',function(r){return r.cat;},'pick',90),
+    col('Discipline','disc',function(r){return r.disc;},'pick',150),
+    col('Vendor','ven',function(r){var v=r.mfr?mfr(r.mfr):null;return v?v.name:'';},'pick',180),
+    col('Sub-contractor','sub',function(r){return r.sub;},'pick',150),
+    col('MAT Number','matno',function(r){return rawOf(r,'MAT Number')||r.ref;},'text',300),
+    col('MAT Status','matst',function(r){return rawOf(r,'MAT Status')||stepOf(r,'mts','status');},'pick',150),
+    col('MAT Date','matdt',function(r){return show(stepOf(r,'mts','date')||rawOf(r,'MAT Submittal Date'));},'text',110),
+    col('ITP Number','itpno',function(r){return rawOf(r,'ITP Number');},'text',300),
+    col('ITP Status','itpst',function(r){return rawOf(r,'ITP Status');},'pick',150),
+    col('MES Number','mesno',function(r){return rawOf(r,'Method Statement Number');},'text',300),
+    col('MES Status','messt',function(r){return rawOf(r,'MES Status');},'pick',150),
+    col('PO Number','pono',function(r){return rawOf(r,'PO Number');},'text',150),
+    col('Package','pkg',function(r){return rawOf(r,'Package (Lump Sum / Provisional Sum / Prime Cost)');},'pick',150),
+    col('Quantity','qty',function(r){return r.qty?(r.qty+' '+(r.unit||'')):'';},'text',110),
+    col('Delivered','got',function(r){return (r.dels||[]).length?String(received(r)):'';},'text',100),
+    col('Documents','ndoc',function(r){return String((r.docs||[]).length||'');},'text',100),
+    col('Consignments','ndel',function(r){return String((r.dels||[]).length||'');},'text',110)],
+   show:['name','cat','disc','ven','matno','matst','matdt','itpst','qty']},
+
+ mir:{label:'Inspection requests',rows:function(){return (DB.mats||[]).filter(function(m){return m.doc==='MIR';});},
+   open:function(r){jump('mat',r.id);},
+   cols:[
+    col('Title','name',function(r){return r.name;},'text',460),
+    col('Number','no',function(r){return refOf(r);},'text',300),
+    col('Category','cat',function(r){return r.cat;},'pick',90),
+    col('Discipline','disc',function(r){return r.disc;},'pick',150),
+    col('Status','st',function(r){return rawOf(r,'MIR Status')||rawOf(r,'MAT Status');},'pick',170),
+    col('Date','dt',function(r){return show(rawOf(r,'MIR Approval Date')||rawOf(r,'MAT Submittal Date'));},'text',110),
+    col('Linked to','on',function(r){var s=servedBy(r);return s.length?s[0].name:'';},'text',360)],
+   show:['name','no','cat','disc','st','dt','on']},
+
+ doc:{label:'Documents',rows:function(){return (DB.mats||[]).filter(function(m){return isDoc(m)&&m.doc!=='MIR';});},
+   open:function(r){jump('mat',r.id);},
+   cols:[
+    col('Kind','kind',function(r){return r.doc;},'pick',90),
+    col('Title','name',function(r){return r.name;},'text',440),
+    col('Number','no',function(r){return refOf(r);},'text',300),
+    col('Discipline','disc',function(r){return r.disc;},'pick',150),
+    col('Status','st',function(r){
+      var raw=r.raw||{};
+      return raw['MES Status']||raw['ITP Status']||raw['PID Status']||raw['MAT Status']||'';},'pick',170),
+    col('Revision','rev',function(r){
+      var raw=r.raw||{};
+      return raw['MES Revision']||raw['ITP Revision']||raw['PID Revision']||raw['MAT Revision']||'';},'pick',90),
+    col('Materials served','n',function(r){return String(servedBy(r).length);},'text',130)],
+   show:['kind','name','no','disc','st','rev','n']},
+
+ mfr:{label:'Vendors',rows:function(){return (DB.mfrs||[]).slice();},
+   open:function(r){jump('mfr',r.id);},
+   cols:[
+    col('Vendor','name',function(r){return r.name;},'text',300),
+    col('Kind','kind',function(r){return KINDS[kindOf(r)].l;},'pick',150),
+    col('Brought by','by',function(r){return r.by||'';},'pick',180),
+    col('Country','country',function(r){return r.country||'';},'pick',150),
+    col('Production site','site',function(r){return r.site||'';},'text',180),
+    col('PQD Number','pq',function(r){return stepOf(r,'pqd','ref');},'text',300),
+    col('PQD Status','pqst',function(r){return pqStatus(r);},'pick',170),
+    col('PQD Date','pqdt',function(r){return show(stepOf(r,'pqd','date'));},'text',110),
+    col('ISO Number','iso',function(r){return stepOf(r,'iso','ref');},'text',180),
+    col('ISO Expires','isodt',function(r){return show(stepOf(r,'iso','date'));},'text',110),
+    col('ISO Status','isost',function(r){return stepOf(r,'iso','status');},'pick',120),
+    col('Assessment','pa',function(r){return stepOf(r,'pa','status');},'pick',140),
+    col('Materials','n',function(r){return String(matsOf(r).length);},'text',100)],
+   show:['name','kind','by','country','pq','pqst','isodt','n']},
+
+ insp:{label:'Inspectors',rows:function(){return (DB.people||[]).slice();},
+   open:function(r){jump('insp',r.id);},
+   cols:[
+    col('Name','name',function(r){return r.name;},'text',240),
+    col('Agency','agency',function(r){return r.agency||'';},'pick',200),
+    col('Discipline','disc',function(r){return r.disc||'';},'pick',160),
+    col('Approval','status',function(r){return r.status||'Pending';},'pick',130),
+    col('Reference','ref',function(r){return r.ref||'';},'text',240)],
+   show:['name','agency','disc','status','ref']}
+};
+
+function tdef(){return TABLES_DEF[TBL];}
+function shownCols(){
+  var d=tdef();
+  if(!TBLSHOW[TBL])TBLSHOW[TBL]=d.show.slice();
+  var want={};TBLSHOW[TBL].forEach(function(k){want[k]=1;});
+  return d.cols.filter(function(c){return want[c.k];});
+}
+function cellOf(r,c){
+  try{return trim(c.read(r));}catch(e){return '';}
+}
+
+/* the values a "pick" column actually holds, so the list offers what is
+   there rather than what might be */
+function choices(c,rows){
+  var n={};
+  rows.forEach(function(r){
+    var v=cellOf(r,c);
+    if(v)n[v]=(n[v]||0)+1;
+  });
+  return Object.keys(n).sort(function(a,b){return n[b]-n[a];})
+    .slice(0,40).map(function(v){return {v:v,n:n[v]};});
+}
+
+function filtered(){
+  var d=tdef(),rows=d.rows(),q=TBLQ[TBL]||{};
+  var active=Object.keys(q).filter(function(k){return q[k]!=='';});
+  if(active.length){
+    var byKey={};d.cols.forEach(function(c){byKey[c.k]=c;});
+    rows=rows.filter(function(r){
+      for(var i=0;i<active.length;i++){
+        var c=byKey[active[i]];if(!c)continue;
+        var want=q[active[i]],have=cellOf(r,c);
+        if(c.kind==='pick'){
+          if(want==='(blank)'){if(have!=='')return false;}
+          else if(have!==want)return false;
+        }else if(K(have).indexOf(K(want))<0)return false;
+      }
+      return true;
+    });
+  }
+  var s=TBLSORT[TBL];
+  if(s){
+    var byKey2={};d.cols.forEach(function(c){byKey2[c.k]=c;});
+    var c2=byKey2[s.k];
+    if(c2)rows.sort(function(a,b){
+      var A=cellOf(a,c2),B=cellOf(b,c2);
+      var num=(A!==''&&B!==''&&!isNaN(A)&&!isNaN(B));
+      var d2=num?(parseFloat(A)-parseFloat(B)):String(A).localeCompare(String(B));
+      return s.dir<0?-d2:d2;
+    });
+  }
+  return rows;
+}
+
+function tablePane(){
+  var d=tdef(),rows=filtered(),all=d.rows().length;
+  var cols=shownCols();
+  var q=TBLQ[TBL]||{};
+  var nActive=Object.keys(q).filter(function(k){return q[k]!=='';}).length;
+  if(!TBLN[TBL])TBLN[TBL]=PAGE_ROWS;
+  var upto=Math.min(TBLN[TBL],rows.length);
+
+  var head='<div class="head no-print"><div class="wrap" style="max-width:none">'
+    +'<div class="head-t">Table</div><div class="head-m">'
+    +Object.keys(TABLES_DEF).map(function(k){
+      return '<button class="chip'+(TBL===k?' set':'')+'" onclick="setTable(\''+k+'\')">'
+        +esc(TABLES_DEF[k].label)+' <span class="meta">'+TABLES_DEF[k].rows().length+'</span></button>';
+    }).join('')
+    +'<span style="flex:1"></span>'
+    +'<button class="btn btn-s" onclick="tblCols()">Columns</button>'
+    +(nActive?('<button class="btn btn-s btn-d" onclick="tblClear()">Clear '+nActive
+      +' filter'+(nActive===1?'':'s')+'</button>'):'')
+    +'<button class="btn btn-s" onclick="window.print()">Print</button>'
+    +'<button class="btn btn-s btn-p" onclick="tblExport()">Excel</button>'
+    +'</div>'
+    +'<div class="swhy" style="margin-top:8px">'
+    +(nActive?(rows.length+' of '+all+' rows'):(all+' rows'))
+    +' · type under a heading to filter, click a heading to sort'
+    +'</div></div></div>';
+
+  var body='<div class="body" id="tbl-body" onscroll="tblScroll(this)">'
+    +'<table class="tbl"><thead><tr>'
+    +cols.map(function(c){
+      var s=TBLSORT[TBL];
+      var mark=(s&&s.k===c.k)?(s.dir<0?' ▾':' ▴'):'';
+      return '<th style="min-width:'+c.w+'px">'
+        +'<button class="th-b" onclick="tblSort(\''+c.k+'\')">'+esc(c.t)+mark+'</button>'
+        +tblFilter(c,rows)+'</th>';
+    }).join('')
+    +'</tr></thead><tbody>'
+    +rows.slice(0,upto).map(function(r){
+      return '<tr onclick="tblOpen('+r.id+')">'
+        +cols.map(function(c){
+          var v=cellOf(r,c);
+          return '<td'+(c.kind==='pick'?' class="nowrap"':'')+'>'+esc(v)+'</td>';
+        }).join('')+'</tr>';
+    }).join('')
+    +'</tbody></table>'
+    +(upto<rows.length?('<div class="dim" style="padding:16px;text-align:center" id="tbl-more">'
+      +'showing '+upto+' of '+rows.length+' — scroll for more</div>'):'')
+    +(rows.length?'':'<div class="empty">Nothing matches these filters.</div>')
+    +'</div>';
+  return head+body;
+}
+
+function tblFilter(c,rows){
+  var q=(TBLQ[TBL]||{})[c.k]||'';
+  if(c.kind==='pick'){
+    var opts=choices(c,tdef().rows());
+    return '<select class="th-f" onchange="tblSet(\''+c.k+'\',this.value)">'
+      +'<option value=""'+(q===''?' selected':'')+'>all</option>'
+      +opts.map(function(o){
+        return '<option value="'+attr(o.v)+'"'+(q===o.v?' selected':'')+'>'
+          +esc(o.v)+' ('+o.n+')</option>';}).join('')
+      +'<option value="(blank)"'+(q==='(blank)'?' selected':'')+'>— blank —</option>'
+      +'</select>';
+  }
+  return '<input class="th-f" value="'+attr(q)+'" placeholder="filter" '
+    +'oninput="tblSetLater(\''+c.k+'\',this.value)">';
+}
+
+window.setTable=function(k){TBL=k;TBLN[k]=PAGE_ROWS;rPane();};
+window.tblSort=function(k){
+  var s=TBLSORT[TBL];
+  TBLSORT[TBL]=(s&&s.k===k)?{k:k,dir:-s.dir}:{k:k,dir:1};
+  TBLN[TBL]=PAGE_ROWS;rPane();
+};
+window.tblSet=function(k,v){
+  TBLQ[TBL]=TBLQ[TBL]||{};TBLQ[TBL][k]=v;
+  TBLN[TBL]=PAGE_ROWS;rPane();
+};
+/* typing redraws nine hundred rows on every keystroke otherwise */
+var tblTimer=null;
+window.tblSetLater=function(k,v){
+  TBLQ[TBL]=TBLQ[TBL]||{};TBLQ[TBL][k]=v;
+  clearTimeout(tblTimer);
+  tblTimer=setTimeout(function(){
+    TBLN[TBL]=PAGE_ROWS;rPane();
+    /* the table is rebuilt, so the box being typed into is a new one */
+    var inputs=document.querySelectorAll('.th-f');
+    for(var i=0;i<inputs.length;i++)if(inputs[i].value===v){inputs[i].focus();
+      inputs[i].setSelectionRange(v.length,v.length);break;}
+  },260);
+};
+window.tblClear=function(){TBLQ[TBL]={};TBLN[TBL]=PAGE_ROWS;rPane();};
+window.tblOpen=function(id){
+  var d=tdef(),rows=d.rows();
+  var r=rows.filter(function(x){return String(x.id)===String(id);})[0];
+  if(r)d.open(r);
+};
+window.tblScroll=function(el){
+  if(el.scrollTop+el.clientHeight<el.scrollHeight-400)return;
+  var rows=filtered();
+  if(TBLN[TBL]>=rows.length)return;
+  TBLN[TBL]+=PAGE_ROWS;
+  var keep=el.scrollTop;
+  rPane();
+  var again=document.getElementById('tbl-body');
+  if(again)again.scrollTop=keep;
+};
+window.tblCols=function(){
+  var d=tdef();
+  if(!TBLSHOW[TBL])TBLSHOW[TBL]=d.show.slice();
+  var on={};TBLSHOW[TBL].forEach(function(k){on[k]=1;});
+  sheet('Columns — '+d.label,
+    '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'
+    +'Tick what you want to see. The order is fixed; the choice is not.</div>'
+    +'<div class="panel"><div class="panel-b">'
+    +d.cols.map(function(c){
+      return '<label class="cl-item"><input type="checkbox" '+(on[c.k]?'checked ':'')
+        +'onchange="tblToggle(\''+c.k+'\',this.checked)"><span>'+esc(c.t)+'</span></label>';
+    }).join('')
+    +'</div></div>'
+    +'<div class="f-act" style="margin-top:16px">'
+    +'<button class="btn" onclick="tblColsAll(1)">All</button>'
+    +'<button class="btn" onclick="tblColsAll(0)">Back to the usual</button>'
+    +'<button class="btn btn-p" onclick="closeSheet()">Done</button></div>');
+};
+window.tblToggle=function(k,on){
+  var d=tdef();
+  if(!TBLSHOW[TBL])TBLSHOW[TBL]=d.show.slice();
+  var list=TBLSHOW[TBL].filter(function(x){return x!==k;});
+  if(on){
+    list=[];
+    d.cols.forEach(function(c){
+      if(c.k===k||TBLSHOW[TBL].indexOf(c.k)>=0)list.push(c.k);
+    });
+  }
+  TBLSHOW[TBL]=list;rPane();
+};
+window.tblColsAll=function(all){
+  var d=tdef();
+  TBLSHOW[TBL]=all?d.cols.map(function(c){return c.k;}):d.show.slice();
+  closeSheet();rPane();
+};
+window.tblExport=function(){
+  var d=tdef(),cols=shownCols(),rows=filtered();
+  var out=[cols.map(function(c){return c.t;})];
+  rows.forEach(function(r){out.push(cols.map(function(c){return cellOf(r,c);}));});
+  download(workbook([{name:d.label.slice(0,28),rows:out,
+    widths:cols.map(function(c){return Math.min(60,Math.max(12,c.w/7));})}]),
+    (DB.project||'Table')+' — '+d.label+' '+today()+'.xlsx');
+  toast(rows.length+' rows exported');
+};
+
+function tableCSS(){
+  if(document.getElementById('tbl-css'))return;
+  var css=document.createElement('style');
+  css.id='tbl-css';
+  css.textContent=
+   '.tbl{border-collapse:separate;border-spacing:0;font-size:13px;width:max-content;min-width:100%}'
+  +'.tbl th{position:sticky;top:0;z-index:2;background:var(--card);text-align:left;'
+  +'padding:8px 10px 10px;border-bottom:1px solid var(--line-2);vertical-align:top}'
+  +'.tbl td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;'
+  +'max-width:520px;overflow:hidden;text-overflow:ellipsis}'
+  +'.tbl td.nowrap{white-space:nowrap}'
+  +'.tbl tbody tr{cursor:pointer}'
+  +'.tbl tbody tr:hover td{background:var(--hover)}'
+  +'.th-b{display:block;width:100%;text-align:left;background:none;border:none;padding:0 0 6px;'
+  +'font-weight:600;font-size:12.5px;color:var(--ink);cursor:pointer;white-space:nowrap}'
+  +'.th-b:hover{color:var(--wait-t)}'
+  +'.th-f{width:100%;font:inherit;font-size:12px;padding:5px 7px;border:1px solid var(--line-2);'
+  +'border-radius:6px;background:var(--card);color:var(--ink);outline:none}'
+  +'.th-f:focus{border-color:var(--wait);box-shadow:0 0 0 2px var(--wait-b)}'
+  +'#tbl-body{padding:0 18px 40px;overflow:auto}'
+  +'@media print{.tbl th{position:static}#tbl-body{padding:0;overflow:visible}'
+  +'.th-f{display:none}.tbl{font-size:9px}}';
+  document.head.appendChild(css);
+}
+
 /* ---------------------------------------------------------------
    10. WHERE THE BUTTONS LIVE
    The page's own menu is left as it is and added to, so this file
@@ -2700,5 +3049,11 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 else start();
 
 /* handy from the console, and for anything built on top later */
+window.__tablePane=tablePane;
+window.__tbl={label:function(){return tdef().label;},count:function(){return tdef().rows().length;},
+  cols:function(){return shownCols();},filtered:function(){return filtered().length;},
+  first:function(){var r=filtered()[0];return r?r.name:'';},
+  choices:function(k){var c=tdef().cols.filter(function(x){return x.k===k;})[0];
+    return c?choices(c,tdef().rows()):[];}};
 window.EXCEL={cols:COLS,vendorRows:vendorRows,readVendorSheet:readVendorSheet,planVendors:planVendors,applyVendors:applyVendors,generalRows:generalRows,looseRows:looseRows,vendorRows:vendorRows,isDoc:isDoc,docsOf:docsOf,servedBy:servedBy,labelDocuments:labelDocuments,createFromRegister:createFromRegister,pending:pending,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:generalRows,summary:summaryRows,book:workbook};
 })();
