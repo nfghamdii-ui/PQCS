@@ -2335,10 +2335,6 @@ function form(rec,st,d,kind){
       var people=(DB.people||[]).slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
       /* a native select cannot be searched, but it can be typed into
          once it has a list beside it */
-      h+='<input list="people" id="i-'+k+'-t" class="mono" '
-        +'value="'+attr(d[k]||'')+'" placeholder="type a name" autocomplete="off" '
-        +'oninput="document.getElementById(\'i-'+k+'\').value=this.value" '
-        +'style="margin-bottom:6px">';
       var cur=d[k]||'';
       var known=people.some(function(p){return key(p.name)===key(cur);});
       h+='<select id="i-'+k+'" onchange="personPicked(this)">'

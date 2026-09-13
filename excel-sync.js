@@ -2067,11 +2067,30 @@ function install2(){
     window.stepCard=function(rec,x,i,kind){
       var html=origCard(rec,x,i,kind);
       if(kind!=='mat'||!VISIT_STEPS[x.s.k])return html;
+      /* These two steps happen more than once, so the single-entry form
+         underneath them says the opposite of what the list above it
+         says. Two ways to record the same thing, one of which quietly
+         replaces the other's work, is worse than either alone — so the
+         buttons that open it go, and openStep below refuses to. */
+      html=html.replace(/<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">[\s\S]*?<\/div>/,'');
       var j=html.lastIndexOf('</div></div>');
       if(j<0)return html+visitPanel(rec,x.s.k);
       return html.slice(0,j)+visitPanel(rec,x.s.k)+html.slice(j);
     };
     window.stepCard.__visits=true;
+  }
+
+  /* A step that keeps a list is never edited through the single form.
+     Anything that asks for it — an old button, a keyboard shortcut —
+     gets the visit sheet instead. */
+  var origOpen=window.openStep;
+  if(typeof origOpen==='function'&&!origOpen.__visits){
+    window.openStep=function(k){
+      var m=/^mat:(\w+)$/.exec(k||'');
+      if(m&&VISIT_STEPS[m[1]]&&SEL.mat)return editVisit(SEL.mat,m[1]);
+      return origOpen(k);
+    };
+    window.openStep.__visits=true;
   }
 
   /* the material's page gains the panel where the linking happens */
