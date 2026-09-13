@@ -2021,6 +2021,37 @@ function install2(){
     };
   });
 
+  /* A redraw replaces the whole pane, which throws away where you were
+     reading. Saving once a minute therefore threw you to the top of a
+     long record once a minute. The place is kept across a redraw of the
+     same thing, and let go when you move to another. */
+  var WAS='';
+  function place(){
+    return [TAB,VIEW,DOCKIND,TBL,SEL.mat,SEL.mfr,SEL.insp].join('|');
+  }
+  var drawPane=window.rPane;
+  window.rPane=function(){
+    var here=place();
+    var body=document.querySelector('.main .body')||document.getElementById('tbl-body');
+    var was=(here===WAS&&body)?body.scrollTop:0;
+    var r=drawPane.apply(this,arguments);
+    var now=document.querySelector('.main .body')||document.getElementById('tbl-body');
+    /* the same thing redrawn keeps its place; a different thing starts
+       at the top, said out loud rather than left to the browser */
+    if(now)now.scrollTop=(here===WAS)?was:0;
+    WAS=here;
+    return r;
+  };
+  var drawList=window.rList;
+  window.rList=function(){
+    var el=document.getElementById('list');
+    var was=el?el.scrollTop:0;
+    var r=drawList.apply(this,arguments);
+    var now=document.getElementById('list');
+    if(now&&was)now.scrollTop=was;
+    return r;
+  };
+
   /* the vendor's page gains the one about who brought them */
   var origMfr=window.mfrPane;
   window.mfrPane=function(v){

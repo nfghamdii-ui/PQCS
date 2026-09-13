@@ -305,3 +305,74 @@ The board counts materials. A method statement has a status, not a road;
 twelve hundred inspection requests each sitting at "step 1 of 2, waiting
 on you" turned a real number into four and a half thousand, which is no
 number at all.
+
+---
+
+## The table
+
+Its own tab, and five tables kept apart rather than folded into one: a
+method statement and a manufacturer share almost no columns, and a table
+that holds both is mostly empty.
+
+Every column filters, and the filters add together — category C3 *and*
+discipline electrical *and* status approved. A column whose values
+repeat offers them as a list with counts beside them, so nobody has to
+remember how a status is spelt; a column of references takes typed text.
+Click a heading to sort, click again to reverse.
+
+**Columns** chooses what is visible. Materials start with nine of their
+eighteen; the rest are a tick away.
+
+A screenful is drawn and the rest follows as it is scrolled to, because
+nine hundred rows built at once is a pause nobody asked for.
+
+**Excel** exports what the filters left, with the columns on screen.
+**Print** prints the same thing — the filter boxes and the tabs drop
+away on paper.
+
+---
+
+## Visits
+
+"Visits to the factory while the material is being made" — the words
+were plural and the form held one, with the field labelled *Last visit*.
+An in-process inspection happens every fortnight and a final test can be
+repeated; keeping only the newest makes a handover file that cannot be
+defended.
+
+Those two steps keep a list now, the way deliveries do. The newest visit
+is also written onto the step itself, because that is what the road
+reads and what one column of the log can carry. A visit already recorded
+before this existed becomes the first entry in its list rather than
+being left behind.
+
+## Where an approval lives
+
+An inspection agency is not pre-qualified, it is approved — clause
+2.2.17 — and its road has no pre-qualification step at all. The
+reference was being written to one anyway, so the record read as
+untouched while its number sat in a field nothing looked at. Every
+reader and writer now asks the same question about which step holds it.
+
+Names pulled out of pre-qualification titles are wrong about a quarter
+of the time, down from nearly two fifths. They will never be right:
+`JAZEERA PAINTSInterior & Exterior Painting` has no separator between
+the company and the work. Correct them in the vendor sheet, where the
+whole title sits in the Scope column beside the name — or click the name
+on the record.
+
+---
+
+## Not getting in the way
+
+**The number across the middle of the screen** was the paged read
+reporting itself — and it reported itself on the quiet reload that
+happens when you come back to the tab, which is to say while you were
+working, because you had been working somewhere else for a minute. A
+background read is nobody's business and says nothing now.
+
+**That reload also threw away where you were reading**, because a redraw
+replaces the whole pane. It waits for a real gap now — a quarter of an
+hour, and never while a sheet is open or there is unsaved work — and a
+redraw of the same record keeps its place. Open a different record and
+it starts at the top, as it should.

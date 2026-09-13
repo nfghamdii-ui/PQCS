@@ -662,7 +662,7 @@ var STAMPS={};
    save deletes them. So a table is read a page at a time until a short
    page says the end has been reached. */
 var PAGE=1000;
-async function readAll(c,table,cols){
+async function readAll(c,table,cols,loud){
   var out=[],from=0;
   for(var guard=0;guard<200;guard++){
     var r=await c.from(table).select(cols).range(from,from+PAGE-1);
@@ -671,7 +671,11 @@ async function readAll(c,table,cols){
     out=out.concat(got);
     if(got.length<PAGE)break;
     from+=PAGE;
-    busy(true,'Loading — '+out.length+' records');
+    /* The reading that happens when you come back to the tab is nobody's
+       business. It used to throw a number across the middle of the screen
+       every time — while you were working, because you had been working
+       somewhere else for a minute. */
+    if(loud)busy(true,'Loading — '+out.length+' records');
   }
   return out;
 }
@@ -681,7 +685,7 @@ async function loadAll(){
     var c=client(), out=blank();
     STAMPS={};
     for(var key in TABLES){
-      var rows=await readAll(c,TABLES[key],'id,data,updated_at,updated_by');
+      var rows=await readAll(c,TABLES[key],'id,data,updated_at,updated_by',true);
       STAMPS[key]={};
       out[key]=rows.map(function(row){
         STAMPS[key][row.id]={at:row.updated_at,by:row.updated_by};
@@ -942,7 +946,7 @@ window.refresh=async function(quiet){
     var c=client(), out=blank();
     STAMPS={};
     for(var key in TABLES){
-      var rows=await readAll(c,TABLES[key],'id,data,updated_at,updated_by');
+      var rows=await readAll(c,TABLES[key],'id,data,updated_at,updated_by',!quiet);
       STAMPS[key]={};
       out[key]=rows.map(function(row){
         STAMPS[key][row.id]={at:row.updated_at,by:row.updated_by};
@@ -956,8 +960,15 @@ window.refresh=async function(quiet){
     if(!quiet)toast('Up to date');
   }catch(e){busy(false);toast('Could not refresh — '+niceError(e));}
 };
+/* Coming back to the tab is not a reason to reload two and a half
+   thousand records under somebody's hands. It waits for a real gap —
+   a quarter of an hour — and never runs while a record is open with
+   unsaved work or a sheet is up. */
 window.addEventListener('focus',function(){
-  if(USER&&!DIRTY&&SAVED&&(Date.now()-SAVED.getTime()>60000))refresh(true);
+  if(!USER||DIRTY||SYNCING||!SAVED)return;
+  if(Date.now()-SAVED.getTime()<900000)return;
+  if(document.getElementById('ov').classList.contains('on'))return;
+  refresh(true);
 });
 
 /* bringing across a file from the version that lived on disk */
