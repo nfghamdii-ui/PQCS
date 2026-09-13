@@ -1108,8 +1108,11 @@ function refIndex(){
     });
   });
   (DB.mfrs||[]).forEach(function(v){
-    var pq=(v.steps||{}).pqd||{};
-    if(pq.ref)(idx[K(pq.ref)]=idx[K(pq.ref)]||[]).push({v:v,col:'PQD Number',shared:1});
+    var st=v.steps||{};
+    [st.pqd,st.appr].forEach(function(pq){
+      if(pq&&pq.ref)(idx[K(pq.ref)]=idx[K(pq.ref)]||[]).push({v:v,col:'PQD Number',shared:1});
+    });
+    var pq={};
     (v.pq2||[]).forEach(function(x){
       (idx[K(x.ref)]=idx[K(x.ref)]||[]).push({v:v,col:'PQD Number',shared:1,second:true});
     });
@@ -1191,11 +1194,12 @@ function planRegister(reg){
     hits.forEach(function(h){
       var where=STATUS_OF[h.col];
       var rec=h.m||h.v;
+      var vslot=h.v?((h.v.kind==='agency')?'appr':'pqd'):'';
       var now=h.del?trim(h.del.status)
              :h.m?trim((h.m.raw||{})[where?where.s:''])
                  :trim(h.second?(((h.v.pq2||[]).filter(function(x){
                      return K(x.ref)===K(d.no);})[0]||{}).status)
-                   :(((h.v.steps||{}).pqd||{}).status));
+                   :(((h.v.steps||{})[vslot]||{}).status));
       var item={d:d,h:h,rec:rec,where:where,now:now,want:want};
       if(!where||!want){p.same.push(item);return;}
       /* Both sides are read through the same reduction before being
@@ -1232,11 +1236,14 @@ function applyRegister(p,alsoEnded){
   function write(it){
     var w=it.where,d=it.d;
     if(it.h.v){                                   /* a vendor's qualification */
-      it.h.v.steps=it.h.v.steps||{};
-      var pq=it.h.v.steps.pqd||{};
+      var v=it.h.v;
+      v.steps=v.steps||{};
+      var slot=(v.kind==='agency')?'appr':'pqd';
+      var pq=v.steps[slot]||{};
       pq.status=it.want==='Approved as Noted'?'Approved with comments':it.want;
       if(d.date)pq.date=d.date;
-      it.h.v.steps.pqd=pq;n++;return;
+      if(!pq.ref)pq.ref=d.no;
+      v.steps[slot]=pq;n++;return;
     }
     if(it.h.del){                                 /* it lives in a consignment */
       it.h.del.status=(it.want==='Approved as Noted')?'Approved with comments'
@@ -1600,10 +1607,15 @@ function createFromRegister(p,tag){
         country:'',site:'',scope:'',steps:{},pq:{},added:today()};
       v.scope=v.scope||d.title;
       v.steps=v.steps||{};
-      if(!(v.steps.pqd&&v.steps.pqd.ref)){
-        v.steps.pqd={ref:d.no,date:d.date||'',
+      /* An agency is not pre-qualified, it is approved — clause 2.2.17 —
+         and its road has no pre-qualification step at all. Writing the
+         reference there left the record looking untouched, with the
+         number sitting in a field nothing reads. */
+      var slot=(v.kind==='agency')?'appr':'pqd';
+      if(!(v.steps[slot]&&v.steps[slot].ref)){
+        v.steps[slot]={ref:d.no,date:d.date||'',
           status:d.want==='Approved as Noted'?'Approved with comments':(d.want||'Pending')};
-      }else if(K(v.steps.pqd.ref)!==K(d.no)){
+      }else if(K(v.steps[slot].ref)!==K(d.no)){
         /* the same company qualified twice. The page holds one
            qualification per vendor, so the second is kept beside it
            rather than dropped — losing it would make this document
@@ -1882,7 +1894,7 @@ var VENSTAT='';
 var VEN_STATES=['Approved','Approved as Noted','Under Review','Revise & Resubmit',
   'Rejected','Terminated'];
 function pqStatus(v){
-  var st=((v.steps||{}).pqd||{}).status||'';
+  var st=pqOf(v).status||'';
   if(!st)return '';
   var k=K(st);
   if(k==='approved with comments')return 'Approved as Noted';
@@ -2017,6 +2029,19 @@ function install2(){
     if(i<0)return html+broughtPanel(v);
     return html.slice(0,i)+broughtPanel(v)+html.slice(i);
   };
+
+  /* the two inspection steps grow a list under them */
+  var origCard=window.stepCard;
+  if(typeof origCard==='function'&&!origCard.__visits){
+    window.stepCard=function(rec,x,i,kind){
+      var html=origCard(rec,x,i,kind);
+      if(kind!=='mat'||!VISIT_STEPS[x.s.k])return html;
+      var j=html.lastIndexOf('</div></div>');
+      if(j<0)return html+visitPanel(rec,x.s.k);
+      return html.slice(0,j)+visitPanel(rec,x.s.k)+html.slice(j);
+    };
+    window.stepCard.__visits=true;
+  }
 
   /* the material's page gains the panel where the linking happens */
   var origMat=window.matPane;
@@ -2249,7 +2274,7 @@ window.createSubFor=function(id){
    rest on hover. */
 function refChip(html,v){
   var st=v.steps||{};
-  var ref=(st.pqd&&st.pqd.ref)||(st.appr&&st.appr.ref)||'';
+  var ref=pqOf(v).ref||(st.pqd&&st.pqd.ref)||(st.appr&&st.appr.ref)||'';
   var i=html.indexOf('<div class="head-m">');
   if(i>=0&&ref){
     var chip='<span class="chip flat" title="'+attr(ref)+'">'
@@ -2386,10 +2411,14 @@ var VEN_COLS=['ID','Vendor','Kind','Brought by','Country','Production site','Sco
 var VEN_KINDS={'manufacturer':'maker','maker':'maker','subcontractor':'sub','sub':'sub',
   'supplier':'supplier','inspection agency':'agency','agency':'agency'};
 
+function pqOf(v){
+  var st=v.steps||{};
+  return ((v.kind==='agency')?st.appr:st.pqd)||{};
+}
 function vendorRows(){
   var rows=[VEN_COLS.slice()];
   (DB.mfrs||[]).forEach(function(v){
-    var st=v.steps||{}, pq=st.pqd||{}, iso=st.iso||{};
+    var st=v.steps||{}, pq=pqOf(v), iso=st.iso||{};
     rows.push([v.id,v.name,KINDS[kindOf(v)].l,v.by||'',v.country||'',v.site||'',v.scope||'',
       pq.ref||'',pq.status||'',pq.date?{date:pq.date}:'',
       iso.ref||'',iso.date?{date:iso.date}:'',iso.status||'',
@@ -2431,7 +2460,7 @@ function planVendors(rows){
   var byId={},byPq={},byName={};
   (DB.mfrs||[]).forEach(function(v){
     byId[String(v.id)]=v;
-    var pq=((v.steps||{}).pqd||{}).ref;
+    var pq=pqOf(v).ref;
     if(pq&&!byPq[K(pq)])byPq[K(pq)]=v;
     byName[K(v.name)]=v;
   });
@@ -2449,7 +2478,7 @@ function planVendors(rows){
   return p;
 }
 function vendorDiff(v,r){
-  var st=v.steps||{}, pq=st.pqd||{}, iso=st.iso||{}, out=[];
+  var st=v.steps||{}, pq=pqOf(v), iso=st.iso||{}, out=[];
   function cmp(label,now,want){
     want=trim(want);now=trim(now);
     if(want!==''&&K(now)!==K(want))out.push(label);
@@ -2480,11 +2509,12 @@ function applyVendors(p){
     set('site',r['Production site']);
     set('scope',r['Scope']);
     v.steps=v.steps||{};
-    var pq=v.steps.pqd||{}, iso=v.steps.iso||{};
+    var slot=(v.kind==='agency')?'appr':'pqd';
+    var pq=v.steps[slot]||{}, iso=v.steps.iso||{};
     if(trim(r['PQD Number']))pq.ref=trim(r['PQD Number']);
     if(trim(r['PQD Status']))pq.status=trim(r['PQD Status']);
     if(anyDate(r['PQD Date']))pq.date=anyDate(r['PQD Date']);
-    if(pq.ref||pq.status)v.steps.pqd=pq;
+    if(pq.ref||pq.status)v.steps[slot]=pq;
     if(trim(r['ISO Number']))iso.ref=trim(r['ISO Number']);
     if(anyDate(r['ISO Expires']))iso.date=anyDate(r['ISO Expires']);
     if(trim(r['ISO Status']))iso.status=trim(r['ISO Status']);
@@ -2754,9 +2784,9 @@ var TABLES_DEF={
     col('Brought by','by',function(r){return r.by||'';},'pick',180),
     col('Country','country',function(r){return r.country||'';},'pick',150),
     col('Production site','site',function(r){return r.site||'';},'text',180),
-    col('PQD Number','pq',function(r){return stepOf(r,'pqd','ref');},'text',300),
+    col('PQD Number','pq',function(r){return pqOf(r).ref||'';},'text',300),
     col('PQD Status','pqst',function(r){return pqStatus(r);},'pick',170),
-    col('PQD Date','pqdt',function(r){return show(stepOf(r,'pqd','date'));},'text',110),
+    col('PQD Date','pqdt',function(r){return show(pqOf(r).date||'');},'text',110),
     col('ISO Number','iso',function(r){return stepOf(r,'iso','ref');},'text',180),
     col('ISO Expires','isodt',function(r){return show(stepOf(r,'iso','date'));},'text',110),
     col('ISO Status','isost',function(r){return stepOf(r,'iso','status');},'pick',120),
@@ -3005,6 +3035,145 @@ function tableCSS(){
   document.head.appendChild(css);
 }
 
+/* ================================================================
+   VISITS
+   ----------------------------------------------------------------
+   "Visits to the factory while the material is being made" — the words
+   were already plural and the form held one. An in-process inspection
+   happens every fortnight and a final test can be repeated; keeping
+   only the last one makes a handover file that cannot be defended.
+
+   So these two steps keep a list, the way deliveries already do. The
+   newest visit is also written onto the step itself, which is what the
+   road reads and what the log exports — one column cannot hold four
+   dates, and the newest is the one that column should carry.
+   ================================================================ */
+
+var VISIT_STEPS={ipi:'In-process inspection',fat:'Final inspection or FAT'};
+var VISIT_RESULTS={
+  ipi:['Pending','Passed','Passed with comments','Failed'],
+  fat:['Pending','Scheduled','Passed','Passed with comments','Failed']
+};
+
+function visitsOf(m,k){
+  return (m.visits||[]).filter(function(v){return v.step===k;})
+    .sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
+}
+/* the newest visit is what the step, the road and the log all read */
+function restep(m,k){
+  var list=visitsOf(m,k);
+  m.steps=m.steps||{};
+  if(!list.length){delete m.steps[k];return;}
+  var n=list[0];
+  m.steps[k]={date:n.date||'',by:n.by||'',ref:n.ref||'',status:n.result||'Pending'};
+}
+
+function visitPanel(m,k){
+  var list=visitsOf(m,k);
+  return '<div class="cl" style="margin-top:14px"><div class="cl-body" style="padding:4px 15px 6px">'
+    +(list.length?list.map(function(v){
+        var t=/Passed/.test(v.result)?'ok':/Failed/.test(v.result)?'bad'
+             :v.result==='Scheduled'?'wait':'na';
+        return '<div class="cl-item" style="cursor:default">'
+          +'<span class="tag t-'+t+'" style="min-width:118px;text-align:center;flex-shrink:0">'
+          +esc(v.result||'Pending')+'</span>'
+          +'<span style="flex:1;min-width:0">'
+          +'<span class="mono">'+esc(v.ref||'—')+'</span>'
+          +(v.by?('<span class="dim"> · '+esc(v.by)+'</span>'):'')
+          +(v.note?('<div class="dim" style="font-size:12.5px;margin-top:2px">'+esc(v.note)+'</div>'):'')
+          +'</span>'
+          +'<span class="meta" style="flex-shrink:0">'+esc(show(v.date))+'</span>'
+          +'<button class="btn-q no-print" onclick="editVisit('+m.id+',\''+k+'\','+v.id+')">Edit</button>'
+          +'</div>';
+      }).join('')
+      :'<div class="dim" style="padding:10px 0;font-size:13.5px">No visit recorded yet. '
+       +'This step happens more than once — each visit is kept, and the newest one is what '
+       +'the road and the log read.</div>')
+    +'<div class="cl-foot"><button class="btn btn-s" onclick="editVisit('+m.id+',\''+k+'\')">'
+    +'Record a visit</button>'
+    +(list.length>1?('<span class="dim" style="font-size:12.5px">'+list.length+' visits</span>'):'')
+    +'</div></div></div>';
+}
+
+window.editVisit=function(matId,k,id){
+  var m=mat(matId);if(!m)return;
+  var v=(m.visits||[]).filter(function(x){return String(x.id)===String(id);})[0]||{};
+  var people=(DB.people||[]).slice().sort(function(a,b){
+    return String(a.name).localeCompare(String(b.name));});
+  sheet((id?'Edit the visit':'Record a visit')+' — '+VISIT_STEPS[k],
+     '<div class="form" style="margin:0;padding:0;border:none">'
+    +'<div class="f"><label for="v-date">Date</label>'
+    +'<input id="v-date" class="mono" value="'+attr(show(v.date||today()))+'" '
+    +'placeholder="dd/mm/yyyy" autocomplete="off"><span class="err" id="e-v-date"></span></div>'
+    +'<div class="f"><label for="v-by">Inspector</label><select id="v-by">'
+    +'<option value=""'+(v.by?'':' selected')+'>—</option>'
+    +people.map(function(p){
+        return '<option value="'+attr(p.name)+'"'+(K(p.name)===K(v.by||'')?' selected':'')+'>'
+          +esc(p.name)+((p.status||'Pending')!=='Approved'
+            ?(' · '+esc(String(p.status||'pending').toLowerCase())):'')+'</option>';}).join('')
+    +(v.by&&!people.some(function(p){return K(p.name)===K(v.by);})
+      ?('<option value="'+attr(v.by)+'" selected>'+esc(v.by)+' · not on your list</option>'):'')
+    +'</select></div>'
+    +'<div class="f wide"><label for="v-ref">Report reference</label>'
+    +'<input id="v-ref" class="mono" value="'+attr(v.ref||'')+'" autocomplete="off"></div>'
+    +'<div class="f"><label for="v-res">Result</label><select id="v-res">'
+    +VISIT_RESULTS[k].map(function(o){
+        return '<option'+((v.result||'Pending')===o?' selected':'')+'>'+esc(o)+'</option>';}).join('')
+    +'</select></div>'
+    +'<div class="f wide"><label for="v-note">Note</label>'
+    +'<input id="v-note" value="'+attr(v.note||'')+'" '
+    +'placeholder="what was seen, what was left open…" autocomplete="off"></div>'
+    +'<div class="f-act"><button class="btn btn-p" onclick="saveVisit('+matId+',\''+k+'\','
+    +(id||'null')+')">Save</button>'
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button>'
+    +(id?('<span style="flex:1"></span><button class="btn btn-d btn-s" data-pop '
+      +'onclick="dropVisit(event,'+matId+',\''+k+'\','+id+')">Delete</button>'):'')
+    +'</div></div>');
+};
+window.saveVisit=function(matId,k,id){
+  var m=mat(matId);if(!m)return;
+  var d=parseDate(document.getElementById('v-date').value);
+  if(d===null||!d){document.getElementById('e-v-date').textContent='Use dd/mm/yyyy';return;}
+  var o={id:id||idMaker()(),step:k,date:d,
+    by:document.getElementById('v-by').value,
+    ref:trim(document.getElementById('v-ref').value),
+    result:document.getElementById('v-res').value,
+    note:trim(document.getElementById('v-note').value)};
+  m.visits=m.visits||[];
+  var i=m.visits.map(function(x){return String(x.id);}).indexOf(String(id));
+  if(id&&i>-1)m.visits[i]=o;else m.visits.push(o);
+  restep(m,k);
+  touch();closeSheet();rList();rPane();
+};
+window.dropVisit=function(ev,matId,k,id){
+  var m=mat(matId);if(!m)return;
+  popConfirm(ev.currentTarget,'Delete this visit?',
+    'The others stay. If this was the newest, the step goes back to the one before it.',
+    'Delete',function(){
+      m.visits=(m.visits||[]).filter(function(x){return String(x.id)!==String(id);});
+      restep(m,k);touch();rList();rPane();
+    });
+};
+
+/* Records that already carry a single visit on the step keep it — it
+   becomes the first entry in the list rather than being left behind. */
+function liftVisits(){
+  var n=0;
+  (DB.mats||[]).forEach(function(m){
+    Object.keys(VISIT_STEPS).forEach(function(k){
+      var d=(m.steps||{})[k];
+      if(!d||!(d.date||d.ref||d.by))return;
+      m.visits=m.visits||[];
+      if(m.visits.some(function(v){return v.step===k;}))return;
+      m.visits.push({id:idMaker()(),step:k,date:d.date||'',by:d.by||'',ref:d.ref||'',
+        result:d.status||'Pending',note:''});
+      n++;
+    });
+  });
+  if(n)touch();
+  return n;
+}
+
 /* ---------------------------------------------------------------
    10. WHERE THE BUTTONS LIVE
    The page's own menu is left as it is and added to, so this file
@@ -3064,7 +3233,8 @@ function install(){
    once everything already carries a label. */
 function sortOut(){
   try{
-    if(labelDocuments()){rList();rPane();}
+    var n=labelDocuments()+liftVisits();
+    if(n){rList();rPane();}
     else paintTabs();
   }catch(e){}
 }
@@ -3094,5 +3264,6 @@ window.__tbl={label:function(){return tdef().label;},count:function(){return tde
   first:function(){var r=filtered()[0];return r?r.name:'';},
   choices:function(k){var c=tdef().cols.filter(function(x){return x.k===k;})[0];
     return c?choices(c,tdef().rows()):[];}};
+window.__v={lift:liftVisits,list:visitsOf};
 window.EXCEL={cols:COLS,vendorRows:vendorRows,readVendorSheet:readVendorSheet,planVendors:planVendors,applyVendors:applyVendors,generalRows:generalRows,looseRows:looseRows,vendorRows:vendorRows,isDoc:isDoc,docsOf:docsOf,servedBy:servedBy,labelDocuments:labelDocuments,createFromRegister:createFromRegister,pending:pending,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:generalRows,summary:summaryRows,book:workbook};
 })();
