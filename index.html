@@ -3037,8 +3037,16 @@ document.addEventListener('mousedown',function(e){
   if(!POP)return;
   if(document.getElementById('pop').contains(e.target))return;
   if(e.target.closest&&e.target.closest('[data-pop]'))return;
+  /* the same again: a drag that started inside and wandered out is a
+     selection, not a decision to leave */
+  if(POPDRAG)return;
   closePop();
 });
+var POPDRAG=false;
+document.addEventListener('mousedown',function(e){
+  POPDRAG=!!(POP&&document.getElementById('pop').contains(e.target));
+},true);
+document.addEventListener('mouseup',function(){setTimeout(function(){POPDRAG=false;},0);});
 /* one text field, saved on Enter */
 function popText(anchor,title,value,hint,onSave){
   pop(anchor,title,'<input id="pop-v" value="'+attr(value||'')+'" autocomplete="off">'
@@ -3155,7 +3163,18 @@ function sheet(title,html){
   var f=document.querySelector('#sheet-b input,#sheet-b select');if(f)f.focus();
 }
 window.closeSheet=function(){document.getElementById('ov').classList.remove('on');};
-document.getElementById('ov').addEventListener('click',function(e){if(e.target===this)closeSheet();});
+/* Clicking the darkness closes the sheet, but a click is only a click if
+   it began where it ended. Selecting a long name by dragging across it
+   very often releases past the edge of the card, and that used to count
+   as clicking outside — the sheet shut and the typing went with it. */
+(function(){
+  var ov=document.getElementById('ov'), from=null;
+  ov.addEventListener('mousedown',function(e){from=e.target;});
+  ov.addEventListener('click',function(e){
+    if(e.target===this&&from===this)closeSheet();
+    from=null;
+  });
+})();
 document.addEventListener('keydown',function(e){
   if(e.key==='Escape'){
     if(POP)closePop();

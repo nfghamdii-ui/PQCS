@@ -2017,7 +2017,28 @@ function install2(){
     var draw=window[fn];
     window[fn]=function(){
       try{return draw.apply(this,arguments);}
-      catch(e){if(window.console)console.error(fn+' failed',e);}
+      catch(e){
+        if(window.console)console.error(fn+' failed',e);
+        /* Swallowing this left the last screen sitting there looking
+           like the right one. A save must survive a broken draw, but
+           the person must not be left reading a stale page and guessing.
+           The pane says what happened; the list keeps quiet, since a
+           list that cannot draw is obvious on its own. */
+        if(fn!=='rPane')return;
+        var el=document.getElementById('pane');
+        if(!el)return;
+        el.innerHTML='<div class="head"><div class="wrap">'
+          +'<div class="head-t">This page could not be drawn</div></div></div>'
+          +'<div class="body"><div class="wrap"><div class="panel"><div class="panel-b">'
+          +'<div style="font-size:14px;line-height:1.8">'
+          +'Your work is safe and saved — this is the drawing of one screen, '
+          +'nothing else. Move to another tab and back, or reload the page.</div>'
+          +'<div class="swhy" style="margin-top:14px"><span class="mono">'
+          +esc(String((e&&e.message)||e))+'</span></div>'
+          +'<div class="swhy" style="margin-top:6px;white-space:pre-wrap">'
+          +esc(String((e&&e.stack)||'').split('\n').slice(0,4).join('\n'))
+          +'</div></div></div></div></div>';
+      }
     };
   });
 
@@ -2476,7 +2497,7 @@ function looseRows(){
    about it. */
 var VEN_COLS=['ID','Vendor','Kind','Brought by','Country','Production site','Scope',
   'PQD Number','PQD Status','PQD Date','ISO Number','ISO Expires','ISO Status',
-  'Assessment','Materials'];
+  'Assessment','Assessment Reference','Assessment Date','Materials'];
 var VEN_KINDS={'manufacturer':'maker','maker':'maker','subcontractor':'sub','sub':'sub',
   'supplier':'supplier','inspection agency':'agency','agency':'agency'};
 
@@ -2488,10 +2509,11 @@ function vendorRows(){
   var rows=[VEN_COLS.slice()];
   (DB.mfrs||[]).forEach(function(v){
     var st=v.steps||{}, pq=pqOf(v), iso=st.iso||{};
+    var pa=st.pa||{};
     rows.push([v.id,v.name,KINDS[kindOf(v)].l,v.by||'',v.country||'',v.site||'',v.scope||'',
       pq.ref||'',pq.status||'',pq.date?{date:pq.date}:'',
       iso.ref||'',iso.date?{date:iso.date}:'',iso.status||'',
-      (st.pa&&st.pa.status)||'',matsOf(v).length]);
+      pa.status||'',pa.ref||'',pa.date?{date:pa.date}:'',matsOf(v).length]);
   });
   return rows;
 }
@@ -2564,6 +2586,10 @@ function vendorDiff(v,r){
   cmp('ISO Number',iso.ref,r['ISO Number']);
   cmp('ISO Expires',iso.date,anyDate(r['ISO Expires']));
   cmp('ISO Status',iso.status,r['ISO Status']);
+  var pa=st.pa||{};
+  cmp('Assessment',pa.status,r['Assessment']);
+  cmp('Assessment Reference',pa.ref,r['Assessment Reference']);
+  cmp('Assessment Date',pa.date,anyDate(r['Assessment Date']));
   return out;
 }
 function applyVendors(p){
@@ -2591,6 +2617,13 @@ function applyVendors(p){
        that date, which is what a certificate means */
     if((iso.ref||iso.date)&&!iso.status)iso.status='Valid';
     if(iso.ref||iso.date||iso.status)v.steps.iso=iso;
+    /* Clause 2.1.9: the factory survey. Its outcome, the report it was
+       written in, and when it happened. */
+    var pa=v.steps.pa||{};
+    if(trim(r['Assessment']))pa.status=trim(r['Assessment']);
+    if(trim(r['Assessment Reference']))pa.ref=trim(r['Assessment Reference']);
+    if(anyDate(r['Assessment Date']))pa.date=anyDate(r['Assessment Date']);
+    if(pa.status||pa.ref||pa.date)v.steps.pa=pa;
   }
   p.change.forEach(function(c){write(c.v,c.r);});
   p.add.forEach(function(r){
@@ -2620,6 +2653,94 @@ function aheadRows(){
   });
   out.sort(function(a,b){return String(a[0].date).localeCompare(String(b[0].date));});
   return [['Date','What','Who']].concat(out);
+}
+
+/* ---------------------------------------------------------------
+   Inspectors, out and back.
+   Clause 2.2.17 approves an inspector by reference, and that reference
+   is what the sheet is keyed on — a name is spelt three ways across
+   four files in this project, but PAA-00086 is one person.
+   --------------------------------------------------------------- */
+var INS_COLS=['ID','Name','Agency','Discipline','Approval','Approval Reference','Assignments'];
+
+function inspectorRows(){
+  var rows=[INS_COLS.slice()];
+  (DB.people||[]).forEach(function(p){
+    rows.push([p.id,p.name||'',p.agency||'',p.disc||'',p.status||'Pending',p.ref||'',
+      assignments(p).length]);
+  });
+  return rows;
+}
+async function readInspectorSheet(file){
+  var book=await openBook(file);
+  for(var i=0;i<book.sheets.length;i++){
+    var rows=await book.rows(book.sheets[i]);
+    for(var h=0;h<Math.min(rows.length,10);h++){
+      var head=(rows[h]||[]).map(function(x){return K(x);});
+      if(head.indexOf('name')>=0&&head.indexOf('approval')>=0){
+        var col={};head.forEach(function(n,j){if(n)col[n]=j;});
+        var out=[];
+        rows.slice(h+1).forEach(function(line){
+          if(!trim(line[col['name']]))return;
+          var o={};
+          INS_COLS.forEach(function(c){var j=col[K(c)];o[c]=(j==null)?'':line[j];});
+          out.push(o);
+        });
+        if(out.length)return {rows:out,sheet:book.sheets[i].name};
+      }
+    }
+  }
+  throw new Error('No sheet in that file has a Name and an Approval column. '
+    +'This reads the inspector report back — download it from Reports first.');
+}
+function planInspectors(rows){
+  var byId={},byRef={},byName={};
+  (DB.people||[]).forEach(function(p){
+    byId[String(p.id)]=p;
+    if(p.ref)byRef[K(p.ref)]=p;
+    byName[K(p.name)]=p;
+  });
+  var p={add:[],change:[],same:[]};
+  rows.forEach(function(r){
+    var f=byId[String(trim(r['ID']))]||byRef[K(trim(r['Approval Reference']))]
+      ||byName[K(trim(r['Name']))];
+    if(!f){p.add.push(r);return;}
+    var diff=[];
+    [['Name','name'],['Agency','agency'],['Discipline','disc'],
+     ['Approval','status'],['Approval Reference','ref']].forEach(function(pair){
+      var want=trim(r[pair[0]]);
+      if(want!==''&&K(f[pair[1]]||'')!==K(want))diff.push(pair[0]);
+    });
+    if(diff.length)p.change.push({p:f,r:r,diff:diff});else p.same.push(f);
+  });
+  return p;
+}
+function applyInspectors(p){
+  var made={id:idMaker()};
+  function write(x,r){
+    function set(k,v){v=trim(v);if(v!=='')x[k]=v;}
+    var old=x.name;
+    set('name',r['Name']);
+    if(old&&K(old)!==K(x.name)){
+      /* a name typed onto a step is loose text and would be left
+         pointing at somebody who no longer exists under that spelling */
+      (DB.mats||[]).concat(DB.mfrs||[]).forEach(function(rec){
+        Object.keys(rec.steps||{}).forEach(function(k){
+          if(K(rec.steps[k].by)===K(old))rec.steps[k].by=x.name;});
+        (rec.visits||[]).forEach(function(v){if(K(v.by)===K(old))v.by=x.name;});
+      });
+    }
+    set('agency',r['Agency']);set('disc',r['Discipline']);
+    set('status',r['Approval']);set('ref',r['Approval Reference']);
+  }
+  p.change.forEach(function(c){write(c.p,c.r);});
+  p.add.forEach(function(r){
+    var x={id:made.id(),name:'',agency:'',disc:'',status:'Pending',ref:'',added:today()};
+    write(x,r);
+    DB.people.push(x);
+  });
+  touch();rList();rPane();
+  return {changed:p.change.length,added:p.add.length};
 }
 
 var REPORTS=[
@@ -2652,6 +2773,15 @@ var REPORTS=[
   go:function(){
     download(workbook([{name:'Look-ahead',rows:aheadRows()}]),
       (DB.project||'Look-ahead')+' — look-ahead '+today()+'.xlsx');
+  }},
+ {k:'insp',t:'Inspectors',back:true,
+  d:'Everyone approved to inspect on this project, their agency and the reference SEVEN '
+    +'approved them under — clause 2.2.17. Correct any of it and send it back. A row is '
+    +'found by that reference before it is found by the name, because a name is spelt '
+    +'three ways across four files and a reference is one person.',
+  go:function(){
+    download(workbook([{name:'Inspectors',rows:inspectorRows()}]),
+      (DB.project||'Inspectors')+' — inspectors '+today()+'.xlsx');
   }}
 ];
 
@@ -2664,6 +2794,21 @@ window.repRead=async function(ev){
   var f=ev.target.files[0];ev.target.value='';
   if(!f)return;
   if(REP_WANT==='log')return window.excelRead({target:{files:[f],value:''}});
+  if(REP_WANT==='insp'){
+    if(typeof busy==='function')busy(true,'Reading the inspector sheet');
+    try{
+      var g=await readInspectorSheet(f);
+      var pl=planInspectors(g.rows);
+      if(typeof busy==='function')busy(false);
+      var n=applyInspectors(pl);
+      toast(n.added+' added, '+n.changed+' updated, '+pl.same.length+' unchanged');
+    }catch(e){
+      if(typeof busy==='function')busy(false);
+      sheet('That sheet could not be read',
+        '<div style="font-size:14px;line-height:1.75">'+esc(e.message||String(e))+'</div>');
+    }
+    return;
+  }
   if(typeof busy==='function')busy(true,'Reading the vendor sheet');
   try{
     var got=await readVendorSheet(f);
@@ -2860,6 +3005,7 @@ var TABLES_DEF={
     col('ISO Expires','isodt',function(r){return show(stepOf(r,'iso','date'));},'text',110),
     col('ISO Status','isost',function(r){return stepOf(r,'iso','status');},'pick',120),
     col('Assessment','pa',function(r){return stepOf(r,'pa','status');},'pick',140),
+    col('Assessment Ref','paref',function(r){return stepOf(r,'pa','ref');},'text',260),
     col('Materials','n',function(r){return String(matsOf(r).length);},'text',100)],
    show:['name','kind','by','country','pq','pqst','isodt','n']},
 
@@ -3643,5 +3789,5 @@ window.__tbl={label:function(){return tdef().label;},count:function(){return tde
   choices:function(k){var c=tdef().cols.filter(function(x){return x.k===k;})[0];
     return c?choices(c,tdef().rows()):[];}};
 window.__v={lift:liftVisits,list:visitsOf};
-window.EXCEL={cols:COLS,vendorRows:vendorRows,readVendorSheet:readVendorSheet,planVendors:planVendors,applyVendors:applyVendors,generalRows:generalRows,looseRows:looseRows,vendorRows:vendorRows,isDoc:isDoc,docsOf:docsOf,servedBy:servedBy,labelDocuments:labelDocuments,createFromRegister:createFromRegister,pending:pending,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:generalRows,summary:summaryRows,book:workbook};
+window.EXCEL={cols:COLS,inspectorRows:inspectorRows,readInspectorSheet:readInspectorSheet,planInspectors:planInspectors,applyInspectors:applyInspectors,vendorRows:vendorRows,readVendorSheet:readVendorSheet,planVendors:planVendors,applyVendors:applyVendors,generalRows:generalRows,looseRows:looseRows,vendorRows:vendorRows,isDoc:isDoc,docsOf:docsOf,servedBy:servedBy,labelDocuments:labelDocuments,createFromRegister:createFromRegister,pending:pending,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:generalRows,summary:summaryRows,book:workbook};
 })();
