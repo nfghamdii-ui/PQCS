@@ -2032,7 +2032,6 @@ function install2(){
   var drawPane=window.rPane;
   window.rPane=function(){
     var here=place();
-    if(here!==WAS)EDITBAR=false;      /* move to another record and it reads again */
     var body=document.querySelector('.main .body')||document.getElementById('tbl-body');
     var was=(here===WAS&&body)?body.scrollTop:0;
     var r=drawPane.apply(this,arguments);
@@ -2055,15 +2054,7 @@ function install2(){
 
   var origInsp=window.inspPane;
   if(typeof origInsp==='function'&&!origInsp.__bar){
-    window.inspPane=function(p){
-      var html=readingBar(origInsp(p),'insp',p.id);
-      if(!EDITBAR)return html;
-      var i=html.indexOf('<div class="head-t">'),j=i<0?-1:html.indexOf('</div>',i);
-      if(j<0)return html;
-      return html.slice(0,i)+'<button class="head-t namebtn" title="Rename" data-pop '
-        +'onclick="renameInsp(event,'+p.id+')">'+html.slice(i+20,j)+'</button>'
-        +html.slice(j+6);
-    };
+    window.inspPane=function(p){return readingBar(origInsp(p),'insp',p.id);};
     window.inspPane.__bar=true;
   }
 
@@ -2122,20 +2113,10 @@ function install2(){
    most. A name pulled out of an Aconex title comes through as
    "- - -Sodamco-Concrete Admixtures & Mortar Based Solutions", and until
    now there was nowhere to fix it. */
-function nameable(html,kind,id,cur){
-  /* The name sits in the middle of the page and was a button too, so it
-     was the easiest thing of all to open by accident. It follows the
-     rest of the header: text while reading, editable once Edit is on. */
-  if(!EDITBAR)return html;
-  var i=html.indexOf('<div class="head-t">');
-  if(i<0)return html;
-  var j=html.indexOf('</div>',i);
-  if(j<0)return html;
-  var btn='<button class="head-t namebtn" title="Rename" data-pop '
-    +'onclick="rename'+(kind==='mat'?'Mat':'Ven')+'(event,'+id+')">'
-    +html.slice(i+20,j)+'</button>';
-  return html.slice(0,i)+btn+html.slice(j+6);
-}
+/* The name sits in the middle of the page and was a button, which made
+   it the easiest thing of all to open by accident. It is read here and
+   changed in the sheet, along with everything else. */
+function nameable(html){return html;}
 window.renameMat=function(ev,id){
   var m=mat(id);if(!m)return;
   popText(ev.currentTarget,'Name of this record',m.name,
@@ -3274,8 +3255,6 @@ function liftVisits(){
    moment, not to the record: move to another and it is reading again.
    ================================================================ */
 
-var EDITBAR=false;
-
 /* A chip stops being a button. The markup is the page's own, so this
    turns the tag around rather than rebuilding it — anything the page
    adds to a chip later keeps working. */
@@ -3296,12 +3275,10 @@ function readingBar(html,kind,id){
   var end=(flex<0)?html.indexOf('</div>',from):flex;
   if(end<0)return html;
 
-  var chips=html.slice(from,end);
-  if(!EDITBAR)chips=chipsToText(chips);
+  var chips=chipsToText(html.slice(from,end));
 
-  var btn='<button class="btn btn-s no-print'+(EDITBAR?' btn-p':'')+'" '
-    +'onclick="editBar()" title="'+(EDITBAR?'Stop editing':'Change these')+'">'
-    +(EDITBAR?'Done':'Edit')+'</button>';
+  var btn='<button class="btn btn-s no-print" onclick="editRecord()" '
+    +'title="Change any of this">Edit</button>';
 
   /* the button sits with the other actions on the right, and when there
      is no right-hand group it makes one */
@@ -3315,7 +3292,6 @@ function readingBar(html,kind,id){
   out=out.replace(/<div class="swhy" style="margin-top:10px">Category [\s\S]*?<\/div>/,'');
   return out;
 }
-window.editBar=function(){EDITBAR=!EDITBAR;rPane();};
 window.__bar=readingBar;
 
 function barCSS(){
@@ -3338,6 +3314,243 @@ function barCSS(){
   +'.chip.still.flat:hover{background:var(--sunk);border-color:transparent}';
   document.head.appendChild(css);
 }
+
+/* ================================================================
+   ONE PLACE TO CHANGE THINGS
+   ----------------------------------------------------------------
+   Edit opens a sheet with everything the header carries on it, and a
+   single Save. The header itself never becomes editable — it is a
+   thing to read and copy from, and a reference copied is the commonest
+   reason anyone touches it.
+
+   The fields are the same ones the chips used to open one at a time,
+   so nothing new is being asked for; they are simply all visible at
+   once, and a change is not committed until it is asked for.
+   ================================================================ */
+
+function optList(list,cur){
+  return list.map(function(o){
+    var v=(typeof o==='string')?o:o.v, l=(typeof o==='string')?o:o.l;
+    return '<option value="'+attr(v)+'"'+(K(v)===K(cur||'')?' selected':'')+'>'+esc(l)+'</option>';
+  }).join('');
+}
+
+window.editRecord=function(){
+  if(TAB==='mfr')return editVendorSheet();
+  if(TAB==='insp')return editInspSheet();
+  return editMatSheet();
+};
+
+/* ---------------------------------------------------------------- material */
+function editMatSheet(){
+  var m=mat(SEL.mat);if(!m)return;
+  var vendors=(DB.mfrs||[]).filter(function(v){return kindOf(v)!=='agency';})
+    .sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
+  var cur=m.mfr?mfr(m.mfr):null;
+  var discs={};(DB.mats||[]).forEach(function(x){if(x.disc)discs[x.disc]=1;});
+  sheet('Edit — '+(m.doc?m.doc:'material'),
+     '<div class="form" style="margin:0;padding:0;border:none">'
+    +'<div class="f wide"><label for="ed-name">Name</label>'
+      +'<input id="ed-name" value="'+attr(m.name||'')+'" autocomplete="off"></div>'
+    +'<div class="f"><label for="ed-cat">Category</label><select id="ed-cat">'
+      +'<option value="">—</option>'+optList(['C0','C1','C2','C3'],m.cat)+'</select></div>'
+    +'<div class="f"><label for="ed-disc">Discipline</label>'
+      +'<input id="ed-disc" list="disc-list" value="'+attr(m.disc||'')+'" autocomplete="off">'
+      +'<datalist id="disc-list">'
+      +Object.keys(discs).sort().map(function(d){return '<option value="'+attr(d)+'">';}).join('')
+      +'</datalist></div>'
+    +'<div class="f wide"><label for="ed-ven">Vendor '
+      +'<span class="dim">— type to narrow the list</span></label>'
+      +'<input id="ed-ven" list="ven-list" value="'+attr(cur?cur.name:'')+'" '
+      +'placeholder="none" autocomplete="off">'
+      +'<datalist id="ven-list">'
+      +vendors.map(function(v){return '<option value="'+attr(v.name)+'">';}).join('')
+      +'</datalist></div>'
+    +'<div class="f"><label for="ed-sub">Sub-contractor</label>'
+      +'<input id="ed-sub" value="'+attr(m.sub||'')+'" autocomplete="off"></div>'
+    +'<div class="f wide"><label for="ed-ref">Aconex reference</label>'
+      +'<input id="ed-ref" class="mono" value="'+attr(m.ref||'')+'" autocomplete="off"></div>'
+    +'<div class="f"><label for="ed-qty">Quantity</label>'
+      +'<input id="ed-qty" value="'+attr(m.qty||'')+'" autocomplete="off"></div>'
+    +'<div class="f"><label for="ed-unit">Unit</label>'
+      +'<input id="ed-unit" value="'+attr(m.unit||'')+'" autocomplete="off"></div>'
+    +'<div class="f-act"><button class="btn btn-p" onclick="saveMatSheet()">Save</button>'
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button>'
+    +'<span style="flex:1"></span>'
+    +'<span class="dim" style="font-size:12.5px">Nothing changes until you save.</span>'
+    +'</div></div>');
+}
+window.saveMatSheet=function(){
+  var m=mat(SEL.mat);if(!m)return;
+  function v(id){return trim((document.getElementById(id)||{}).value);}
+  var name=v('ed-name');
+  if(name){m.name=name;if(m.raw)m.raw['Item Description']=name;}
+  m.cat=v('ed-cat');
+  m.catFrom=m.cat?'set by you':'';m.catSure=true;
+  m.disc=v('ed-disc');
+  m.sub=v('ed-sub');
+  m.ref=v('ed-ref');
+  m.qty=v('ed-qty');
+  m.unit=v('ed-unit');
+  /* the vendor is named, not numbered — an unknown name is made rather
+     than dropped, because typing one is how a person says it exists */
+  var want=v('ed-ven');
+  if(!want)m.mfr='';
+  else{
+    var found=(DB.mfrs||[]).filter(function(x){return K(x.name)===K(want);})[0];
+    if(!found){
+      found={id:idMaker()(),name:want,kind:'maker',cat:m.cat||'',country:'',site:'',
+        scope:'',steps:{},pq:{},added:today()};
+      DB.mfrs.push(found);
+      toast('Added '+want+' to the vendors');
+    }
+    m.mfr=String(found.id);
+  }
+  touch();closeSheet();rList();rPane();
+};
+
+/* ---------------------------------------------------------------- vendor */
+function editVendorSheet(){
+  var v=mfr(SEL.mfr);if(!v)return;
+  var st=v.steps||{}, pq=pqOf(v), iso=st.iso||{};
+  var subs=(DB.mfrs||[]).filter(function(x){return String(x.id)!==String(v.id);})
+    .sort(function(a,b){
+      var A=(a.kind==='sub')?0:1,B=(b.kind==='sub')?0:1;
+      return A-B||String(a.name).localeCompare(String(b.name));});
+  sheet('Edit — vendor',
+     '<div class="form" style="margin:0;padding:0;border:none">'
+    +'<div class="f wide"><label for="ev-name">Name</label>'
+      +'<input id="ev-name" value="'+attr(v.name||'')+'" autocomplete="off"></div>'
+    +'<div class="f"><label for="ev-kind">Kind</label><select id="ev-kind">'
+      +optList(Object.keys(KINDS).map(function(k){return {v:k,l:KINDS[k].l};}),kindOf(v))
+      +'</select></div>'
+    +'<div class="f"><label for="ev-cat">Highest category supplied</label><select id="ev-cat">'
+      +'<option value="">—</option>'+optList(['C0','C1','C2','C3'],v.cat)+'</select></div>'
+    +'<div class="f"><label for="ev-country">Country</label>'
+      +'<input id="ev-country" value="'+attr(v.country||'')+'" autocomplete="off"></div>'
+    +'<div class="f"><label for="ev-site">Production site</label>'
+      +'<input id="ev-site" value="'+attr(v.site||'')+'" autocomplete="off"></div>'
+    +'<div class="f wide"><label for="ev-by">Brought onto the project by</label>'
+      +'<input id="ev-by" list="by-list" value="'+attr(v.by||'')+'" placeholder="nobody recorded" '
+      +'autocomplete="off"><datalist id="by-list">'
+      +subs.map(function(x){return '<option value="'+attr(x.name)+'">';}).join('')
+      +'</datalist></div>'
+    +'<div class="f wide"><label for="ev-scope">Scope of work</label>'
+      +'<input id="ev-scope" value="'+attr(v.scope||'')+'" autocomplete="off"></div>'
+    +'<div class="f wide"><label for="ev-pq">'
+      +((v.kind==='agency')?'Approval reference':'Pre-qualification reference')+'</label>'
+      +'<input id="ev-pq" class="mono" value="'+attr(pq.ref||'')+'" autocomplete="off"></div>'
+    +'<div class="f"><label for="ev-pqst">Outcome</label><select id="ev-pqst">'
+      +'<option value="">—</option>'
+      +optList(['Approved','Approved with comments','Under Review','Revise & Resubmit',
+                'Rejected','Terminated'],pq.status)+'</select></div>'
+    +'<div class="f"><label for="ev-pqdt">Submitted</label>'
+      +'<input id="ev-pqdt" class="mono" value="'+attr(show(pq.date||''))+'" '
+      +'placeholder="dd/mm/yyyy" autocomplete="off"><span class="err" id="e-ev-pqdt"></span></div>'
+    +'<div class="f"><label for="ev-iso">ISO 9001 certificate</label>'
+      +'<input id="ev-iso" class="mono" value="'+attr(iso.ref||'')+'" autocomplete="off"></div>'
+    +'<div class="f"><label for="ev-isodt">Expires</label>'
+      +'<input id="ev-isodt" class="mono" value="'+attr(show(iso.date||''))+'" '
+      +'placeholder="dd/mm/yyyy" autocomplete="off"><span class="err" id="e-ev-isodt"></span></div>'
+    +'<div class="f-act"><button class="btn btn-p" onclick="saveVendorSheet()">Save</button>'
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button>'
+    +'<span style="flex:1"></span>'
+    +'<span class="dim" style="font-size:12.5px">Nothing changes until you save.</span>'
+    +'</div></div>');
+}
+window.saveVendorSheet=function(){
+  var v=mfr(SEL.mfr);if(!v)return;
+  function g(id){return trim((document.getElementById(id)||{}).value);}
+  function date(id){
+    var raw=g(id);
+    if(!raw)return '';
+    var d=parseDate(raw);
+    if(d===null||!d){
+      var e=document.getElementById('e-'+id);
+      if(e)e.textContent='Use dd/mm/yyyy';
+      return null;
+    }
+    return d;
+  }
+  var pqdt=date('ev-pqdt'), isodt=date('ev-isodt');
+  if(pqdt===null||isodt===null)return;
+  var old=v.name;
+  var name=g('ev-name');
+  if(name&&K(name)!==K(old)){
+    v.name=name;
+    (DB.mfrs||[]).forEach(function(x){if(x.by&&K(x.by)===K(old))x.by=name;});
+  }
+  v.kind=g('ev-kind')||v.kind;
+  v.cat=g('ev-cat');
+  v.country=g('ev-country');
+  v.site=g('ev-site');
+  v.by=g('ev-by');
+  v.scope=g('ev-scope');
+  v.steps=v.steps||{};
+  var slot=(v.kind==='agency')?'appr':'pqd';
+  var pq=v.steps[slot]||{};
+  pq.ref=g('ev-pq');pq.status=g('ev-pqst');
+  if(pqdt)pq.date=pqdt;else delete pq.date;
+  if(pq.ref||pq.status||pq.date)v.steps[slot]=pq;else delete v.steps[slot];
+  var iso=v.steps.iso||{};
+  iso.ref=g('ev-iso');
+  if(isodt)iso.date=isodt;else delete iso.date;
+  /* a certificate with a date and nothing said about it is valid until
+     that date, which is what a certificate means */
+  if((iso.ref||iso.date)&&!iso.status)iso.status='Valid';
+  if(iso.ref||iso.date)v.steps.iso=iso;else delete v.steps.iso;
+  touch();closeSheet();rList();rPane();
+};
+
+/* ---------------------------------------------------------------- inspector */
+function editInspSheet(){
+  var p=(DB.people||[]).filter(function(x){return String(x.id)===String(SEL.insp);})[0];
+  if(!p)return;
+  var agencies={};(DB.mfrs||[]).forEach(function(v){if(kindOf(v)==='agency')agencies[v.name]=1;});
+  (DB.people||[]).forEach(function(x){if(x.agency)agencies[x.agency]=1;});
+  sheet('Edit — inspector',
+     '<div class="form" style="margin:0;padding:0;border:none">'
+    +'<div class="f wide"><label for="ei-name">Name</label>'
+      +'<input id="ei-name" value="'+attr(p.name||'')+'" autocomplete="off"></div>'
+    +'<div class="f wide"><label for="ei-agency">Agency</label>'
+      +'<input id="ei-agency" list="ag-list" value="'+attr(p.agency||'')+'" autocomplete="off">'
+      +'<datalist id="ag-list">'
+      +Object.keys(agencies).sort().map(function(a){return '<option value="'+attr(a)+'">';}).join('')
+      +'</datalist></div>'
+    +'<div class="f"><label for="ei-disc">Discipline</label>'
+      +'<input id="ei-disc" value="'+attr(p.disc||'')+'" autocomplete="off"></div>'
+    +'<div class="f"><label for="ei-status">Approval '
+      +'<span class="dim">— clause 2.2.17</span></label><select id="ei-status">'
+      +optList(['Pending','Approved','Suspended'],p.status||'Pending')+'</select></div>'
+    +'<div class="f wide"><label for="ei-ref">Approval reference</label>'
+      +'<input id="ei-ref" class="mono" value="'+attr(p.ref||'')+'" autocomplete="off"></div>'
+    +'<div class="f-act"><button class="btn btn-p" onclick="saveInspSheet()">Save</button>'
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button>'
+    +'<span style="flex:1"></span>'
+    +'<span class="dim" style="font-size:12.5px">Nothing changes until you save.</span>'
+    +'</div></div>');
+}
+window.saveInspSheet=function(){
+  var p=(DB.people||[]).filter(function(x){return String(x.id)===String(SEL.insp);})[0];
+  if(!p)return;
+  function g(id){return trim((document.getElementById(id)||{}).value);}
+  var old=p.name, name=g('ei-name');
+  if(name&&K(name)!==K(old)){
+    p.name=name;
+    /* a name typed onto a step is loose text and would otherwise point
+       at somebody who no longer exists under that spelling */
+    (DB.mats||[]).concat(DB.mfrs||[]).forEach(function(r){
+      Object.keys(r.steps||{}).forEach(function(k){
+        if(K(r.steps[k].by)===K(old))r.steps[k].by=name;});
+      (r.visits||[]).forEach(function(vv){if(K(vv.by)===K(old))vv.by=name;});
+    });
+  }
+  p.agency=g('ei-agency');
+  p.disc=g('ei-disc');
+  p.status=g('ei-status')||'Pending';
+  p.ref=g('ei-ref');
+  touch();closeSheet();rList();rPane();
+};
 
 /* ---------------------------------------------------------------
    10. WHERE THE BUTTONS LIVE
