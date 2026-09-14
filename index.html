@@ -1185,6 +1185,10 @@ function settled(st){return ['Approved','Approved with comments','Passed','Passe
 function failed(st){return ['Rejected','Resubmit','Failed'].indexOf(st)>=0;}
 function mfr(id){return (DB.mfrs||[]).find(function(x){return String(x.id)===String(id);});}
 function mat(id){return (DB.mats||[]).find(function(x){return String(x.id)===String(id);});}
+/* This was called in five places and written in none. Nothing noticed
+   while the inspector list was empty — there was never a record to open
+   — and the first one added took the whole pane down with it. */
+function insp(id){return (DB.people||[]).find(function(x){return String(x.id)===String(id);});}
 function mfrOf(m){return m&&m.mfr?mfr(m.mfr):null;}
 function matsOf(v){return (DB.mats||[]).filter(function(m){return String(m.mfr)===String(v.id);});}
 
