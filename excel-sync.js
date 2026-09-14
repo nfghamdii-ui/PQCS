@@ -1845,7 +1845,7 @@ function liftTabs(){
     b.onclick=function(){setTab(p[0]);};
     tabs.appendChild(b);
   });
-  tableCSS();
+  tableCSS();barCSS();
 }
 
 function paintTabs(){
@@ -2032,6 +2032,7 @@ function install2(){
   var drawPane=window.rPane;
   window.rPane=function(){
     var here=place();
+    if(here!==WAS)EDITBAR=false;      /* move to another record and it reads again */
     var body=document.querySelector('.main .body')||document.getElementById('tbl-body');
     var was=(here===WAS&&body)?body.scrollTop:0;
     var r=drawPane.apply(this,arguments);
@@ -2052,10 +2053,16 @@ function install2(){
     return r;
   };
 
+  var origInsp=window.inspPane;
+  if(typeof origInsp==='function'&&!origInsp.__bar){
+    window.inspPane=function(p){return readingBar(origInsp(p),'insp',p.id);};
+    window.inspPane.__bar=true;
+  }
+
   /* the vendor's page gains the one about who brought them */
   var origMfr=window.mfrPane;
   window.mfrPane=function(v){
-    var html=refChip(nameable(origMfr(v),'mfr',v.id),v);
+    var html=readingBar(refChip(nameable(origMfr(v),'mfr',v.id),v),'mfr',v.id);
     var i=html.lastIndexOf('</div></div>');
     if(i<0)return html+broughtPanel(v);
     return html.slice(0,i)+broughtPanel(v)+html.slice(i);
@@ -2096,7 +2103,7 @@ function install2(){
   /* the material's page gains the panel where the linking happens */
   var origMat=window.matPane;
   window.matPane=function(m){
-    var html=nameable(origMat(m),'mat',m.id);
+    var html=readingBar(nameable(origMat(m),'mat',m.id),'mat',m.id);
     var i=html.lastIndexOf('</div></div>');
     if(i<0)return html+linkPanel(m);
     return html.slice(0,i)+linkPanel(m)+html.slice(i);
@@ -3222,6 +3229,78 @@ function liftVisits(){
   });
   if(n)touch();
   return n;
+}
+
+/* ================================================================
+   THE HEADER READS BEFORE IT WRITES
+   ----------------------------------------------------------------
+   Every chip along the top was a button. Reaching for a reference to
+   copy it opened an editor; a stray click changed a category. A header
+   is the part of a record people look at most and change least, so it
+   is text until somebody asks for it to be otherwise.
+
+   Edit turns the row live and turns it back. The state belongs to the
+   moment, not to the record: move to another and it is reading again.
+   ================================================================ */
+
+var EDITBAR=false;
+
+/* A chip stops being a button. The markup is the page's own, so this
+   turns the tag around rather than rebuilding it — anything the page
+   adds to a chip later keeps working. */
+function chipsToText(s){
+  return s.replace(/<button\s+class="chip([^"]*)"([^>]*)>([\s\S]*?)<\/button>/g,
+    function(all,cls,attrs,inner){
+      var title=/title="([^"]*)"/.exec(attrs);
+      return '<span class="chip'+cls+' still"'+(title?(' title="'+title[1]+'"'):'')+'>'
+        +inner+'</span>';
+    });
+}
+
+function readingBar(html,kind,id){
+  var at=html.indexOf('<div class="head-m">');
+  if(at<0)return html;
+  var from=at+20;
+  var flex=html.indexOf('<span style="flex:1"></span>',from);
+  var end=(flex<0)?html.indexOf('</div>',from):flex;
+  if(end<0)return html;
+
+  var chips=html.slice(from,end);
+  if(!EDITBAR)chips=chipsToText(chips);
+
+  var btn='<button class="btn btn-s no-print'+(EDITBAR?' btn-p':'')+'" '
+    +'onclick="editBar()" title="'+(EDITBAR?'Stop editing':'Change these')+'">'
+    +(EDITBAR?'Done':'Edit')+'</button>';
+
+  /* the button sits with the other actions on the right, and when there
+     is no right-hand group it makes one */
+  var out=html.slice(0,from)+chips+(flex<0?'<span style="flex:1"></span>':'')
+    +html.slice(end);
+  var mark=out.indexOf('<span style="flex:1"></span>');
+  out=out.slice(0,mark+28)+btn+out.slice(mark+28);
+
+  /* "Category C3 — from the Main Log." says nothing a person needs while
+     reading, and the category is already on a chip two lines above. */
+  out=out.replace(/<div class="swhy" style="margin-top:10px">Category [\s\S]*?<\/div>/,'');
+  return out;
+}
+window.editBar=function(){EDITBAR=!EDITBAR;rPane();};
+window.__bar=readingBar;
+
+function barCSS(){
+  if(document.getElementById('bar-css'))return;
+  var css=document.createElement('style');
+  css.id='bar-css';
+  css.textContent=
+   /* a chip that is not a button should not look like one, and the text
+      inside it has to be selectable or copying a reference is no easier
+      than it was */
+   '.chip.still{cursor:text;user-select:text;-webkit-user-select:text}'
+  +'.chip.still:hover{background:var(--card);border-color:var(--line-2)}'
+  +'.chip.still.set:hover{background:var(--wait-b);border-color:var(--wait)}'
+  +'.chip.still.warn:hover{background:var(--now-b);border-color:var(--now)}'
+  +'.chip.still.flat:hover{background:var(--sunk);border-color:transparent}';
+  document.head.appendChild(css);
 }
 
 /* ---------------------------------------------------------------
