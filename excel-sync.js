@@ -2055,7 +2055,15 @@ function install2(){
 
   var origInsp=window.inspPane;
   if(typeof origInsp==='function'&&!origInsp.__bar){
-    window.inspPane=function(p){return readingBar(origInsp(p),'insp',p.id);};
+    window.inspPane=function(p){
+      var html=readingBar(origInsp(p),'insp',p.id);
+      if(!EDITBAR)return html;
+      var i=html.indexOf('<div class="head-t">'),j=i<0?-1:html.indexOf('</div>',i);
+      if(j<0)return html;
+      return html.slice(0,i)+'<button class="head-t namebtn" title="Rename" data-pop '
+        +'onclick="renameInsp(event,'+p.id+')">'+html.slice(i+20,j)+'</button>'
+        +html.slice(j+6);
+    };
     window.inspPane.__bar=true;
   }
 
@@ -2115,12 +2123,15 @@ function install2(){
    "- - -Sodamco-Concrete Admixtures & Mortar Based Solutions", and until
    now there was nowhere to fix it. */
 function nameable(html,kind,id,cur){
+  /* The name sits in the middle of the page and was a button too, so it
+     was the easiest thing of all to open by accident. It follows the
+     rest of the header: text while reading, editable once Edit is on. */
+  if(!EDITBAR)return html;
   var i=html.indexOf('<div class="head-t">');
   if(i<0)return html;
   var j=html.indexOf('</div>',i);
   if(j<0)return html;
-  var btn='<button class="head-t" style="background:none;border:none;padding:0;text-align:left;'
-    +'cursor:pointer;font:inherit;color:inherit" title="Click to rename" data-pop '
+  var btn='<button class="head-t namebtn" title="Rename" data-pop '
     +'onclick="rename'+(kind==='mat'?'Mat':'Ven')+'(event,'+id+')">'
     +html.slice(i+20,j)+'</button>';
   return html.slice(0,i)+btn+html.slice(j+6);
@@ -2131,6 +2142,26 @@ window.renameMat=function(ev,id){
     'The reference is what ties this row to the register, so renaming it breaks nothing.',
     function(v){if(!v)return;m.name=v;if(m.raw)m.raw['Item Description']=v;
       touch();rList();rPane();});
+};
+window.renameInsp=function(ev,id){
+  var p=(DB.people||[]).filter(function(x){return String(x.id)===String(id);})[0];
+  if(!p)return;
+  var old=p.name;
+  popText(ev.currentTarget,'Name of this inspector',p.name,
+    'The name as it appears on the reports. Anywhere it has been used follows the change.',
+    function(n){
+      if(!n||K(n)===K(old))return;
+      p.name=n;
+      /* a name typed onto a step is loose text, so it is carried over
+         rather than left pointing at somebody who no longer exists */
+      (DB.mats||[]).concat(DB.mfrs||[]).forEach(function(r){
+        Object.keys(r.steps||{}).forEach(function(k){
+          if(K(r.steps[k].by)===K(old))r.steps[k].by=n;
+        });
+        (r.visits||[]).forEach(function(v){if(K(v.by)===K(old))v.by=n;});
+      });
+      touch();rList();rPane();
+    });
 };
 window.renameVen=function(ev,id){
   var v=mfr(id);if(!v)return;
@@ -3292,10 +3323,15 @@ function barCSS(){
   var css=document.createElement('style');
   css.id='bar-css';
   css.textContent=
+   /* the name, while it can be changed, should look like it can */
+   '.namebtn{background:none;border:none;padding:2px 8px;margin-left:-8px;text-align:left;'
+  +'cursor:pointer;font:inherit;color:inherit;border-radius:8px;'
+  +'box-shadow:inset 0 0 0 1px var(--line-2)}'
+  +'.namebtn:hover{background:var(--hover);box-shadow:inset 0 0 0 1px var(--line-3)}'
    /* a chip that is not a button should not look like one, and the text
       inside it has to be selectable or copying a reference is no easier
       than it was */
-   '.chip.still{cursor:text;user-select:text;-webkit-user-select:text}'
+  +'.chip.still{cursor:text;user-select:text;-webkit-user-select:text}'
   +'.chip.still:hover{background:var(--card);border-color:var(--line-2)}'
   +'.chip.still.set:hover{background:var(--wait-b);border-color:var(--wait)}'
   +'.chip.still.warn:hover{background:var(--now-b);border-color:var(--now)}'
