@@ -873,7 +873,8 @@ function download(blob,name){
   setTimeout(function(){URL.revokeObjectURL(u);},900);
 }
 function widths(){
-  return COLS.map(function(c,i){return i===0?62:Math.min(30,Math.max(12,c.length*0.95));});
+  return COLS.map(function(c,i){return i===0?62:Math.min(30,Math.max(12,c.length*0.95));})
+    .concat(LOG_EXTRA.map(function(x){return x.w;}));
 }
 window.excelOut=function(){
   try{
@@ -2456,13 +2457,22 @@ function foldDocs(m,raw){
    to separate them. A row that is a heading and not a material has to be
    recognised again on the way back in, and sorting is what a spreadsheet
    is for. */
+/* Columns the log carries after its seventy-seven. The reader checks
+   the first seventy-seven by position and stops there, so anything past
+   them travels out without disturbing the way back in. These are read
+   off the vendor, and they are not read back onto it: one vendor serves
+   many rows, and a correction belongs on the vendor sheet where there
+   is one row per company. */
+var LOG_EXTRA=[
+  {t:'Local / Foreign',w:14,read:function(m){var v=m.mfr?mfr(m.mfr):null;return v?(v.locality||''):'';}}
+];
 function generalRows(){
   var mats=(DB.mats||[]).filter(function(m){return !isDoc(m);});
   mats.sort(function(a,b){
     var d=String(a.disc||'~').localeCompare(String(b.disc||'~'));
     return d||String(a.name).localeCompare(String(b.name));
   });
-  var rows=[COLS.slice()];
+  var rows=[COLS.concat(LOG_EXTRA.map(function(x){return x.t;}))];
   mats.forEach(function(m){
     var raw=foldDocs(m,rawOut(m));
     rows.push(COLS.map(function(c){
@@ -2470,7 +2480,7 @@ function generalRows(){
       if(v==null||v==='')return '';
       if(DATE_COLS[c]&&/^\d{4}-\d{2}-\d{2}$/.test(String(v)))return {date:String(v)};
       return v;
-    }));
+    }).concat(LOG_EXTRA.map(function(x){return x.read(m)||'';})));
   });
   return rows;
 }
@@ -2962,6 +2972,7 @@ var TABLES_DEF={
     col('Category','cat',function(r){return r.cat;},'pick',90),
     col('Discipline','disc',function(r){return r.disc;},'pick',150),
     col('Vendor','ven',function(r){var v=r.mfr?mfr(r.mfr):null;return v?v.name:'';},'pick',180),
+    col('Local / Foreign','loc',function(r){var v=r.mfr?mfr(r.mfr):null;return v?(v.locality||''):'';},'pick',120),
     col('Sub-contractor','sub',function(r){return r.sub;},'pick',150),
     col('MAT Number','matno',function(r){return rawOf(r,'MAT Number')||r.ref;},'text',300),
     col('MAT Status','matst',function(r){return rawOf(r,'MAT Status')||stepOf(r,'mts','status');},'pick',150),
