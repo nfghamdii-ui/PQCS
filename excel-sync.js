@@ -2366,6 +2366,9 @@ function refChip(html,v){
   var st=v.steps||{};
   var ref=pqOf(v).ref||(st.pqd&&st.pqd.ref)||(st.appr&&st.appr.ref)||'';
   var i=html.indexOf('<div class="head-m">');
+  if(i>=0&&v.locality){
+    html=html.slice(0,i+20)+'<span class="chip flat">'+esc(v.locality)+'</span>'+html.slice(i+20);
+  }
   if(i>=0&&ref){
     var chip='<span class="chip flat" title="'+attr(ref)+'">'
       +'<span class="mono">'+esc(ref.length>44?(ref.slice(0,42)+'…'):ref)+'</span></span>';
@@ -2495,7 +2498,7 @@ function looseRows(){
    It is the only thing on the row that must not be touched: it is how a
    row finds its way home after somebody has corrected everything else
    about it. */
-var VEN_COLS=['ID','Vendor','Kind','Brought by','Country','Production site','Scope',
+var VEN_COLS=['ID','Vendor','Kind','Brought by','Country','Local / Foreign','Production site','Scope',
   'PQD Number','PQD Status','PQD Date','ISO Number','ISO Expires','ISO Status',
   'Assessment','Assessment Reference','Assessment Date','Materials'];
 var VEN_KINDS={'manufacturer':'maker','maker':'maker','subcontractor':'sub','sub':'sub',
@@ -2505,12 +2508,22 @@ function pqOf(v){
   var st=v.steps||{};
   return ((v.kind==='agency')?st.appr:st.pqd)||{};
 }
+/* Local or Foreign, and nothing else — "local", "KSA", "Saudi", "L" all
+   mean the first; "foreign", "import", "F" the second. A column people
+   filter on has to hold two values, not twelve spellings of two. */
+function localityOf(x){
+  var k=K(x);
+  if(!k)return '';
+  if(/^(l|local|ksa|saudi|saudi arabia|domestic|in-kingdom)$/.test(k))return 'Local';
+  if(/^(f|foreign|import|imported|international|overseas|outside)$/.test(k))return 'Foreign';
+  return '';
+}
 function vendorRows(){
   var rows=[VEN_COLS.slice()];
   (DB.mfrs||[]).forEach(function(v){
     var st=v.steps||{}, pq=pqOf(v), iso=st.iso||{};
     var pa=st.pa||{};
-    rows.push([v.id,v.name,KINDS[kindOf(v)].l,v.by||'',v.country||'',v.site||'',v.scope||'',
+    rows.push([v.id,v.name,KINDS[kindOf(v)].l,v.by||'',v.country||'',v.locality||'',v.site||'',v.scope||'',
       pq.ref||'',pq.status||'',pq.date?{date:pq.date}:'',
       iso.ref||'',iso.date?{date:iso.date}:'',iso.status||'',
       pa.status||'',pa.ref||'',pa.date?{date:pa.date}:'',matsOf(v).length]);
@@ -2578,6 +2591,7 @@ function vendorDiff(v,r){
   cmp('Kind',KINDS[kindOf(v)].l,r['Kind']);
   cmp('Brought by',v.by,r['Brought by']);
   cmp('Country',v.country,r['Country']);
+  cmp('Local / Foreign',v.locality,localityOf(r['Local / Foreign']));
   cmp('Production site',v.site,r['Production site']);
   cmp('Scope',v.scope,r['Scope']);
   cmp('PQD Number',pq.ref,r['PQD Number']);
@@ -2601,6 +2615,8 @@ function applyVendors(p){
     if(k)v.kind=k;
     set('by',r['Brought by']);
     set('country',r['Country']);
+    var loc=localityOf(r['Local / Foreign']);
+    if(loc)v.locality=loc;
     set('site',r['Production site']);
     set('scope',r['Scope']);
     v.steps=v.steps||{};
@@ -2997,6 +3013,7 @@ var TABLES_DEF={
     col('Kind','kind',function(r){return KINDS[kindOf(r)].l;},'pick',150),
     col('Brought by','by',function(r){return r.by||'';},'pick',180),
     col('Country','country',function(r){return r.country||'';},'pick',150),
+    col('Local / Foreign','loc',function(r){return r.locality||'';},'pick',120),
     col('Production site','site',function(r){return r.site||'';},'text',180),
     col('PQD Number','pq',function(r){return pqOf(r).ref||'';},'text',300),
     col('PQD Status','pqst',function(r){return pqStatus(r);},'pick',170),
@@ -3007,7 +3024,7 @@ var TABLES_DEF={
     col('Assessment','pa',function(r){return stepOf(r,'pa','status');},'pick',140),
     col('Assessment Ref','paref',function(r){return stepOf(r,'pa','ref');},'text',260),
     col('Materials','n',function(r){return String(matsOf(r).length);},'text',100)],
-   show:['name','kind','by','country','pq','pqst','isodt','n']},
+   show:['name','kind','by','country','loc','pq','pqst','isodt','n']},
 
  insp:{label:'Inspectors',rows:function(){return (DB.people||[]).slice();},
    open:function(r){jump('insp',r.id);},
@@ -3574,6 +3591,8 @@ function editVendorSheet(){
       +'<option value="">—</option>'+optList(['C0','C1','C2','C3'],v.cat)+'</select></div>'
     +'<div class="f"><label for="ev-country">Country</label>'
       +'<input id="ev-country" value="'+attr(v.country||'')+'" autocomplete="off"></div>'
+    +'<div class="f"><label for="ev-loc">Local / Foreign</label><select id="ev-loc">'
+      +'<option value="">—</option>'+optList(['Local','Foreign'],v.locality)+'</select></div>'
     +'<div class="f"><label for="ev-site">Production site</label>'
       +'<input id="ev-site" value="'+attr(v.site||'')+'" autocomplete="off"></div>'
     +'<div class="f wide"><label for="ev-by">Brought onto the project by</label>'
@@ -3629,6 +3648,7 @@ window.saveVendorSheet=function(){
   v.kind=g('ev-kind')||v.kind;
   v.cat=g('ev-cat');
   v.country=g('ev-country');
+  v.locality=g('ev-loc');
   v.site=g('ev-site');
   v.by=g('ev-by');
   v.scope=g('ev-scope');
