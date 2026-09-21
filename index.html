@@ -1466,7 +1466,7 @@ function matHay(m){
   return key(parts.join(' '));
 }
 function mfrHay(v){
-  var st=v.steps||{}, parts=[v.name,v.country,v.site,v.scope,v.cat,v.by,
+  var st=v.steps||{}, parts=[v.name,v.country,v.locality,v.site,v.scope,v.cat,v.by,
     KINDS[kindOf(v)].l];
   ['pqd','iso','pa','qms','origin','appr','scope'].forEach(function(k){
     var d=st[k];if(d){parts.push(d.ref);parts.push(d.by);}
