@@ -2463,8 +2463,37 @@ function foldDocs(m,raw){
    off the vendor, and they are not read back onto it: one vendor serves
    many rows, and a correction belongs on the vendor sheet where there
    is one row per company. */
+/* The company behind a row. Many rows here name no manufacturer at all
+   and only a subcontractor — the UAAC curtain wall is one — so reading
+   the manufacturer alone left them blank however the company was set.
+   The maker first; failing that, the subcontractor by name. */
+function companyOfMat(m){
+  /* The company behind a row, found the way the project links them: by
+     the pre-qualification the row carries. A name is spelt one way on
+     the material ("UAAC") and another on the vendor ("United Arab
+     Aluminum Company"); PRQ-00011 is the same on both. The linked vendor
+     comes first if it says anything, then the reference, then the
+     subcontractor's name as a last resort. */
+  var v=m.mfr?mfr(m.mfr):null;
+  if(v&&v.locality)return v;
+  var refs=splitRefs((m.raw||{})['PQD Number']);
+  for(var i=0;i<refs.length;i++){
+    var want=K(refs[i]);
+    var hit=(DB.mfrs||[]).filter(function(x){
+      if(K(pqOf(x).ref||'')===want)return true;
+      return (x.pq2||[]).some(function(p){return K(p.ref)===want;});
+    })[0];
+    if(hit)return hit;
+  }
+  var sub=trim(m.sub||((m.raw||{})['Sub-contractor Name'])||'');
+  if(sub){
+    var s2=(DB.mfrs||[]).filter(function(x){return K(x.name)===K(sub);})[0];
+    if(s2)return s2;
+  }
+  return v;
+}
 var LOG_EXTRA=[
-  {t:'Local / Foreign',w:14,read:function(m){var v=m.mfr?mfr(m.mfr):null;return v?(v.locality||''):'';}}
+  {t:'Local / Foreign',w:14,read:function(m){var v=companyOfMat(m);return v?(v.locality||''):'';}}
 ];
 function generalRows(){
   var mats=(DB.mats||[]).filter(function(m){return !isDoc(m);});
@@ -2972,7 +3001,7 @@ var TABLES_DEF={
     col('Category','cat',function(r){return r.cat;},'pick',90),
     col('Discipline','disc',function(r){return r.disc;},'pick',150),
     col('Vendor','ven',function(r){var v=r.mfr?mfr(r.mfr):null;return v?v.name:'';},'pick',180),
-    col('Local / Foreign','loc',function(r){var v=r.mfr?mfr(r.mfr):null;return v?(v.locality||''):'';},'pick',120),
+    col('Local / Foreign','loc',function(r){var v=companyOfMat(r);return v?(v.locality||''):'';},'pick',120),
     col('Sub-contractor','sub',function(r){return r.sub;},'pick',150),
     col('MAT Number','matno',function(r){return rawOf(r,'MAT Number')||r.ref;},'text',300),
     col('MAT Status','matst',function(r){return rawOf(r,'MAT Status')||stepOf(r,'mts','status');},'pick',150),
