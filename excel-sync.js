@@ -3227,6 +3227,42 @@ var PAGE_ROWS=120;
    it deserves. "pick" means the values repeat and are worth listing;
    "text" means they do not. */
 function col(t,k,read,kind,w){return {t:t,k:k,read:read,kind:kind||'text',w:w||160};}
+/* how a cell is drawn: a status as a coloured tag, a count to the right */
+function asTag(c,f){c.tone=f||statusTone;return c;}
+function asNum(c){c.num=true;return c;}
+function statusTone(v){
+  var s=normStatus(v)||trim(v);
+  if(/^(Approved|Approved with comments|Passed|Passed with comments|Received|Valid|Waived|Closed)$/.test(s))return 'ok';
+  if(/^(Rejected|Resubmit|Terminated|Expired|Failed|Suspended)$/.test(s))return 'bad';
+  if(/^(Pending|Under Review)$/.test(s))return 'wait';
+  return '';
+}
+/* A table draws hundreds of rows and reads each one several times — for
+   the cell, the filter list, the sort. A material's road and a vendor's
+   waiting materials are worked out once per drawing and kept here. */
+var TCACHE=null;
+function tc(){return TCACHE||(TCACHE={road:{},hold:null});}
+function roadOfRow(r){var c=tc();return c.road[r.id]||(c.road[r.id]=matRoad(r));}
+function holdsUp(v){
+  var c=tc();
+  if(!c.hold){
+    c.hold={};
+    (DB.mats||[]).forEach(function(m){
+      if(isDoc(m)||!m.mfr)return;
+      if(roadOfRow(m).at>=0)c.hold[String(m.mfr)]=(c.hold[String(m.mfr)]||0)+1;
+    });
+  }
+  return c.hold[String(v.id)]||0;
+}
+function stageOf(r){var rd=roadOfRow(r);return rd.at<0?'Cleared':rd.steps[rd.at].s.n;}
+function whoOf(r){
+  var rd=roadOfRow(r);if(rd.at<0)return 'Cleared';
+  var x=rd.steps[rd.at];
+  if(x.s.linked)return 'Vendor';
+  return x.state==='bad'?'Blocked':x.state==='wait'?'Reviewer':'You';
+}
+var WHO_TONE={'You':'now','Vendor':'now','Reviewer':'wait','Blocked':'bad','Cleared':'ok'};
+var MS_TONE={ok:'ok',wait:'wait',bad:'bad',now:'now'};
 
 function stepOf(r,k,f){var d=((r.steps||{})[k])||{};return d[f]||'';}
 function rawOf(r,c){return ((r.raw||{})[c])||'';}
@@ -3239,22 +3275,28 @@ var TABLES_DEF={
     col('Category','cat',function(r){return r.cat;},'pick',90),
     col('Discipline','disc',function(r){return r.disc;},'pick',150),
     col('Vendor','ven',function(r){var v=r.mfr?mfr(r.mfr):null;return v?v.name:'';},'pick',180),
+    asTag(col('Vendor status','vst',function(r){var v=r.mfr?mfr(r.mfr):null;return v?mfrState(v).word:'no vendor';},'pick',150),
+      function(v,r){var x=r.mfr?mfr(r.mfr):null;return x?MS_TONE[mfrState(x).tone]:'now';}),
+    col('Stage','stage',stageOf,'pick',190),
+    asTag(col('Waiting on','who',whoOf,'pick',110),function(v){return WHO_TONE[v]||'';}),
+    (function(c){c.sort=function(r){var rd=roadOfRow(r);return rd.steps.length?rd.done/rd.steps.length:0;};return c;})(
+      asNum(col('Progress','prog',function(r){var rd=roadOfRow(r);return rd.done+' / '+rd.steps.length;},'text',90))),
     col('Local / Foreign','loc',function(r){var v=companyOfMat(r);return v?(v.locality||''):'';},'pick',120),
     col('Sub-contractor','sub',function(r){return r.sub;},'pick',150),
     col('MAT Number','matno',function(r){return rawOf(r,'MAT Number')||r.ref;},'text',300),
-    col('MAT Status','matst',function(r){return rawOf(r,'MAT Status')||stepOf(r,'mts','status');},'pick',150),
+    asTag(col('MAT Status','matst',function(r){return stepOf(r,'mts','status')||rawOf(r,'MAT Status');},'pick',150)),
     col('MAT Date','matdt',function(r){return show(stepOf(r,'mts','date')||rawOf(r,'MAT Submittal Date'));},'text',110),
     col('ITP Number','itpno',function(r){return rawOf(r,'ITP Number');},'text',300),
-    col('ITP Status','itpst',function(r){return rawOf(r,'ITP Status');},'pick',150),
+    asTag(col('ITP Status','itpst',function(r){return stepOf(r,'itp','status')||rawOf(r,'ITP Status');},'pick',150)),
     col('MES Number','mesno',function(r){return rawOf(r,'Method Statement Number');},'text',300),
-    col('MES Status','messt',function(r){return rawOf(r,'MES Status');},'pick',150),
+    asTag(col('MES Status','messt',function(r){return rawOf(r,'MES Status');},'pick',150)),
     col('PO Number','pono',function(r){return rawOf(r,'PO Number');},'text',150),
     col('Package','pkg',function(r){return rawOf(r,'Package (Lump Sum / Provisional Sum / Prime Cost)');},'pick',150),
     col('Quantity','qty',function(r){return r.qty?(r.qty+' '+(r.unit||'')):'';},'text',110),
-    col('Delivered','got',function(r){return (r.dels||[]).length?String(received(r)):'';},'text',100),
-    col('Documents','ndoc',function(r){return String((r.docs||[]).length||'');},'text',100),
-    col('Consignments','ndel',function(r){return String((r.dels||[]).length||'');},'text',110)],
-   show:['name','cat','disc','ven','matno','matst','matdt','itpst','qty']},
+    asNum(col('Delivered','got',function(r){return (r.dels||[]).length?String(received(r)):'';},'text',100)),
+    asNum(col('Documents','ndoc',function(r){return String((r.docs||[]).length||'');},'text',100)),
+    asNum(col('Consignments','ndel',function(r){return String((r.dels||[]).length||'');},'text',110))],
+   show:['name','cat','disc','ven','vst','stage','who','prog','matst','itpst']},
 
  mir:{label:'Inspection requests',rows:function(){return (DB.mats||[]).filter(function(m){return m.doc==='MIR';});},
    open:function(r){jump('mat',r.id);},
@@ -3263,7 +3305,7 @@ var TABLES_DEF={
     col('Number','no',function(r){return refOf(r);},'text',300),
     col('Category','cat',function(r){return r.cat;},'pick',90),
     col('Discipline','disc',function(r){return r.disc;},'pick',150),
-    col('Status','st',function(r){return rawOf(r,'MIR Status')||rawOf(r,'MAT Status');},'pick',170),
+    asTag(col('Status','st',function(r){return rawOf(r,'MIR Status')||rawOf(r,'MAT Status');},'pick',170)),
     col('Date','dt',function(r){return show(rawOf(r,'MIR Approval Date')||rawOf(r,'MAT Submittal Date'));},'text',110),
     col('Linked to','on',function(r){var s=servedBy(r);return s.length?s[0].name:'';},'text',360)],
    show:['name','no','cat','disc','st','dt','on']},
@@ -3275,9 +3317,9 @@ var TABLES_DEF={
     col('Title','name',function(r){return r.name;},'text',440),
     col('Number','no',function(r){return refOf(r);},'text',300),
     col('Discipline','disc',function(r){return r.disc;},'pick',150),
-    col('Status','st',function(r){
+    asTag(col('Status','st',function(r){
       var raw=r.raw||{};
-      return raw['MES Status']||raw['ITP Status']||raw['PID Status']||raw['MAT Status']||'';},'pick',170),
+      return raw['MES Status']||raw['ITP Status']||raw['PID Status']||raw['MAT Status']||'';},'pick',170)),
     col('Revision','rev',function(r){
       var raw=r.raw||{};
       return raw['MES Revision']||raw['ITP Revision']||raw['PID Revision']||raw['MAT Revision']||'';},'pick',90),
@@ -3289,20 +3331,27 @@ var TABLES_DEF={
    cols:[
     col('Vendor','name',function(r){return r.name;},'text',300),
     col('Kind','kind',function(r){return KINDS[kindOf(r)].l;},'pick',150),
+    asTag(col('Qualification','qual',function(r){return mfrState(r).word;},'pick',160),
+      function(v,r){return MS_TONE[mfrState(r).tone]||'';}),
+    col('Still needs','gaps',function(r){return vendorGaps(r).map(function(x){return x.name;}).join(', ');},'text',260),
+    asNum(col('Holds up','hold',function(r){var n=holdsUp(r);return n?String(n):'';},'text',90)),
+    asTag(asNum(col('ISO days left','isodays',function(r){
+      var d=stepOf(r,'iso','date');return d?String(daysTo(d)):'';},'text',110)),
+      function(v){if(v==='')return '';var n=+v;return n<0?'bad':n<=60?'now':'ok';}),
     col('Brought by','by',function(r){return r.by||'';},'pick',180),
     col('Country','country',function(r){return r.country||'';},'pick',150),
     col('Local / Foreign','loc',function(r){return r.locality||'';},'pick',120),
     col('Production site','site',function(r){return r.site||'';},'text',180),
     col('PQD Number','pq',function(r){return pqOf(r).ref||'';},'text',300),
-    col('PQD Status','pqst',function(r){return pqStatus(r);},'pick',170),
+    asTag(col('PQD Status','pqst',function(r){return pqStatus(r);},'pick',170)),
     col('PQD Date','pqdt',function(r){return show(pqOf(r).date||'');},'text',110),
     col('ISO Number','iso',function(r){return stepOf(r,'iso','ref');},'text',180),
     col('ISO Expires','isodt',function(r){return show(stepOf(r,'iso','date'));},'text',110),
-    col('ISO Status','isost',function(r){return stepOf(r,'iso','status');},'pick',120),
-    col('Assessment','pa',function(r){return stepOf(r,'pa','status');},'pick',140),
+    asTag(col('ISO Status','isost',function(r){return stepOf(r,'iso','status');},'pick',120)),
+    asTag(col('Assessment','pa',function(r){return stepOf(r,'pa','status');},'pick',140)),
     col('Assessment Ref','paref',function(r){return stepOf(r,'pa','ref');},'text',260),
-    col('Materials','n',function(r){return String(matsOf(r).length);},'text',100)],
-   show:['name','kind','by','country','loc','pq','pqst','isodt','n']},
+    asNum(col('Materials','n',function(r){return String(matsOf(r).length);},'text',100))],
+   show:['name','kind','qual','gaps','hold','isodays','pqst','country','n']},
 
  insp:{label:'Inspectors',rows:function(){return (DB.people||[]).slice();},
    open:function(r){jump('insp',r.id);},
@@ -3310,7 +3359,7 @@ var TABLES_DEF={
     col('Name','name',function(r){return r.name;},'text',240),
     col('Agency','agency',function(r){return r.agency||'';},'pick',200),
     col('Discipline','disc',function(r){return r.disc||'';},'pick',160),
-    col('Approval','status',function(r){return r.status||'Pending';},'pick',130),
+    asTag(col('Approval','status',function(r){return r.status||'Pending';},'pick',130)),
     col('Reference','ref',function(r){return r.ref||'';},'text',240)],
    show:['name','agency','disc','status','ref']}
 };
@@ -3339,6 +3388,7 @@ function choices(c,rows){
 }
 
 function filtered(){
+  TCACHE=null;                       /* a fresh reading for every drawing */
   var d=tdef(),rows=d.rows(),q=TBLQ[TBL]||{};
   var active=Object.keys(q).filter(function(k){return q[k]!=='';});
   if(active.length){
@@ -3360,7 +3410,7 @@ function filtered(){
     var byKey2={};d.cols.forEach(function(c){byKey2[c.k]=c;});
     var c2=byKey2[s.k];
     if(c2)rows.sort(function(a,b){
-      var A=cellOf(a,c2),B=cellOf(b,c2);
+      var A=c2.sort?c2.sort(a):cellOf(a,c2),B=c2.sort?c2.sort(b):cellOf(b,c2);
       var num=(A!==''&&B!==''&&!isNaN(A)&&!isNaN(B));
       var d2=num?(parseFloat(A)-parseFloat(B)):String(A).localeCompare(String(B));
       return s.dir<0?-d2:d2;
@@ -3408,8 +3458,10 @@ function tablePane(){
     +rows.slice(0,upto).map(function(r){
       return '<tr onclick="tblOpen('+r.id+')">'
         +cols.map(function(c){
-          var v=cellOf(r,c);
-          return '<td'+(c.kind==='pick'?' class="nowrap"':'')+'>'+esc(v)+'</td>';
+          var v=cellOf(r,c), t=(v!==''&&c.tone)?c.tone(v,r):'';
+          var cls=[c.kind==='pick'?'nowrap':'',c.num?'num':''].filter(Boolean).join(' ');
+          return '<td'+(cls?' class="'+cls+'"':'')+(v.length>40?' title="'+attr(v)+'"':'')+'>'
+            +(t?('<span class="tag t-'+t+'">'+esc(v)+'</span>'):esc(v))+'</td>';
         }).join('')+'</tr>';
     }).join('')
     +'</tbody></table>'
@@ -3531,15 +3583,29 @@ function tableCSS(){
   +'.tbl td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;'
   +'max-width:520px;overflow:hidden;text-overflow:ellipsis}'
   +'.tbl td.nowrap{white-space:nowrap}'
+  +'.tbl td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}'
+  +'.tbl td .tag{white-space:nowrap}'
   +'.tbl tbody tr{cursor:pointer}'
-  +'.tbl tbody tr:hover td{background:var(--hover)}'
+  /* a quiet band on every other row, so a long row can be followed across */
+  +'.tbl tbody td{background:var(--card)}'
+  +'.tbl tbody tr:nth-child(even) td{background:var(--hover)}'
+  +'.tbl tbody tr:hover td{background:var(--sunk)}'
+  /* the first column stays put while the rest scroll sideways */
+  +'.tbl th:first-child,.tbl td:first-child{position:sticky;left:0;z-index:1;'
+  +'box-shadow:1px 0 0 var(--line-2);font-weight:500}'
+  +'.tbl th:first-child{z-index:3}'
+  /* the gutter lives inside the pinned column, or scrolled text shows in it */
+  +'.tbl th:first-child,.tbl td:first-child{padding-left:18px}'
+  /* pinned, it must leave room for the rest on a narrow screen */
+  +'.tbl th:first-child{min-width:min(360px,42vw)!important}'
+  +'.tbl td:first-child{max-width:min(360px,42vw)}'
   +'.th-b{display:block;width:100%;text-align:left;background:none;border:none;padding:0 0 6px;'
   +'font-weight:600;font-size:12.5px;color:var(--ink);cursor:pointer;white-space:nowrap}'
   +'.th-b:hover{color:var(--wait-t)}'
   +'.th-f{width:100%;font:inherit;font-size:12px;padding:5px 7px;border:1px solid var(--line-2);'
   +'border-radius:6px;background:var(--card);color:var(--ink);outline:none}'
   +'.th-f:focus{border-color:var(--wait);box-shadow:0 0 0 2px var(--wait-b)}'
-  +'#tbl-body{padding:0 18px 40px;overflow:auto}'
+  +'#tbl-body{padding:0 18px 40px 0;overflow:auto}'
   +'@media print{.tbl th{position:static}#tbl-body{padding:0;overflow:visible}'
   +'.th-f{display:none}.tbl{font-size:9px}}';
   document.head.appendChild(css);
