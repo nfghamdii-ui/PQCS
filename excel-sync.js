@@ -3721,6 +3721,20 @@ function tableCSS(){
   +'.topbar-tools .btn-q{color:rgba(255,255,255,.75)}'
   +'.topbar-tools .btn-q:hover{background:rgba(255,255,255,.08);color:#fff}'
   +'.topbar :focus-visible{outline-color:#9cc3ff}'
+  /* each page's heading band in the project purple, white words on it;
+     the quiet grey chips turn to a light glass, the coloured ones keep
+     their colour so a warning still reads as one */
+  +'.head{background:#963cbd;border-bottom-color:#963cbd;color:#fff}'
+  +'.head .head-t{color:#fff}'
+  +'.head .swhy,.head .dim,.head .meta{color:rgba(255,255,255,.82)}'
+  +'.head .swhy b{color:#fff}'
+  +'.head .chip.flat{background:rgba(255,255,255,.16);color:#fff;border-color:transparent}'
+  +'.head .chip.flat:hover{background:rgba(255,255,255,.16)}'
+  +'.head .btn-q{color:rgba(255,255,255,.85)}'
+  +'.head .btn-q:hover{background:rgba(255,255,255,.12);color:#fff}'
+  +'.head :focus-visible{outline-color:#fff}'
+  +'@media print{.head{background:none;color:inherit;border-bottom-color:var(--line)}'
+  +'.head .head-t,.head .swhy,.head .dim{color:inherit}}'
   +'.backbar{display:flex;align-items:center;gap:8px;padding:10px 18px;background:var(--card);'
   +'border-bottom:1px solid var(--line);flex-shrink:0;position:sticky;top:0;z-index:5}'
   +'#saved2{white-space:nowrap}'
