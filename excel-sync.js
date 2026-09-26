@@ -2268,7 +2268,9 @@ function install2(){
   };
   function backBar(lk){
     var el=document.getElementById('pane');if(!el)return;
-    el.insertAdjacentHTML('afterbegin','<div class="backbar no-print">'
+    /* inside the record's heading band, so the two read as one */
+    var h=el.querySelector('.head .wrap')||el.querySelector('.head')||el;
+    h.insertAdjacentHTML('afterbegin','<div class="backbar no-print">'
       +'<button class="btn btn-s" onclick="listBack()">← All '+esc(TABLES_DEF[lk].label.toLowerCase())+'</button></div>');
   }
   window.listBack=function(){RECORD=false;rPane();};
@@ -3724,7 +3726,7 @@ function tableCSS(){
   /* each page's heading band in the project purple, white words on it;
      the quiet grey chips turn to a light glass, the coloured ones keep
      their colour so a warning still reads as one */
-  +'.head{background:#963cbd;border-bottom-color:#963cbd;color:#fff}'
+  +'.head{background:#963cbd;border-bottom:4px solid #ffcc3e;color:#fff}'
   +'.head .head-t{color:#fff}'
   +'.head .swhy,.head .dim,.head .meta{color:rgba(255,255,255,.82)}'
   +'.head .swhy b{color:#fff}'
@@ -3735,8 +3737,10 @@ function tableCSS(){
   +'.head :focus-visible{outline-color:#fff}'
   +'@media print{.head{background:none;color:inherit;border-bottom-color:var(--line)}'
   +'.head .head-t,.head .swhy,.head .dim{color:inherit}}'
-  +'.backbar{display:flex;align-items:center;gap:8px;padding:10px 18px;background:var(--card);'
-  +'border-bottom:1px solid var(--line);flex-shrink:0;position:sticky;top:0;z-index:5}'
+  /* the way back sits in the record's purple band, not on a white strip above it */
+  +'.backbar{display:flex;align-items:center;gap:8px;margin:-8px 0 14px}'
+  +'.backbar .btn{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.35);color:#fff;box-shadow:none}'
+  +'.backbar .btn:hover{background:rgba(255,255,255,.24);border-color:rgba(255,255,255,.55)}'
   +'#saved2{white-space:nowrap}'
   +'@media print{.tbl th{position:static}#tbl-body{padding:0;overflow:visible}'
   +'.th-f{display:none}.tbl{font-size:9px}}';
