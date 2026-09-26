@@ -3716,7 +3716,7 @@ function tableCSS(){
   +'.side{display:none}'
   +'.topbar-tools{margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 4px 6px;flex-shrink:0}'
   /* the tab row in the project navy, with light words on it */
-  +'.topbar{background:#002f6c;border-bottom-color:#002f6c}'
+  +'.topbar{background:#00204d;border-bottom-color:#00204d}'
   +'.topbar .tab{color:rgba(255,255,255,.72)}'
   +'.topbar .tab:hover{background:rgba(255,255,255,.08);color:#fff}'
   +'.topbar .tab[aria-selected=true]{color:#fff;border-bottom-color:#fff}'
