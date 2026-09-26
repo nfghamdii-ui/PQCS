@@ -734,6 +734,7 @@ async function loadAll(){
     var st=await c.from('settings').select('key,value').eq('key','project').maybeSingle();
     if(st.error&&st.error.code!=='PGRST116')throw st.error;
     out.project=(st.data&&st.data.value&&st.data.value.name)||'';
+    await loadSnooze(c);
     DB=out;snapshot();DIRTY=false;SAVED=new Date();
     busy(false);enter();
   }catch(e){
@@ -1038,6 +1039,7 @@ window.refresh=async function(quiet,discard){
     }
     var st=await c.from('settings').select('value').eq('key','project').maybeSingle();
     out.project=(st.data&&st.data.value&&st.data.value.name)||DB.project;
+    await loadSnooze(c);
     DB=out;snapshot();DIRTY=false;SAVED=new Date();
     TAB=keepTab;SEL=keepSel;
     busy(false);rList();rPane();stamp();
@@ -1802,7 +1804,7 @@ function rPane(){
    while a material says another.
    --------------------------------------------------------------- */
 function homePane(){
-  var f=findings();
+  var all=findings(), f=awake(all), resting=all.length-f.length;
   var late=f.filter(function(x){return x.tone==='bad';});
   var mine=f.filter(function(x){return x.tone==='now';});
   var waiting=f.filter(function(x){return x.tone==='wait';});
@@ -1817,6 +1819,7 @@ function homePane(){
       :'<button class="chip warn" data-pop onclick="rename(event)">name this project</button>')
     +'<span class="chip flat">'+new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})+'</span>'
     +(late.length?'<span class="chip warn">'+late.length+' late</span>':'<span class="chip set">nothing late</span>')
+    +(resting?'<button class="chip flat" onclick="showSnoozed()">'+resting+' put aside</button>':'')
     +'</div></div></div>';
 
   var cards='<div class="grid">'
@@ -1867,7 +1870,9 @@ function feedRow(o){
   return '<div class="feed" onclick="jump(\''+o.tab+'\','+o.id+')">'
     +'<div class="feed-m"><div class="feed-t">'+esc(o.t)+'</div>'
     +'<div class="feed-s">'+esc(o.s)+'</div></div>'
-    +'<div class="feed-w"><span class="tag t-'+o.tone+'">'+esc(o.word)+'</span></div></div>';
+    +'<div class="feed-w"><span class="tag t-'+o.tone+'">'+esc(o.word)+'</span>'
+    +'<button class="btn-q no-print" style="display:block;margin:6px 0 0 auto;font-size:12.5px" title="Put this aside for a few days" '
+    +'onclick="snoozePick(event,'+jsq(snoozeKey(o))+')">Snooze</button></div></div>';
 }
 /* seven days, drawn from the same dates the steps carry */
 function week(){
@@ -2214,26 +2219,29 @@ function mfrPane(v){
 function mfrState(v){
   if(!v)return {tone:'now',word:'none named',short:['No vendor named'],ok:false};
   if(!needsQual(v))return {tone:'ok',word:'no qualification needed',short:[],ok:true,v:v};
-  var r=mfrRoad(v), short=[], tone='ok', word='qualified';
+  var r=mfrRoad(v), short=[], tone='ok', word='qualified', yours=[];
   r.forEach(function(x){
-    var d=x.data;
+    var d=x.data, line;
     if(x.state==='done')return;
     if(x.s.k==='iso'){
-      if(d.date&&daysTo(d.date)<0)short.push('ISO 9001 expired '+show(d.date));
-      else if(d.status==='Expired')short.push('ISO 9001 marked expired');
-      else short.push('ISO 9001 not recorded');
-      return;
-    }
-    short.push(x.s.n+(x.state==='bad'?(' — '+String(d.status||'returned').toLowerCase())
-      :x.state==='wait'?' — with the reviewer':' — not started'));
+      if(d.date&&daysTo(d.date)<0)line='ISO 9001 expired '+show(d.date);
+      else if(d.status==='Expired')line='ISO 9001 marked expired';
+      else line='ISO 9001 not recorded';
+    }else line=x.s.n+(x.state==='bad'?(' — '+String(d.status||'returned').toLowerCase())
+      :x.state==='wait'?' — with the reviewer':' — not started');
+    /* A step nobody has started is a gap for you to fill, not something
+       the reviewer is holding; those are named first. */
+    if(x.state==='open')yours.push(line);else short.push(line);
   });
+  var mine=yours.length>0;
+  short=yours.concat(short);
   if(r.some(function(x){return x.state==='bad';})){tone='bad';word='blocked';}
   else if(short.length){tone='wait';word='in qualification';}
   /* a certificate that lapses after approval still stops the work */
   var iso=(v.steps||{}).iso||{};
   if(iso.date&&daysTo(iso.date)<0){tone='bad';word='certificate lapsed';
     if(!short.some(function(t){return /ISO/.test(t);}))short.unshift('ISO 9001 expired '+show(iso.date));}
-  return {tone:tone,word:word,short:short,ok:short.length===0,v:v};
+  return {tone:tone,word:word,short:short,ok:short.length===0,v:v,mine:mine};
 }
 
 /* ---------- inspector ---------- */
@@ -2804,6 +2812,64 @@ function score(n,soft){
   if(soft)return Math.max(10,30-n);
   return n<0?Math.min(99,80+Math.min(Math.abs(n),19)):Math.max(20,62-n);
 }
+/* ---------------------------------------------------------------
+   Snoozing. An alert you have seen and cannot act on yet can be put
+   aside for a few days; it comes back by itself when the time is up,
+   or sooner if what it says changes. The list lives in its own row of
+   settings rather than on the records, so putting something aside is
+   not an edit to the material — it does not make the record look newer
+   than a workbook that changed it.
+   --------------------------------------------------------------- */
+var SNOOZE={};
+function snoozeKey(o){return o.tab+'|'+o.id+'|'+o.s;}
+function snoozedUntil(o){
+  var t=SNOOZE[snoozeKey(o)];
+  return (t&&Date.parse(t)>Date.now())?t:null;
+}
+function awake(list){return list.filter(function(o){return !snoozedUntil(o);});}
+async function loadSnooze(c){
+  try{
+    var r=await c.from('settings').select('value').eq('key','snooze').maybeSingle();
+    SNOOZE=(r&&!r.error&&r.data&&r.data.value)||{};
+  }catch(e){SNOOZE={};}
+}
+async function storeSnooze(){
+  var now=Date.now();
+  Object.keys(SNOOZE).forEach(function(k){if(!(Date.parse(SNOOZE[k])>now))delete SNOOZE[k];});
+  var c=client();if(!c)return false;
+  var r=await c.from('settings').upsert({key:'snooze',value:SNOOZE},{onConflict:'key'});
+  if(r.error){toast('Could not put it aside — '+niceError(r.error));return false;}
+  return true;
+}
+var SNOOZE_OPTS=[{v:'1',l:'For a day'},{v:'3',l:'For three days'},{v:'7',l:'For a week'}];
+window.snoozePick=function(ev,key){
+  ev.stopPropagation();
+  popPick(ev.currentTarget,'Put this aside',SNOOZE_OPTS,'',
+    'It comes back by itself when the time is up.',async function(d){
+      var was=SNOOZE[key];
+      SNOOZE[key]=new Date(Date.now()+Number(d)*864e5).toISOString();
+      if(!(await storeSnooze())){if(was)SNOOZE[key]=was;else delete SNOOZE[key];return;}
+      rPane();toast('Put aside '+(d==='1'?'for a day':d==='7'?'for a week':'for '+d+' days'));
+    });
+};
+window.wake=async function(key){
+  var was=SNOOZE[key];delete SNOOZE[key];
+  if(!(await storeSnooze())){SNOOZE[key]=was;return;}
+  rPane();showSnoozed();
+};
+window.showSnoozed=function(){
+  var list=findings().filter(snoozedUntil);
+  if(!list.length){closeSheet();return;}
+  sheet('Put aside',list.map(function(o){
+    return '<div class="row">'
+      +'<span class="tag t-'+o.tone+'" style="min-width:82px;text-align:center;flex-shrink:0">'+esc(o.word)+'</span>'
+      +'<div style="flex:1;min-width:0"><div>'+esc(o.t)+'</div>'
+      +'<div class="dim" style="font-size:13px;margin-top:2px">'+esc(o.s)+' · back '
+      +esc(new Date(snoozedUntil(o)).toLocaleString('en-GB',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}))
+      +'</div></div>'
+      +'<button class="btn btn-s" onclick="wake('+jsq(snoozeKey(o))+')">Bring back</button></div>';
+  }).join(''));
+};
 function findings(){
   var out=[];
   function add(p,tone,word,title,line,id,tab){out.push({p:p,tone:tone,word:word,t:title,s:line,id:id,tab:tab});}
@@ -2833,8 +2899,11 @@ function findings(){
     /* the material inherits whatever its vendor is short of */
     if(m.cat&&m.cat!=='C0'&&m.mfr&&needsQual(mfrOf(m))){
       var ms=mfrState(mfrOf(m));
-      if(!ms.ok)add(ms.tone==='bad'?78:44,ms.tone==='bad'?'bad':'wait',
-        ms.tone==='bad'?'blocked':'waiting',m.name,
+      /* A vendor short of something nobody has sent — a certificate not
+         recorded, a qualification not started — is yours to chase. Only
+         one whose papers are all with the reviewer is waiting on them. */
+      if(!ms.ok)add(ms.tone==='bad'?78:ms.mine?40:44,ms.tone==='bad'?'bad':ms.mine?'now':'wait',
+        ms.tone==='bad'?'blocked':ms.mine?'vendor gap':'waiting',m.name,
         ms.v.name+' ('+KINDS[kindOf(ms.v)].l.toLowerCase()+') — '+ms.short[0].toLowerCase()
         +(ms.short.length>1?(' and '+(ms.short.length-1)+' more'):''),m.id,'mat');
     }
@@ -2863,7 +2932,7 @@ function findings(){
   return out.sort(function(a,b){return b.p-a.p;});
 }
 window.showDue=function(){
-  var f=findings();
+  var f=awake(findings());
   sheet('What is due',f.length
     ? f.map(function(o){
         return '<div class="row row-a" onclick="jump(\''+o.tab+'\','+o.id+')">'
