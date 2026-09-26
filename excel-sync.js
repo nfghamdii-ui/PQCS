@@ -2196,7 +2196,17 @@ function install2(){
     window.showDue=function(){return withMaterials(origDue);};
   /* the board's breakdowns count what the board counts: materials, not
      the documents that sit beside them */
-  ['showBucket','showSnoozed'].forEach(function(n){
+  /* Opening a vendor from the board or a list must show it, even when
+     the vendor chips are narrowed to something it is not. */
+  var origJump=window.jump;
+  if(typeof origJump==='function')window.jump=function(tab,id){
+    if(tab==='mfr'&&id&&VENSTAT){
+      var v=(DB.mfrs||[]).filter(function(x){return String(x.id)===String(id);})[0];
+      if(v&&(VENSTAT==='(none)'?!!pqStatus(v):pqStatus(v)!==VENSTAT))VENSTAT='';
+    }
+    return origJump(tab,id);
+  };
+  ['showBucket','showSnoozed','vendorWork'].forEach(function(n){
     var o=window[n];
     if(typeof o==='function')window[n]=function(){
       var a=arguments;return withMaterials(function(){return o.apply(null,a);});};

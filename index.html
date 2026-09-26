@@ -1810,6 +1810,7 @@ function homePane(){
   var waiting=f.filter(function(x){return x.tone==='wait';});
   var mats=(DB.mats||[]), done=mats.filter(function(m){var r=matRoad(m);return r.at<0;}).length;
   var ncr=mats.reduce(function(a,m){return a+openNCR(m);},0);
+  var vq=(DB.mfrs||[]).filter(function(v){return needsQual(v)&&vendorGaps(v).length;}).length;
   var hour=new Date().getHours();
   var hello=hour<12?'Good morning':hour<18?'Good afternoon':'Good evening';
 
@@ -1829,6 +1830,7 @@ function homePane(){
     +stat(mats.length,'Materials',"","setTab('mat')")
     +stat(done,'Fully cleared','',"setTab('mat')")
     +stat(ncr,'Open non-conformances',ncr?'warm':'','')
+    +stat(vq,'Vendors to qualify',vq?'warm':'',vq?'vendorWork()':'')
     +'</div>';
 
   var left='<div class="sec" style="margin-top:4px">Deal with these first</div><div class="panel"><div class="panel-b">'
@@ -2873,7 +2875,8 @@ window.showSnoozed=function(){
 };
 /* A count on the board opens into what it is made of: grouped by kind,
    biggest group first, each row the same as on the board. */
-var BUCKET_NAMES={'your move':'Your next step','vendor gap':'Vendors short of something',
+var BUCKET_NAMES={'material move':'Materials — your next step','vendor move':'Vendors — your next step',
+  'vendor gap':'Vendors short of something',
   'set it':'No category','name it':'No vendor named','waiting':'With the reviewer',
   'soon':'Due within three weeks','pending':'Inspectors not approved','no name':'Inspectors with no name'};
 var BUCKET_OPEN='';
@@ -2884,6 +2887,8 @@ window.showBucket=function(tone){
   var groups={};
   list.forEach(function(o){
     var w=/^in \d+d$/.test(o.word)?'soon':o.word;
+    /* a material's next step and a vendor's are different days' work */
+    if(w==='your move')w=(o.tab==='mfr')?'vendor move':'material move';
     (groups[w]=groups[w]||[]).push(o);
   });
   var order=Object.keys(groups).sort(function(a,b){return groups[b].length-groups[a].length;});
@@ -2898,6 +2903,70 @@ window.showBucket=function(tone){
         +(g.length>cap?('<div class="dim" style="font-size:13px;padding-top:10px">and '+(g.length-cap)+' more</div>'):'')
         +'</div></div>';
     }).join(''));
+};
+/* ---------------------------------------------------------------
+   Vendors to qualify. One screen for a morning spent on vendors: every
+   vendor that is not yet qualified, each thing it is short of, and how
+   many materials are waiting on it — most materials first, because
+   that is where one certificate clears the most. A row of chips narrows
+   it to one kind of gap, and "yours" to what nobody has sent yet.
+   --------------------------------------------------------------- */
+function vendorGaps(v){
+  return mfrRoad(v).filter(function(x){return x.state!=='done';}).map(function(x){
+    var d=x.data, iso=x.s.k==='iso', name=iso?'ISO 9001':x.s.n, text;
+    if(x.state==='bad')text=iso?('expired'+(d.date?' '+show(d.date):'')):String(d.status||'returned').toLowerCase();
+    else if(x.state==='wait')text=iso?'not confirmed valid':'with the reviewer';
+    else text=iso?'not recorded':'not started';
+    return {k:x.s.k,name:name,state:x.state,text:text};
+  });
+}
+var VW={gap:'',mine:false};
+window.vendorWork=function(gap,mine){
+  if(gap!==undefined)VW.gap=gap;
+  if(mine!==undefined)VW.mine=mine;
+  var held={};
+  (DB.mats||[]).forEach(function(m){if(m.mfr&&m.cat!=='C0')held[m.mfr]=(held[m.mfr]||0)+1;});
+  var rows=[];
+  (DB.mfrs||[]).forEach(function(v){
+    if(!needsQual(v))return;
+    var g=vendorGaps(v);
+    if(g.length)rows.push({v:v,g:g,n:held[String(v.id)]||0});
+  });
+  /* the chips count vendors short of each thing, before any narrowing */
+  var kinds={},order=[];
+  rows.forEach(function(r){r.g.forEach(function(x){
+    if(!kinds[x.name]){kinds[x.name]=0;order.push(x.name);}kinds[x.name]++;});});
+  var shown=rows.filter(function(r){
+    return r.g.some(function(x){
+      return (!VW.gap||x.name===VW.gap)&&(!VW.mine||x.state==='open');});
+  }).sort(function(a,b){return b.n-a.n||String(a.v.name).localeCompare(String(b.v.name));});
+  function chip(label,on,go){
+    return '<button class="chip'+(on?' set':'')+'" aria-pressed="'+on+'" onclick="'+go+'">'+label+'</button>';}
+  var tone={open:'now',wait:'wait',bad:'bad'};
+  sheet('Vendors to qualify — '+shown.length+(shown.length!==rows.length?(' of '+rows.length):''),
+    '<div class="dim" style="font-size:13.5px;margin-bottom:12px">Every vendor that still needs something, '
+    +'with the materials waiting on it. Most materials first: that is where one certificate clears the most.</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'
+    +chip('Everything',!VW.gap,"vendorWork('')")
+    +order.map(function(k){return chip(esc(k)+' · '+kinds[k],VW.gap===k,'vendorWork('+jsq(k)+')');}).join('')
+    +'</div><div style="display:flex;gap:6px;margin-bottom:16px">'
+    +chip('All states',!VW.mine,'vendorWork(undefined,false)')
+    +chip('Only what nobody has sent yet',VW.mine,'vendorWork(undefined,true)')
+    +'</div>'
+    +'<div class="panel"><div class="panel-b">'
+    +(shown.length?shown.map(function(r){
+      var v=r.v;
+      return '<div class="feed" onclick="jump(\'mfr\','+v.id+')">'
+        +'<div class="feed-m"><div class="feed-t">'+esc(v.name||'(no name)')
+        +' <span class="dim" style="font-weight:400">· '+esc(KINDS[kindOf(v)].l.toLowerCase())+(v.cat?' · '+esc(v.cat):'')+'</span></div>'
+        +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">'
+        +r.g.map(function(x){
+          var dim=(VW.gap&&x.name!==VW.gap)||(VW.mine&&x.state!=='open');
+          return '<span class="tag t-'+tone[x.state]+'"'+(dim?' style="opacity:.45"':'')+'>'+esc(x.name)+' — '+esc(x.text)+'</span>';
+        }).join('')+'</div></div>'
+        +'<div class="feed-w"><span class="meta">'+(r.n?(r.n+' material'+(r.n===1?'':'s')):'no materials')+'</span></div></div>';
+    }).join(''):'<div class="dim" style="padding:20px 0;text-align:center">Nothing matches.</div>')
+    +'</div></div>');
 };
 function findings(){
   var out=[], gaps={};
