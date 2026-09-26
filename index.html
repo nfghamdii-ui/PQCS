@@ -1810,7 +1810,6 @@ function homePane(){
   var waiting=f.filter(function(x){return x.tone==='wait';});
   var mats=(DB.mats||[]), done=mats.filter(function(m){var r=matRoad(m);return r.at<0;}).length;
   var ncr=mats.reduce(function(a,m){return a+openNCR(m);},0);
-  var vq=(DB.mfrs||[]).filter(function(v){return needsQual(v)&&vendorGaps(v).length;}).length;
   var hour=new Date().getHours();
   var hello=hour<12?'Good morning':hour<18?'Good afternoon':'Good evening';
 
@@ -1830,7 +1829,6 @@ function homePane(){
     +stat(mats.length,'Materials',"","setTab('mat')")
     +stat(done,'Fully cleared','',"setTab('mat')")
     +stat(ncr,'Open non-conformances',ncr?'warm':'','')
-    +stat(vq,'Vendors to qualify',vq?'warm':'',vq?'vendorWork()':'')
     +'</div>';
 
   var left='<div class="sec" style="margin-top:4px">Deal with these first</div><div class="panel"><div class="panel-b">'
@@ -2880,6 +2878,7 @@ var BUCKET_NAMES={'material move':'Materials — your next step','vendor move':'
   'set it':'No category','name it':'No vendor named','waiting':'With the reviewer',
   'soon':'Due within three weeks','pending':'Inspectors not approved','no name':'Inspectors with no name'};
 var BUCKET_OPEN='';
+var VENDOR_BUCKETS={'vendor move':1,'vendor gap':1};
 window.showBucket=function(tone){
   var list=awake(findings()).filter(function(o){return o.tone===tone;});
   BUCKET_OPEN=tone;
@@ -2895,10 +2894,16 @@ window.showBucket=function(tone){
   var cap=40;
   sheet((tone==='now'?'Waiting on you':'With the reviewer')+' — '+list.length,
     '<div class="grid" style="margin-bottom:18px">'
-    +order.map(function(w){return stat(groups[w].length,BUCKET_NAMES[w]||w,'','');}).join('')+'</div>'
+    /* a vendor count opens the vendor screen, where each vendor's gaps
+       sit side by side; any other count scrolls to its own list below */
+    +order.map(function(w){return stat(groups[w].length,BUCKET_NAMES[w]||w,'',
+      VENDOR_BUCKETS[w]?'vendorWork(\'\',false)':'document.getElementById(\'bk-'+w.replace(/\W/g,'')+'\').scrollIntoView({behavior:\'smooth\'})');}).join('')+'</div>'
     +order.map(function(w){
       var g=groups[w];
-      return '<div class="sec">'+esc(BUCKET_NAMES[w]||w)+' — '+g.length+'</div><div class="panel"><div class="panel-b">'
+      return '<div class="sec" id="bk-'+w.replace(/\W/g,'')+'" style="display:flex;align-items:center;gap:12px">'
+        +'<span>'+esc(BUCKET_NAMES[w]||w)+' — '+g.length+'</span>'
+        +(VENDOR_BUCKETS[w]?'<button class="btn btn-s" style="margin-left:auto" onclick="vendorWork(\'\',false)">Open the vendor list</button>':'')
+        +'</div><div class="panel"><div class="panel-b">'
         +g.slice(0,cap).map(feedRow).join('')
         +(g.length>cap?('<div class="dim" style="font-size:13px;padding-top:10px">and '+(g.length-cap)+' more</div>'):'')
         +'</div></div>';
@@ -2944,7 +2949,9 @@ window.vendorWork=function(gap,mine){
     return '<button class="chip'+(on?' set':'')+'" aria-pressed="'+on+'" onclick="'+go+'">'+label+'</button>';}
   var tone={open:'now',wait:'wait',bad:'bad'};
   sheet('Vendors to qualify — '+shown.length+(shown.length!==rows.length?(' of '+rows.length):''),
-    '<div class="dim" style="font-size:13.5px;margin-bottom:12px">Every vendor that still needs something, '
+    (BUCKET_OPEN?'<button class="btn-q" style="margin-bottom:10px" onclick="showBucket('+jsq(BUCKET_OPEN)+')">← Back to '
+      +(BUCKET_OPEN==='now'?'Waiting on you':'With the reviewer')+'</button>':'')
+    +'<div class="dim" style="font-size:13.5px;margin-bottom:12px">Every vendor that still needs something, '
     +'with the materials waiting on it. Most materials first: that is where one certificate clears the most.</div>'
     +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'
     +chip('Everything',!VW.gap,"vendorWork('')")
