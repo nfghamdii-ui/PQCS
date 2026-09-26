@@ -2194,6 +2194,13 @@ function install2(){
   var origDue=window.showDue;
   if(typeof origDue==='function')
     window.showDue=function(){return withMaterials(origDue);};
+  /* the board's breakdowns count what the board counts: materials, not
+     the documents that sit beside them */
+  ['showBucket','showSnoozed'].forEach(function(n){
+    var o=window[n];
+    if(typeof o==='function')window[n]=function(){
+      var a=arguments;return withMaterials(function(){return o.apply(null,a);});};
+  });
 
   /* Redrawing must never be able to stop a save. Everything above is
      display; the writing to the database happens after it, and a broken

@@ -1824,8 +1824,8 @@ function homePane(){
 
   var cards='<div class="grid">'
     +stat(late.length,'Late',late.length?'hot':'',"jump('mat',0)")
-    +stat(mine.length,'Waiting on you',mine.length?'warm':'','')
-    +stat(waiting.length,'With the reviewer','','')
+    +stat(mine.length,'Waiting on you',mine.length?'warm':'',mine.length?"showBucket('now')":'')
+    +stat(waiting.length,'With the reviewer','',waiting.length?"showBucket('wait')":'')
     +stat(mats.length,'Materials',"","setTab('mat')")
     +stat(done,'Fully cleared','',"setTab('mat')")
     +stat(ncr,'Open non-conformances',ncr?'warm':'','')
@@ -2821,7 +2821,7 @@ function score(n,soft){
    than a workbook that changed it.
    --------------------------------------------------------------- */
 var SNOOZE={};
-function snoozeKey(o){return o.tab+'|'+o.id+'|'+o.s;}
+function snoozeKey(o){return o.tab+'|'+o.id+'|'+(o.key||o.s);}
 function snoozedUntil(o){
   var t=SNOOZE[snoozeKey(o)];
   return (t&&Date.parse(t)>Date.now())?t:null;
@@ -2847,7 +2847,9 @@ window.snoozePick=async function(ev,key){
   ev.stopPropagation();
   var was=SNOOZE[key];
   SNOOZE[key]=new Date(Date.now()+SNOOZE_DAYS*864e5).toISOString();
-  rPane();
+  /* snoozed from inside a breakdown, the breakdown is redrawn too */
+  var inSheet=!!(ev.currentTarget&&ev.currentTarget.closest&&ev.currentTarget.closest('#sheet-b'));
+  rPane();if(inSheet&&BUCKET_OPEN)showBucket(BUCKET_OPEN);
   if(!(await storeSnooze())){if(was)SNOOZE[key]=was;else delete SNOOZE[key];rPane();return;}
   toast('Put aside for '+SNOOZE_DAYS+' days — "put aside" at the top brings it back');
 };
@@ -2869,9 +2871,40 @@ window.showSnoozed=function(){
       +'<button class="btn btn-s" onclick="wake('+jsq(snoozeKey(o))+')">Bring back</button></div>';
   }).join(''));
 };
+/* A count on the board opens into what it is made of: grouped by kind,
+   biggest group first, each row the same as on the board. */
+var BUCKET_NAMES={'your move':'Your next step','vendor gap':'Vendors short of something',
+  'set it':'No category','name it':'No vendor named','waiting':'With the reviewer',
+  'soon':'Due within three weeks','pending':'Inspectors not approved','no name':'Inspectors with no name'};
+var BUCKET_OPEN='';
+window.showBucket=function(tone){
+  var list=awake(findings()).filter(function(o){return o.tone===tone;});
+  BUCKET_OPEN=tone;
+  if(!list.length){closeSheet();return;}
+  var groups={};
+  list.forEach(function(o){
+    var w=/^in \d+d$/.test(o.word)?'soon':o.word;
+    (groups[w]=groups[w]||[]).push(o);
+  });
+  var order=Object.keys(groups).sort(function(a,b){return groups[b].length-groups[a].length;});
+  var cap=40;
+  sheet((tone==='now'?'Waiting on you':'With the reviewer')+' — '+list.length,
+    '<div class="grid" style="margin-bottom:18px">'
+    +order.map(function(w){return stat(groups[w].length,BUCKET_NAMES[w]||w,'','');}).join('')+'</div>'
+    +order.map(function(w){
+      var g=groups[w];
+      return '<div class="sec">'+esc(BUCKET_NAMES[w]||w)+' — '+g.length+'</div><div class="panel"><div class="panel-b">'
+        +g.slice(0,cap).map(feedRow).join('')
+        +(g.length>cap?('<div class="dim" style="font-size:13px;padding-top:10px">and '+(g.length-cap)+' more</div>'):'')
+        +'</div></div>';
+    }).join(''));
+};
 function findings(){
-  var out=[];
-  function add(p,tone,word,title,line,id,tab){out.push({p:p,tone:tone,word:word,t:title,s:line,id:id,tab:tab});}
+  var out=[], gaps={};
+  /* key, when given, is what a snooze holds on to — for a line whose
+     wording carries a count that moves, so the snooze does not end the
+     moment one more material is linked */
+  function add(p,tone,word,title,line,id,tab,key){out.push({p:p,tone:tone,word:word,t:title,s:line,id:id,tab:tab,key:key});}
 
   (DB.mfrs||[]).forEach(function(v){
     if(!needsQual(v))return;
@@ -2898,13 +2931,18 @@ function findings(){
     /* the material inherits whatever its vendor is short of */
     if(m.cat&&m.cat!=='C0'&&m.mfr&&needsQual(mfrOf(m))){
       var ms=mfrState(mfrOf(m));
-      /* A vendor short of something nobody has sent — a certificate not
-         recorded, a qualification not started — is yours to chase. Only
-         one whose papers are all with the reviewer is waiting on them. */
-      if(!ms.ok)add(ms.tone==='bad'?78:ms.mine?40:44,ms.tone==='bad'?'bad':ms.mine?'now':'wait',
-        ms.tone==='bad'?'blocked':ms.mine?'vendor gap':'waiting',m.name,
+      /* A vendor that blocks a material still says so on the material.
+         One that is merely short of something — yours to chase if nobody
+         has sent it, the reviewer's if everything is in — is one thing to
+         do, however many materials hang off it, so it is gathered onto
+         the vendor below rather than said once per material. */
+      if(!ms.ok&&ms.tone==='bad')add(78,'bad','blocked',m.name,
         ms.v.name+' ('+KINDS[kindOf(ms.v)].l.toLowerCase()+') — '+ms.short[0].toLowerCase()
         +(ms.short.length>1?(' and '+(ms.short.length-1)+' more'):''),m.id,'mat');
+      else if(!ms.ok){
+        var g=gaps[ms.v.id]=gaps[ms.v.id]||{ms:ms,n:0};
+        g.n++;
+      }
     }
     openNCR(m)&&add(72,'bad',openNCR(m)+' open',m.name,'non-conformances still open — the closing dossier cannot be settled',m.id,'mat');
     matRoad(m).steps.forEach(function(x){
@@ -2919,6 +2957,18 @@ function findings(){
           (!due.soft&&n<0)?(Math.abs(n)+'d late'):('in '+Math.max(n,0)+'d'),
           m.name,st.n+' — '+due.t+' '+show(due.on),m.id,'mat');}
     });
+  });
+  Object.keys(gaps).forEach(function(id){
+    var g=gaps[id], ms=g.ms, v=ms.v;
+    var many=' — holds up '+g.n+' material'+(g.n===1?'':'s');
+    var what=ms.short[0]+(ms.short.length>1?(' and '+(ms.short.length-1)+' more'):'');
+    if(ms.mine){
+      /* the vendor may already be on the board for its next step; say it
+         there once, with what it holds up, rather than twice */
+      var mv=out.filter(function(o){return o.tab==='mfr'&&String(o.id)===String(v.id)&&o.word==='your move';})[0];
+      if(mv){mv.key=mv.s;mv.s+=many;return;}
+      add(40,'now','vendor gap',v.name,what+many,v.id,'mfr','gap|'+what);
+    }else add(44,'wait','waiting',v.name,what+many,v.id,'mfr','wait|'+what);
   });
   (DB.people||[]).forEach(function(p){
     if((p.status||'Pending')==='Approved')return;
