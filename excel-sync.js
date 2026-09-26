@@ -2086,6 +2086,8 @@ function paintTabs(){
     var t=document.getElementById('tab-'+k);
     if(t)t.setAttribute('aria-selected',String(TAB===k));
   });
+  var td=document.getElementById('tab-today');
+  if(td)td.setAttribute('aria-selected',String(TAB==='home'));
 }
 
 /* ---------------------------------------------------------------
@@ -2178,13 +2180,31 @@ function kindChips(){
 }
 window.setKind=function(k){DOCKIND=(DOCKIND===k?'':k);rList();rPane();};
 
+/* RECORD is true while one record is open over its list page */
+var RECORD=false;
+function listKey(){
+  if(TAB==='mat')return VIEW;                /* mat | mir | doc */
+  if(TAB==='mfr'||TAB==='insp')return TAB;
+  return null;
+}
 function install2(){
   if(window.__docs)return;
   window.__docs=true;
   liftTabs();
 
+  /* The way to Today was the project name on the rail. A list page puts
+     the rail away, so Today also gets a tab of its own, first in the row. */
+  var bar=document.querySelector('.topbar');
+  if(bar&&!document.getElementById('tab-today')){
+    var tb=document.createElement('button');
+    tb.className='tab';tb.id='tab-today';tb.setAttribute('role','tab');
+    tb.textContent='Today';tb.onclick=function(){setTab('home');};
+    bar.insertBefore(tb,bar.firstChild);
+  }
+
   var origSetTab=window.setTab;
   window.setTab=function(t){
+    RECORD=false;                            /* a tab opens on its list */
     if(t==='mir'||t==='doc'){VIEW=t;if(t!=='doc')DOCKIND='';origSetTab('mat');}
     else if(t==='rep'||t==='tbl'){
       VIEW='mat';DOCKIND='';
@@ -2217,15 +2237,66 @@ function install2(){
 
   var origPane=window.rPane;
   window.rPane=function(){
+    /* A list tab is its table, full width, with the rail put away; a
+       record opened from it takes the page, with a way back. */
+    var lk=listKey();
+    document.body.classList.toggle('listmode',!!lk);
+    if(lk&&!RECORD){
+      TBL=lk;
+      var el0=document.getElementById('pane');
+      if(el0)el0.innerHTML=tablePane(true);
+      window.stamp();
+      return;
+    }
     if(TAB==='rep'||TAB==='tbl'){
       var el=document.getElementById('pane');
       if(el)el.innerHTML=(TAB==='tbl'?tablePane():reportsPane());
       return;
     }
     if(TAB==='home')return withMaterials(origPane);
-    if(TAB==='mfr')return withVendors(origPane);
-    if(TAB!=='mat')return origPane();
-    withSubset(origPane);
+    if(TAB==='mfr')withVendors(origPane);
+    else if(TAB!=='mat')origPane();
+    else withSubset(origPane);
+    if(lk)backBar(lk);
+  };
+  function backBar(lk){
+    var el=document.getElementById('pane');if(!el)return;
+    el.insertAdjacentHTML('afterbegin','<div class="backbar no-print">'
+      +'<button class="btn btn-s" onclick="listBack()">← All '+esc(TABLES_DEF[lk].label.toLowerCase())+'</button>'
+      +'<span style="flex:1"></span><span id="saved2"></span>'
+      +'<button class="btn btn-s" onclick="showDue()">What is due</button>'
+      +'<button class="btn-q" onclick="showMenu()">More</button></div>');
+    window.stamp();
+  }
+  window.listBack=function(){RECORD=false;rPane();};
+  /* "Add" on the board used to point at the rail's search box, which a
+     list page no longer shows; it opens the list page's own Add instead */
+  var origAdd=window.addNew;
+  window.addNew=function(){
+    if(TAB!=='home')return origAdd();
+    setTab('mat');
+    setTimeout(function(){
+      var b=document.querySelector('#pane [onclick^="listAdd"]');if(b)b.click();},0);
+  };
+  /* the save state lives on the rail, which a list page puts away, so it
+     is repeated in the page's own bar */
+  var origStamp=window.stamp;
+  window.stamp=function(){
+    origStamp();
+    var a=document.getElementById('saved'), b=document.getElementById('saved2');
+    if(a&&b){b.textContent=a.textContent;
+      b.style.color=/dirty/.test(a.className)?'var(--now-t)':'var(--ink-3)';
+      b.style.fontSize='12.5px';}
+  };
+  /* adding from a list page: a name, then the new record opens */
+  window.listAdd=function(ev){
+    var noun={mat:'material',mfr:'vendor',insp:'inspector'}[TAB];
+    popText(ev.currentTarget,'New '+noun,'','Its name as it should appear.',function(n){
+      if(!n)return;
+      var q=document.getElementById('q');if(!q)return;
+      q.value=n;addFromSearch();
+      RECORD=true;rPane();
+    });
   };
 
   var origDue=window.showDue;
@@ -2237,6 +2308,7 @@ function install2(){
      the vendor chips are narrowed to something it is not. */
   var origJump=window.jump;
   if(typeof origJump==='function')window.jump=function(tab,id){
+    if(id)RECORD=true;                       /* the record, over its list */
     if(tab==='mfr'&&id&&VENSTAT){
       var v=(DB.mfrs||[]).filter(function(x){return String(x.id)===String(id);})[0];
       if(v&&(VENSTAT==='(none)'?!!pqStatus(v):pqStatus(v)!==VENSTAT))VENSTAT='';
@@ -3419,26 +3491,33 @@ function filtered(){
   return rows;
 }
 
-function tablePane(){
+function tablePane(list){
   var d=tdef(),rows=filtered(),all=d.rows().length;
   var cols=shownCols();
   var q=TBLQ[TBL]||{};
   var nActive=Object.keys(q).filter(function(k){return q[k]!=='';}).length;
   if(!TBLN[TBL])TBLN[TBL]=PAGE_ROWS;
   var upto=Math.min(TBLN[TBL],rows.length);
+  var canAdd={mat:'material',mfr:'vendor',insp:'inspector'}[TBL];
 
   var head='<div class="head no-print"><div class="wrap" style="max-width:none">'
-    +'<div class="head-t">Table</div><div class="head-m">'
-    +Object.keys(TABLES_DEF).map(function(k){
+    +'<div class="head-t">'+(list?esc(d.label):'Table')+'</div><div class="head-m">'
+    /* a list page is already one table; its tab says which */
+    +(list?((canAdd?'<button class="btn btn-s btn-p" data-pop onclick="listAdd(event)">Add a '+canAdd+'</button>':'')):
+      Object.keys(TABLES_DEF).map(function(k){
       return '<button class="chip'+(TBL===k?' set':'')+'" onclick="setTable(\''+k+'\')">'
         +esc(TABLES_DEF[k].label)+' <span class="meta">'+TABLES_DEF[k].rows().length+'</span></button>';
-    }).join('')
-    +'<span style="flex:1"></span>'
+    }).join(''))
+    +(list?'':'<span style="flex:1"></span>')
     +'<button class="btn btn-s" onclick="tblCols()">Columns</button>'
     +(nActive?('<button class="btn btn-s btn-d" onclick="tblClear()">Clear '+nActive
       +' filter'+(nActive===1?'':'s')+'</button>'):'')
     +'<button class="btn btn-s" onclick="window.print()">Print</button>'
-    +'<button class="btn btn-s btn-p" onclick="tblExport()">Excel</button>'
+    +'<button class="btn btn-s'+(list?'':' btn-p')+'" onclick="tblExport()">Excel</button>'
+    /* on a list page the rail is away, so what lived on it sits here */
+    +(list?'<span style="flex:1"></span><span id="saved2"></span>'
+      +'<button class="btn btn-s" onclick="showDue()">What is due</button>'
+      +'<button class="btn-q" onclick="showMenu()">More</button>':'')
     +'</div>'
     +'<div class="swhy" style="margin-top:8px">'
     +(nActive?(rows.length+' of '+all+' rows'):(all+' rows'))
@@ -3606,6 +3685,11 @@ function tableCSS(){
   +'border-radius:6px;background:var(--card);color:var(--ink);outline:none}'
   +'.th-f:focus{border-color:var(--wait);box-shadow:0 0 0 2px var(--wait-b)}'
   +'#tbl-body{padding:0 18px 40px 0;overflow:auto}'
+  /* a list page puts the rail away and gives the table the width */
+  +'body.listmode .side{display:none}'
+  +'.backbar{display:flex;align-items:center;gap:8px;padding:10px 18px;background:var(--card);'
+  +'border-bottom:1px solid var(--line);flex-shrink:0;position:sticky;top:0;z-index:5}'
+  +'#saved2{white-space:nowrap}'
   +'@media print{.tbl th{position:static}#tbl-body{padding:0;overflow:visible}'
   +'.th-f{display:none}.tbl{font-size:9px}}';
   document.head.appendChild(css);
