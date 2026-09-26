@@ -703,7 +703,9 @@ var PAGE=1000;
 async function readAll(c,table,cols,loud){
   var out=[],from=0;
   for(var guard=0;guard<200;guard++){
-    var r=await c.from(table).select(cols).range(from,from+PAGE-1);
+    /* Pages only line up if the order is fixed. Without one the database
+       may hand back the same row on two pages and skip another. */
+    var r=await c.from(table).select(cols).order('id',{ascending:true}).range(from,from+PAGE-1);
     if(r.error)throw r.error;
     var got=r.data||[];
     out=out.concat(got);

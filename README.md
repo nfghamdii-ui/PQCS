@@ -14,24 +14,24 @@ Everything in this repository either extends it or feeds it.
 | File | What it is |
 |---|---|
 | `index.html` | The tracker page, with `excel-sync.js` already installed. |
-| `cats.js` | Attachment 1: the component categories the page reads. **Bring your own.** |
+| `cats.js` | Attachment 1: the component categories the page reads. |
 | `excel-sync.js` | Reads and writes the Main Log, and reads the Aconex register. |
 | `install.py` | Adds `excel-sync.js` to the page. Safe to run twice. |
-| `tools/add-inbox-sheet.py` | Adds a reconciliation sheet to a workbook, for pasting a daily log by hand. |
-| `tools/split-main-log.py` | Splits the flat 77-column log into linked sheets. An experiment; see below. |
+| `add-inbox-sheet.py` | Adds a reconciliation sheet to a workbook, for pasting a daily log by hand. |
+| `split-main-log.py` | Splits the flat 77-column log into linked sheets. An experiment; see below. |
+| `old-v1.html`, `old-v1.1.html` | Earlier versions of the page, on a different Supabase project. Kept for reference only. |
 
-`cats.js` is not committed here — it is yours and the page warns on its
-own if it is missing. `index.html` is committed, and already carries the
-one line that loads `excel-sync.js`.
+`cats.js` is committed beside the page; the page warns on its own if it
+is ever missing. `index.html` already carries the one line that loads
+`excel-sync.js`.
 
 ---
 
 ## Setting up
 
 ```bash
-git clone <your repo>
-cd <your repo>
-cp /wherever/you/keep/cats.js .
+git clone https://github.com/nfghamdii-ui/PQCS.git
+cd PQCS
 ```
 
 Then open `index.html` in a browser and sign in. Three buttons appear
@@ -108,7 +108,24 @@ after it had been set.
 A row is matched on its reference, not on its description. The
 description is the thing a person edits — merging two entries, fixing a
 spelling — and a key that changes when someone tidies the file is not a
-key. Rename all you like; the row is still the same row.
+key. Rename all you like; the row is still the same row. A row whose MAT
+number was edited is still found through any other reference that names
+that one material alone; a reference shared by several materials proves
+nothing and is not used.
+
+**The newer edit wins, cell by cell.** Each material remembers the row
+the file last gave it, and that row is the common ancestor of the file
+and the tracker. A cell changed only in the file takes the file's value;
+a cell changed only in the tracker keeps the tracker's. Only a cell
+changed on both sides, to different values, is decided by the clock —
+the time the file was saved against the last time the record was saved
+here. The upload screen lists the tracker edits it kept and every cell
+that was changed on both sides, with which one won.
+
+**A missing row does not delete history.** "Apply and delete the
+missing" skips any material carrying deliveries, non-conformances or
+visits, since the file has no column for them. Those are listed as
+protected; delete them on the record if that is what is meant.
 
 A row with a heading and nothing else is a section divider. A row with a
 heading and no category is a material that has not been categorised, and
@@ -130,7 +147,11 @@ narrows it to that trade; it does not decide it.
 
 **Waiting to be reviewed**, under More, lists everything that came in
 this way until you have been through it. Each upload can be taken back
-whole from the same screen, as long as its records are still unreviewed.
+whole from the same screen: the records it brought in are deleted as
+long as they are still unreviewed, and the statuses it changed on
+records already here go back to what they were. A status changed again
+since the upload is newer than it and is left alone. Each record
+remembers its last five uploads.
 
 A pre-qualification names a company in its title, and the title is
 written by hand — `PRQ for Dar Al-Rokham - Marble Cladding work`,
@@ -140,9 +161,12 @@ Expect to correct some of them.
 
 ---
 
-## tools/
+## The Python generators
 
-Two generators, neither of them part of the running system.
+Two generators, neither of them part of the running system. Both were
+written for a sandbox and read and write fixed paths under
+`/mnt/user-data/`; change those at the top of each script before running
+them anywhere else.
 
 `add-inbox-sheet.py` builds a sheet for pasting a daily transmittal log
 into, back when that log had to be copied by hand. It works, and the

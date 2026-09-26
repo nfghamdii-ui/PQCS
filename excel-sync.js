@@ -1332,9 +1332,83 @@ function planRegister(reg){
   return p;
 }
 
-function applyRegister(p,alsoEnded){
+/* An upload is named by its file and the second it was applied; two in
+   the same minute used to share a name and be taken back together. */
+function regTag(p){
+  return (p.file||'a register')+' · '+new Date().toLocaleString('en-GB',
+    {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+/* What an upload changed on a record that was already here is written
+   down on that record — before and after — so taking the upload back
+   can put it the way it was. A cell changed again since is left alone:
+   that edit is newer than the upload and is not the upload's to undo.
+   Only the last few uploads are remembered per record. */
+var REG_KEEP=5;
+function clone(x){return x==null?null:JSON.parse(JSON.stringify(x));}
+function regState(owner,k){
+  var s=k.split('|');
+  if(s[0]==='v')return clone((owner.steps||{})[s[1]]);
+  if(s[0]==='d'){
+    var del=(owner.dels||[]).filter(function(x){return String(x.id)===s[1];})[0];
+    return del?{status:del.status==null?null:del.status,date:del.date==null?null:del.date}:null;
+  }
+  var out={raw:{},step:s[2]?clone((owner.steps||{})[s[2]]):null};
+  s[1].split(',').filter(Boolean).forEach(function(c){
+    var v=(owner.raw||{})[c];out.raw[c]=v==null?null:v;});
+  return out;
+}
+function regRestore(owner,k,was){
+  var s=k.split('|');
+  function put(obj,key,v){if(v==null)delete obj[key];else obj[key]=v;}
+  if(s[0]==='v'){owner.steps=owner.steps||{};put(owner.steps,s[1],clone(was));return;}
+  if(s[0]==='d'){
+    var del=(owner.dels||[]).filter(function(x){return String(x.id)===s[1];})[0];
+    if(del&&was){put(del,'status',was.status);put(del,'date',was.date);}
+    return;
+  }
+  owner.raw=owner.raw||{};
+  Object.keys(was.raw).forEach(function(c){put(owner.raw,c,was.raw[c]);});
+  if(s[2]){owner.steps=owner.steps||{};put(owner.steps,s[2],clone(was.step));}
+}
+function regNote(owner,tag,k,before){
+  var after=regState(owner,k);
+  if(JSON.stringify(after)===JSON.stringify(before))return;
+  owner.regWas=owner.regWas||{};
+  (owner.regWas[tag]=owner.regWas[tag]||[]).push({k:k,was:before,set:after});
+  var tags=Object.keys(owner.regWas);
+  while(tags.length>REG_KEEP)delete owner.regWas[tags.shift()];
+}
+function regChanged(tag){
+  var n=0;
+  (DB.mats||[]).concat(DB.mfrs||[]).forEach(function(r){
+    if(r.regWas&&r.regWas[tag])n+=r.regWas[tag].length;});
+  return n;
+}
+function regUnchange(tag){
+  var back=0,kept=0;
+  (DB.mats||[]).concat(DB.mfrs||[]).forEach(function(r){
+    var list=r.regWas&&r.regWas[tag];if(!list)return;
+    list.slice().reverse().forEach(function(ch){
+      if(JSON.stringify(regState(r,ch.k))===JSON.stringify(ch.set)){regRestore(r,ch.k,ch.was);back++;}
+      else kept++;
+    });
+    delete r.regWas[tag];
+    if(!Object.keys(r.regWas).length)delete r.regWas;
+  });
+  return {back:back,kept:kept};
+}
+function applyRegister(p,alsoEnded,tag){
   var n=0;
   function write(it){
+    var owner=it.h.v||it.h.m, k;
+    if(it.h.v)k='v|'+((it.h.v.kind==='agency')?'appr':'pqd');
+    else if(it.h.del)k='d|'+it.h.del.id;
+    else k='m|'+[it.where.s,it.where.r,it.where.d].filter(Boolean).join(',')+'|'+(it.where.step||'');
+    var before=owner&&tag?regState(owner,k):null;
+    write1(it);
+    if(owner&&tag)regNote(owner,tag,k,before);
+  }
+  function write1(it){
     var w=it.where,d=it.d;
     if(it.h.v){                                   /* a vendor's qualification */
       var v=it.h.v;
@@ -1495,9 +1569,9 @@ function showRegister(){
 }
 window.regApply=function(alsoEnded){
   if(!REG)return;
-  var n=applyRegister(REG,alsoEnded);
+  var n=applyRegister(REG,alsoEnded,regTag(REG));
   closeSheet();
-  toast(n+' document'+(n===1?'':'s')+' brought up to date');
+  toast(n+' document'+(n===1?'':'s')+' brought up to date — More → Waiting to be reviewed can take it back');
   REG=null;
 };
 /* The morning, in one press: the outcomes that moved are written, the
@@ -1528,9 +1602,8 @@ window.regAll=function(){
 window.regAllYes=function(){
   if(!REG)return;
   var p=REG;
-  var n=applyRegister(p,true);
-  var tag=(REG.file||'a register')+' \u00b7 '+new Date().toLocaleString('en-GB',
-    {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  var tag=regTag(p);
+  var n=applyRegister(p,true,tag);
   var made=createFromRegister(p,tag);
   closeSheet();
   toast(n+' updated, '+made.mats+' materials and '+made.vendors+' vendors brought in');
@@ -1540,8 +1613,7 @@ window.regAllYes=function(){
 window.regAddAll=function(){
   if(!REG)return;
   var p=REG;
-  var tag=(REG.file||'a register')+' · '+new Date().toLocaleString('en-GB',
-    {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  var tag=regTag(p);
   var n=createFromRegister(p,tag);
   closeSheet();
   toast(n.mats+' materials and '+n.vendors+' vendors brought in — all marked for review');
@@ -1771,21 +1843,26 @@ function pending(){
   (DB.mfrs||[]).forEach(function(v){if(v.review)out.push({k:'mfr',r:v});});
   return out;
 }
+/* every upload that can still be taken back: what it brought in and
+   has not been reviewed, and what it changed on records already here */
 function batches(){
   var b={};
-  pending().forEach(function(x){
-    var t=x.r.reg||'(unknown upload)';
-    b[t]=(b[t]||0)+1;
+  function at(t){return b[t]=b[t]||{n:0,s:0};}
+  pending().forEach(function(x){at(x.r.reg||'(unknown upload)').n++;});
+  (DB.mats||[]).concat(DB.mfrs||[]).forEach(function(r){
+    Object.keys(r.regWas||{}).forEach(function(t){at(t).s+=r.regWas[t].length;});
   });
   return b;
 }
+function batchLabel(x){
+  return [x.n?(x.n+' new'):'',x.s?(x.s+' status'+(x.s===1?'':'es')):''].filter(Boolean).join(' · ');
+}
 window.regReview=function(){
-  var list=pending();
-  if(!list.length)return sheet('Nothing waiting',
+  var list=pending(), b=batches();
+  if(!list.length&&!Object.keys(b).length)return sheet('Nothing waiting',
     '<div class="dim" style="padding:26px 0;text-align:center">'
     +'Nothing is waiting to be reviewed. Records brought in from a register appear here '
     +'until you have been through them.</div>');
-  var b=batches();
   var cap=60;
   sheet('Waiting to be reviewed',
     '<div class="dim" style="font-size:13.5px;margin-bottom:16px">'
@@ -1794,7 +1871,7 @@ window.regReview=function(){
     +'only a way of finding them again.</div>'
     +'<div class="panel"><div class="panel-b">'
     +Object.keys(b).map(function(t){
-      return '<div class="line"><span class="tag t-na">'+b[t]+'</span>'
+      return '<div class="line"><span class="tag t-na">'+esc(batchLabel(b[t]))+'</span>'
         +'<div class="line-m">'+esc(t)+'</div>'
         +'<button class="btn btn-s btn-d" onclick="regUndo('+jsq(t)+')">Take this upload back</button>'
         +'</div>';}).join('')
@@ -1829,13 +1906,17 @@ window.regDoneAll=function(){
 };
 window.regUndo=function(tag){
   var n=pending().filter(function(x){return (x.r.reg||'(unknown upload)')===tag;}).length;
-  sheet('Take back '+n+' record'+(n===1?'':'s')+'?',
-    '<div style="font-size:14px;line-height:1.75">Everything that came in from '
-    +'<b>'+esc(tag)+'</b> and has not yet been reviewed will be deleted. Anything you '
-    +'have already marked reviewed stays, and nothing that was in the file before the '
-    +'upload is touched.</div>'
+  var s=regChanged(tag);
+  sheet('Take back this upload?',
+    '<div style="font-size:14px;line-height:1.75"><b>'+esc(tag)+'</b><br><br>'
+    +(n?(n+' record'+(n===1?'':'s')+' that came in from it and '+(n===1?'has':'have')
+      +' not been reviewed will be deleted; anything already marked reviewed stays. '):'')
+    +(s?(s+' status'+(s===1?'':'es')+' it changed on records that were already here '
+      +(s===1?'goes':'go')+' back to what '+(s===1?'it was':'they were')
+      +' — except any changed again since, which are newer than the upload and stay.'):'')
+    +'</div>'
     +'<div class="f-act" style="margin-top:20px">'
-    +'<button class="btn btn-d" onclick="regUndoYes('+jsq(tag)+')">Delete them</button>'
+    +'<button class="btn btn-d" onclick="regUndoYes('+jsq(tag)+')">Take it back</button>'
     +'<button class="btn-q" onclick="regReview()">Keep them</button></div>');
 };
 window.regUndoYes=function(tag){
@@ -1844,10 +1925,13 @@ window.regUndoYes=function(tag){
   DB.mats=(DB.mats||[]).filter(function(m){return !drop(m);});
   DB.mfrs=(DB.mfrs||[]).filter(function(v){return !drop(v);});
   var gone=before-(DB.mats.length+DB.mfrs.length);
+  var st=regUnchange(tag);
   if(SEL.mat&&!mat(SEL.mat))SEL.mat=DB.mats.length?DB.mats[0].id:null;
   if(SEL.mfr&&!mfr(SEL.mfr))SEL.mfr=DB.mfrs.length?DB.mfrs[0].id:null;
   touch();rList();rPane();closeSheet();
-  toast(gone+' record'+(gone===1?'':'s')+' taken back');
+  toast([gone?(gone+' record'+(gone===1?'':'s')+' taken back'):'',
+    st.back?(st.back+' status'+(st.back===1?'':'es')+' restored'):'',
+    st.kept?(st.kept+' changed since, left as they are'):''].filter(Boolean).join(', ')||'Nothing to take back');
 };
 
 /* ================================================================
