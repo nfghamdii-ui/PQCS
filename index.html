@@ -2333,7 +2333,7 @@ window.tick=function(bucket,i,on){
 
 /* ---------- one step ---------- */
 function stepCard(rec,x,i,kind){
-  var st=x.s, d=x.data, state=x.state;
+  var st=x.s, d=x.data, state=x.state, rem=reminder(kind,rec.id,st.k);
   var dot=state==='done'?'done':state==='bad'?'bad':state==='wait'?'wait':(x.now?'now':'');
   var editing=(OPEN===kind+':'+st.k);
 
@@ -2406,7 +2406,14 @@ function stepCard(rec,x,i,kind){
         +(d.status||d.ref||d.date?'Update':'Record it')+'</button>'
         /* when the detail does not matter, one press settles it */
         +((state!=='done'&&!editing)?'<button class="btn btn-s" onclick="quickDone(\''+kind+'\',\''+st.k+'\')">Mark done</button>':'')
+        /* put this one step aside until a day you choose */
+        +((state!=='done'&&!editing)?'<button class="btn-q" data-pop onclick="remindPick(event,'+jsq(kind)+','+rec.id+','+jsq(st.k)+')">'
+          +(rem?'Change reminder':'Remind me later')+'</button>':'')
         +'</div>';
+    if(rem&&state!=='done'&&!editing)
+      inner+='<div class="sdue d-soon" style="display:flex;align-items:center">'+ICON.clock
+        +'<span>'+(rem>today()?'Off the board until your reminder on ':'Your reminder was for ')+'<b>'+show(rem)+'</b></span>'
+        +'<button class="btn-q" style="margin-left:auto" onclick="remindClear('+jsq(kind)+','+rec.id+','+jsq(st.k)+')">Clear</button></div>';
     /* the two dossiers carry a contents list the procedure writes out */
     if(kind==='mat'&&DOSSIER[st.k]&&!editing)
       inner+=checklist(rec,st.k+'List',DOSSIER[st.k].items,DOSSIER[st.k].clause,'What it must contain');
@@ -2823,6 +2830,7 @@ function score(n,soft){
 var SNOOZE={};
 function snoozeKey(o){return o.tab+'|'+o.id+'|'+(o.key||o.s);}
 function snoozedUntil(o){
+  if(o.step){var r=reminder(o.tab,o.id,o.step);if(r&&r>today())return r+'T00:00:00';}
   var t=SNOOZE[snoozeKey(o)];
   return (t&&Date.parse(t)>Date.now())?t:null;
 }
@@ -2833,9 +2841,44 @@ async function loadSnooze(c){
     SNOOZE=(r&&!r.error&&r.data&&r.data.value)||{};
   }catch(e){SNOOZE={};}
 }
+/* A reminder is put on one step of one record for a day you choose.
+   Until then, whatever that step would say on the board is quiet; from
+   that day it comes back as a reminder at the top, and stays until the
+   step is settled or the reminder cleared. Kept beside the snoozes, as
+   step|tab|id|step → YYYY-MM-DD. */
+function remKey(tab,id,k){return 'step|'+tab+'|'+id+'|'+k;}
+function reminder(tab,id,k){var r=SNOOZE[remKey(tab,id,k)];return (r&&/^\d{4}-\d{2}-\d{2}$/.test(r))?r:null;}
+window.remindPick=function(ev,tab,id,k){
+  ev.stopPropagation();
+  var cur=reminder(tab,id,k), def=cur||addDays(today(),7);
+  pop(ev.currentTarget,'Remind me on',
+    '<input id="pop-v" type="date" value="'+attr(def)+'" min="'+attr(addDays(today(),1))+'">'
+    +'<div class="pop-hint">Until then this step stays off the board. On the day it comes back at the top.</div>'
+    +'<div class="pop-f"><button class="btn btn-p btn-s" id="pop-ok">Set reminder</button>'
+    +'<button class="btn-q" onclick="closePop()">Cancel</button></div>',
+    function(el){
+      var inp=el.querySelector('#pop-v');
+      async function go(){
+        var d=inp.value;if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||d<=today())return inp.focus();
+        closePop();
+        var key=remKey(tab,id,k), was=SNOOZE[key];SNOOZE[key]=d;
+        if(!(await storeSnooze())){if(was)SNOOZE[key]=was;else delete SNOOZE[key];}
+        rPane();toast('Reminder set for '+show(d));
+      }
+      el.querySelector('#pop-ok').addEventListener('click',go);
+      inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();go();}});
+    });
+};
+window.remindClear=async function(tab,id,k){
+  var key=remKey(tab,id,k), was=SNOOZE[key];delete SNOOZE[key];
+  if(!(await storeSnooze()))SNOOZE[key]=was;
+  rPane();
+};
 async function storeSnooze(){
   var now=Date.now();
-  Object.keys(SNOOZE).forEach(function(k){if(!(Date.parse(SNOOZE[k])>now))delete SNOOZE[k];});
+  Object.keys(SNOOZE).forEach(function(k){
+    if(/^step\|/.test(k))return;                 /* reminders wait to be cleared */
+    if(!(Date.parse(SNOOZE[k])>now))delete SNOOZE[k];});
   var c=client();if(!c)return false;
   var r=await c.from('settings').upsert({key:'snooze',value:SNOOZE},{onConflict:'key'});
   if(r.error){toast('Could not put it aside — '+niceError(r.error));return false;}
@@ -2873,7 +2916,7 @@ window.showSnoozed=function(){
 };
 /* A count on the board opens into what it is made of: grouped by kind,
    biggest group first, each row the same as on the board. */
-var BUCKET_NAMES={'material move':'Materials — your next step','vendors':'Vendors',
+var BUCKET_NAMES={'reminder':'Your reminders','material move':'Materials — your next step','vendors':'Vendors',
   'set it':'No category','name it':'No vendor named','waiting':'With the reviewer',
   'soon':'Due within three weeks','pending':'Inspectors not approved','no name':'Inspectors with no name'};
 var BUCKET_OPEN='';
@@ -2981,12 +3024,15 @@ function findings(){
   /* key, when given, is what a snooze holds on to — for a line whose
      wording carries a count that moves, so the snooze does not end the
      moment one more material is linked */
-  function add(p,tone,word,title,line,id,tab,key){out.push({p:p,tone:tone,word:word,t:title,s:line,id:id,tab:tab,key:key});}
+  /* STEP names the step a line is about, so a reminder on that step can
+     quiet it; lines about the record as a whole carry none */
+  var STEP=null;
+  function add(p,tone,word,title,line,id,tab,key){out.push({p:p,tone:tone,word:word,t:title,s:line,id:id,tab:tab,key:key,step:STEP});}
 
   (DB.mfrs||[]).forEach(function(v){
     if(!needsQual(v))return;
     mfrRoad(v).forEach(function(x){
-      var d=x.data, st=x.s;
+      var d=x.data, st=x.s;STEP=st.k;
       if(st.k==='iso'&&d.date){
         var n=daysTo(d.date);
         if(n<0)add(score(n),'bad','expired',v.name,'ISO 9001 expired '+show(d.date)+', '+when(d.date),v.id,'mfr');
@@ -3001,6 +3047,7 @@ function findings(){
           (!due.soft&&n2<0)?(Math.abs(n2)+'d late'):('in '+Math.max(n2,0)+'d'),
           v.name,st.n+' — '+due.t+' '+show(due.on),v.id,'mfr');}
     });
+    STEP=null;
   });
   (DB.mats||[]).forEach(function(m){
     if(!m.cat)add(50,'now','set it',m.name,'no category, so its road is unknown',m.id,'mat');
@@ -3023,7 +3070,7 @@ function findings(){
     }
     openNCR(m)&&add(72,'bad',openNCR(m)+' open',m.name,'non-conformances still open — the closing dossier cannot be settled',m.id,'mat');
     matRoad(m).steps.forEach(function(x){
-      var d=x.data, st=x.s;
+      var d=x.data, st=x.s;STEP=st.k;
       if(x.state==='bad'&&!st.linked)add(88,'bad','blocked',m.name,st.n+' came back '+String(d.status||'rejected').toLowerCase(),m.id,'mat');
       /* "Vendor qualified" is the vendor's step, not the material's: the
          vendor already says what it is short of, and a material with no
@@ -3039,11 +3086,15 @@ function findings(){
           (!due.soft&&n<0)?(Math.abs(n)+'d late'):('in '+Math.max(n,0)+'d'),
           m.name,st.n+' — '+due.t+' '+show(due.on),m.id,'mat');}
     });
+    STEP=null;
   });
   Object.keys(gaps).forEach(function(id){
     var g=gaps[id], ms=g.ms, v=ms.v;
     var many=' — holds up '+g.n+' material'+(g.n===1?'':'s');
     var what=ms.short[0]+(ms.short.length>1?(' and '+(ms.short.length-1)+' more'):'');
+    /* the line leads with one gap; a reminder on that gap's step quiets it */
+    var gs=vendorGaps(v), lead=(ms.mine?gs.filter(function(x){return x.state==='open';})[0]:null)||gs[0];
+    STEP=lead?lead.k:null;
     if(ms.mine){
       /* the vendor may already be on the board for its next step; say it
          there once, with what it holds up, rather than twice */
@@ -3051,6 +3102,24 @@ function findings(){
       if(mv){mv.key=mv.s;mv.s+=many;return;}
       add(40,'now','vendor gap',v.name,what+many,v.id,'mfr','gap|'+what);
     }else add(44,'wait','waiting',v.name,what+many,v.id,'mfr','wait|'+what);
+  });
+  STEP=null;
+  /* Reminders whose day has come: the step speaks through the reminder
+     alone, at the top, until it is settled or the reminder cleared. */
+  var due0=today();
+  Object.keys(SNOOZE).forEach(function(k){
+    var p=k.split('|');if(p[0]!=='step')return;
+    var on=SNOOZE[k];if(!/^\d{4}-\d{2}-\d{2}$/.test(on)||on>due0)return;
+    var tab=p[1], id=p[2], sk=p[3];
+    var rec=((tab==='mfr'?DB.mfrs:DB.mats)||[]).filter(function(r){return String(r.id)===id;})[0];
+    if(!rec)return;
+    var road=tab==='mfr'?mfrRoad(rec):matRoad(rec).steps;
+    var x=road.filter(function(y){return y.s.k===sk;})[0];
+    if(!x||x.state==='done')return;
+    out=out.filter(function(o){return !(o.step===sk&&o.tab===tab&&String(o.id)===id);});
+    STEP=sk;
+    add(92,'now','reminder',rec.name,'your reminder for '+show(on)+' — '+x.s.n,rec.id,tab,'rem|'+sk);
+    STEP=null;
   });
   (DB.people||[]).forEach(function(p){
     if((p.status||'Pending')==='Approved')return;
