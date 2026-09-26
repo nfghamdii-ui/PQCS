@@ -184,7 +184,9 @@ function normStatus(v){
   var raw=trim(v);
   if(!raw||raw==='-')return '';
   var parts=raw.split(/[\n\r]+/).map(trim).filter(Boolean);
-  var best='',rank={'Rejected':1,'Resubmit':2,'Pending':3,'Approved with comments':4,'Approved':5};
+  /* a cell that also holds a later outcome is read by that outcome; a
+     terminated line on its own is the weakest word in the cell */
+  var best='',rank={'Terminated':0.5,'Rejected':1,'Resubmit':2,'Pending':3,'Approved with comments':4,'Approved':5};
   parts.forEach(function(p){
     var one=oneStatus(p);
     if(one&&(!best||(rank[one]||0)>(rank[best]||0)))best=one;
@@ -194,6 +196,9 @@ function normStatus(v){
 function oneStatus(p){
   var k=p.toLowerCase().replace(/[^a-z& ]/g,' ').replace(/\s+/g,' ').trim();
   if(!k)return '';
+  /* read as Pending until now, which is how a dead document came to sit
+     in the tracker waiting on a review that will never come */
+  if(/terminat/.test(k))return 'Terminated';
   if(/as noted|with comment|conditional/.test(k))return 'Approved with comments';
   if(/revise|resubmit/.test(k))return 'Resubmit';
   if(/reject|fail/.test(k))return 'Rejected';
@@ -1292,8 +1297,11 @@ function planRegister(reg){
           trim(((h0.v.steps||{})[(h0.v.kind==='agency')?'appr':'pqd']||{}).status)});
     }
     /* Review Status is the reviewer's word and Status the document's own;
-       where they disagree the review is the later of the two. */
-    var want=verdictOf(d.review)||verdictOf(d.status);
+       where they disagree the review is the later of the two — except
+       when the document itself has been terminated. A dead document is
+       dead whatever its review once said, and is recorded as such. */
+    var want=verdictOf(d.status)==='Terminated'?'Terminated'
+      :(verdictOf(d.review)||verdictOf(d.status));
     if(!hits||!hits.length){
       var cat=catOfTitle(d.title);
       d.cat=cat;d.want=want;
@@ -1520,7 +1528,7 @@ function byType(list){
 function deadRow(it){
   var d=it.d, h=it.h, rec=h?(h.m||h.v):null;
   var go=h?(h.m?("jump('mat',"+h.m.id+")"):("jump('mfr',"+h.v.id+")")):'';
-  var rv=trim(d.review), odd=rv&&verdictOf(rv)&&verdictOf(rv)!=='Terminated';
+  var rv=trim(d.review);
   return '<div class="line'+(go?' row-a':'')+'"'+(go?(' onclick="'+go+'"'):'')+'>'
     +'<span class="tag t-bad" style="min-width:118px;text-align:center;flex-shrink:0">'
     +esc(rec?(it.now||'nothing yet'):'not in the tracker')+'</span>'
@@ -1528,8 +1536,6 @@ function deadRow(it){
     +'<div class="dim" style="font-size:12.5px;margin-top:2px"><span class="mono">'+esc(d.no)+'</span>'
     +(d.rev!==''?(' · rev '+esc(d.rev)):'')
     +' · Status: '+esc(d.status||'—')+' · Review: '+esc(rv||'—')+'</div>'
-    +(odd?('<div style="font-size:12.5px;margin-top:2px;color:var(--now-t)">Terminated, yet the review says '
-      +esc(verdictOf(rv))+' — the tracker follows the review. Check whether it was re-issued under another number.</div>'):'')
     +'</div></div>';
 }
 function regBlock(title, list, draw, cap){
@@ -3661,6 +3667,27 @@ window.dropVisit=function(ev,matId,k,id){
 
 /* Records that already carry a single visit on the step keep it — it
    becomes the first entry in the list rather than being left behind. */
+/* The Main Log said Terminated and the reader, not knowing the word, made
+   the step Pending — so a dead submittal sat waiting on a reviewer, and
+   the register, comparing against the cell, thought it already matched.
+   A step still Pending under a cell that says Terminated is put right
+   once; anything already moved on is left alone. */
+var TERM_STEPS={mts:'MAT Status',itp:'ITP Status',pid:'PID Status'};
+function liftTerminated(){
+  var n=0;
+  (DB.mats||[]).forEach(function(m){
+    if(!m.raw)return;
+    Object.keys(TERM_STEPS).forEach(function(k){
+      if(normStatus(m.raw[TERM_STEPS[k]])!=='Terminated')return;
+      m.steps=m.steps||{};
+      var d=m.steps[k]||{};
+      if(d.status&&d.status!=='Pending')return;
+      d.status='Terminated';m.steps[k]=d;n++;
+    });
+  });
+  if(n)touch();
+  return n;
+}
 function liftVisits(){
   var n=0;
   (DB.mats||[]).forEach(function(m){
@@ -4049,7 +4076,7 @@ function install(){
    once everything already carries a label. */
 function sortOut(){
   try{
-    var n=labelDocuments()+liftVisits();
+    var n=labelDocuments()+liftVisits()+liftTerminated();
     if(n){rList();rPane();}
     else paintTabs();
   }catch(e){}

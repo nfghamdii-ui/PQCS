@@ -1274,9 +1274,11 @@ var ICON={
    of one material stays on that material — splitting it across
    pages is what made the last attempt tiring to use.
    ================================================================ */
-var STATUS=['Pending','Approved','Approved with comments','Resubmit','Rejected'];
+var STATUS=['Pending','Approved','Approved with comments','Resubmit','Rejected','Terminated'];
 function settled(st){return ['Approved','Approved with comments','Passed','Passed with comments','Waived','Sent','Closed','Received'].indexOf(st)>=0;}
-function failed(st){return ['Rejected','Resubmit','Failed'].indexOf(st)>=0;}
+/* a terminated document is dead in Aconex: nothing is waiting on it,
+   and the step needs a fresh submittal, so it reads as failed */
+function failed(st){return ['Rejected','Resubmit','Failed','Terminated'].indexOf(st)>=0;}
 function mfr(id){return (DB.mfrs||[]).find(function(x){return String(x.id)===String(id);});}
 function mat(id){return (DB.mats||[]).find(function(x){return String(x.id)===String(id);});}
 /* This was called in five places and written in none. Nothing noticed
@@ -3038,7 +3040,8 @@ function findings(){
         if(n<0)add(score(n),'bad','expired',v.name,'ISO 9001 expired '+show(d.date)+', '+when(d.date),v.id,'mfr');
         else if(n<=60)add(70-n/2,'now','in '+n+'d',v.name,'ISO 9001 expires '+show(d.date),v.id,'mfr');
       }
-      if(x.state==='bad'&&st.k!=='iso')add(90,'bad','blocked',v.name,st.n+' came back '+String(d.status||'').toLowerCase(),v.id,'mfr');
+      if(x.state==='bad'&&st.k!=='iso')add(90,'bad',d.status==='Terminated'?'terminated':'blocked',v.name,
+        d.status==='Terminated'?(st.n+' terminated in Aconex — submit it again'):(st.n+' came back '+String(d.status||'').toLowerCase()),v.id,'mfr');
       if(x.now&&x.state==='open')add(45,'now','your move',v.name,'waiting on you — '+st.n,v.id,'mfr');
       var due=st.due?st.due(v,d):null;
       if(due&&st.k!=='iso'&&!(due.soft&&daysTo(due.on)<=0)){
@@ -3071,7 +3074,8 @@ function findings(){
     openNCR(m)&&add(72,'bad',openNCR(m)+' open',m.name,'non-conformances still open — the closing dossier cannot be settled',m.id,'mat');
     matRoad(m).steps.forEach(function(x){
       var d=x.data, st=x.s;STEP=st.k;
-      if(x.state==='bad'&&!st.linked)add(88,'bad','blocked',m.name,st.n+' came back '+String(d.status||'rejected').toLowerCase(),m.id,'mat');
+      if(x.state==='bad'&&!st.linked)add(88,'bad',d.status==='Terminated'?'terminated':'blocked',m.name,
+        d.status==='Terminated'?(st.n+' terminated in Aconex — submit it again'):(st.n+' came back '+String(d.status||'rejected').toLowerCase()),m.id,'mat');
       /* "Vendor qualified" is the vendor's step, not the material's: the
          vendor already says what it is short of, and a material with no
          vendor says that instead. Saying it again on every material
