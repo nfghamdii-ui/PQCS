@@ -3338,6 +3338,19 @@ function whoOf(r){
   return x.state==='bad'?'Blocked':x.state==='wait'?'Reviewer':'You';
 }
 var WHO_TONE={'You':'now','Vendor':'now','Reviewer':'wait','Blocked':'bad','Cleared':'ok'};
+/* where one requirement of a vendor stands, in one word; blank when that
+   kind of company does not need it. Anything failed shows its own word. */
+function stepWord(v,k){
+  var x=mfrRoad(v).filter(function(y){return y.s.k===k;})[0];
+  if(!x)return '';
+  var iso=k==='iso';
+  if(x.state==='done')return iso?'Valid':'Done';
+  if(x.state==='wait')return iso?'Not confirmed':'With reviewer';
+  if(x.state==='open')return iso?'Not recorded':'Not started';
+  return iso?'Expired':(trim(x.data.status)||'Rejected');
+}
+var STEP_TONE={'Done':'ok','Valid':'ok','With reviewer':'wait','Not confirmed':'wait',
+  'Not started':'now','Not recorded':'now'};
 var MS_TONE={ok:'ok',wait:'wait',bad:'bad',now:'now'};
 
 function stepOf(r,k,f){var d=((r.steps||{})[k])||{};return d[f]||'';}
@@ -3409,7 +3422,15 @@ var TABLES_DEF={
     col('Kind','kind',function(r){return KINDS[kindOf(r)].l;},'pick',150),
     asTag(col('Qualification','qual',function(r){return mfrState(r).word;},'pick',160),
       function(v,r){return MS_TONE[mfrState(r).tone]||'';}),
-    col('Still needs','gaps',function(r){return vendorGaps(r).map(function(x){return x.name;}).join(', ');},'text',260),
+    col('Still needs','gaps',function(r){return vendorGaps(r).map(function(x){return x.name;}).join(', ');},'text',260)]
+    /* one column per requirement, each saying where that one stands, so
+       each can be filtered on its own; blank where the kind of company
+       does not need it */
+    .concat(MFR_ROAD.map(function(s){
+      return asTag(col(s.k==='iso'?'ISO 9001':s.n,'st_'+s.k,function(r){return stepWord(r,s.k);},'pick',s.k==='iso'?130:170),
+        function(v){return STEP_TONE[v]||'bad';});
+    }))
+    .concat([
     asNum(col('Holds up','hold',function(r){var n=holdsUp(r);return n?String(n):'';},'text',90)),
     asTag(asNum(col('ISO days left','isodays',function(r){
       var d=stepOf(r,'iso','date');return d?String(daysTo(d)):'';},'text',110)),
@@ -3426,8 +3447,8 @@ var TABLES_DEF={
     asTag(col('ISO Status','isost',function(r){return stepOf(r,'iso','status');},'pick',120)),
     asTag(col('Assessment','pa',function(r){return stepOf(r,'pa','status');},'pick',140)),
     col('Assessment Ref','paref',function(r){return stepOf(r,'pa','ref');},'text',260),
-    asNum(col('Materials','n',function(r){return String(matsOf(r).length);},'text',100))],
-   show:['name','kind','qual','gaps','hold','isodays','pqst','country','n']},
+    asNum(col('Materials','n',function(r){return String(matsOf(r).length);},'text',100))]),
+   show:['name','kind','qual','st_pqd','st_iso','st_pa','st_qms','hold','isodays','n']},
 
  insp:{label:'Inspectors',rows:function(){return (DB.people||[]).slice();},
    open:function(r){jump('insp',r.id);},
