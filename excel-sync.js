@@ -2288,7 +2288,8 @@ function install2(){
     origStamp();
     var a=document.getElementById('saved'), b=document.getElementById('saved2');
     if(a&&b){b.textContent=a.textContent;
-      b.style.color=/dirty/.test(a.className)?'var(--now-t)':'var(--ink-3)';
+      /* it sits on the navy bar: pale when saved, amber while not */
+      b.style.color=/dirty/.test(a.className)?'#ffcf7a':'rgba(255,255,255,.7)';
       b.style.fontSize='12.5px';}
   };
   window.stamp();
@@ -3709,6 +3710,17 @@ function tableCSS(){
   /* every page is the tab row and the page; the rail is put away */
   +'.side{display:none}'
   +'.topbar-tools{margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 4px 6px;flex-shrink:0}'
+  /* the tab row in the project navy, with light words on it */
+  +'.topbar{background:#002f6c;border-bottom-color:#002f6c}'
+  +'.topbar .tab{color:rgba(255,255,255,.72)}'
+  +'.topbar .tab:hover{background:rgba(255,255,255,.08);color:#fff}'
+  +'.topbar .tab[aria-selected=true]{color:#fff;border-bottom-color:#fff}'
+  +'.topbar .tab .n{color:rgba(255,255,255,.5)}'
+  +'.topbar-tools .btn{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.28);color:#fff;box-shadow:none}'
+  +'.topbar-tools .btn:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.45)}'
+  +'.topbar-tools .btn-q{color:rgba(255,255,255,.75)}'
+  +'.topbar-tools .btn-q:hover{background:rgba(255,255,255,.08);color:#fff}'
+  +'.topbar :focus-visible{outline-color:#9cc3ff}'
   +'.backbar{display:flex;align-items:center;gap:8px;padding:10px 18px;background:var(--card);'
   +'border-bottom:1px solid var(--line);flex-shrink:0;position:sticky;top:0;z-index:5}'
   +'#saved2{white-space:nowrap}'
