@@ -2200,6 +2200,14 @@ function install2(){
     tb.className='tab';tb.id='tab-today';tb.setAttribute('role','tab');
     tb.textContent='Today';tb.onclick=function(){setTab('home');};
     bar.insertBefore(tb,bar.firstChild);
+    /* Every page has the same frame: the tab row, and at its end what
+       used to sit on the rail — the save state, What is due, More. */
+    var tools=document.createElement('div');
+    tools.className='topbar-tools';
+    tools.innerHTML='<span id="saved2"></span>'
+      +'<button class="btn btn-s" onclick="showDue()">What is due</button>'
+      +'<button class="btn-q" onclick="showMenu()">More</button>';
+    bar.appendChild(tools);
   }
 
   var origSetTab=window.setTab;
@@ -2245,7 +2253,6 @@ function install2(){
       TBL=lk;
       var el0=document.getElementById('pane');
       if(el0)el0.innerHTML=tablePane(true);
-      window.stamp();
       return;
     }
     if(TAB==='rep'||TAB==='tbl'){
@@ -2262,11 +2269,7 @@ function install2(){
   function backBar(lk){
     var el=document.getElementById('pane');if(!el)return;
     el.insertAdjacentHTML('afterbegin','<div class="backbar no-print">'
-      +'<button class="btn btn-s" onclick="listBack()">← All '+esc(TABLES_DEF[lk].label.toLowerCase())+'</button>'
-      +'<span style="flex:1"></span><span id="saved2"></span>'
-      +'<button class="btn btn-s" onclick="showDue()">What is due</button>'
-      +'<button class="btn-q" onclick="showMenu()">More</button></div>');
-    window.stamp();
+      +'<button class="btn btn-s" onclick="listBack()">← All '+esc(TABLES_DEF[lk].label.toLowerCase())+'</button></div>');
   }
   window.listBack=function(){RECORD=false;rPane();};
   /* "Add" on the board used to point at the rail's search box, which a
@@ -2288,6 +2291,7 @@ function install2(){
       b.style.color=/dirty/.test(a.className)?'var(--now-t)':'var(--ink-3)';
       b.style.fontSize='12.5px';}
   };
+  window.stamp();
   /* adding from a list page: a name, then the new record opens */
   window.listAdd=function(ev){
     var noun={mat:'material',mfr:'vendor',insp:'inspector'}[TAB];
@@ -3514,10 +3518,6 @@ function tablePane(list){
       +' filter'+(nActive===1?'':'s')+'</button>'):'')
     +'<button class="btn btn-s" onclick="window.print()">Print</button>'
     +'<button class="btn btn-s'+(list?'':' btn-p')+'" onclick="tblExport()">Excel</button>'
-    /* on a list page the rail is away, so what lived on it sits here */
-    +(list?'<span style="flex:1"></span><span id="saved2"></span>'
-      +'<button class="btn btn-s" onclick="showDue()">What is due</button>'
-      +'<button class="btn-q" onclick="showMenu()">More</button>':'')
     +'</div>'
     +'<div class="swhy" style="margin-top:8px">'
     +(nActive?(rows.length+' of '+all+' rows'):(all+' rows'))
@@ -3685,8 +3685,9 @@ function tableCSS(){
   +'border-radius:6px;background:var(--card);color:var(--ink);outline:none}'
   +'.th-f:focus{border-color:var(--wait);box-shadow:0 0 0 2px var(--wait-b)}'
   +'#tbl-body{padding:0 18px 40px 0;overflow:auto}'
-  /* a list page puts the rail away and gives the table the width */
-  +'body.listmode .side{display:none}'
+  /* every page is the tab row and the page; the rail is put away */
+  +'.side{display:none}'
+  +'.topbar-tools{margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 4px 6px;flex-shrink:0}'
   +'.backbar{display:flex;align-items:center;gap:8px;padding:10px 18px;background:var(--card);'
   +'border-bottom:1px solid var(--line);flex-shrink:0;position:sticky;top:0;z-index:5}'
   +'#saved2{white-space:nowrap}'
