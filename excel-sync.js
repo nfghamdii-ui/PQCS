@@ -2268,12 +2268,33 @@ function install2(){
   };
   function backBar(lk){
     var el=document.getElementById('pane');if(!el)return;
-    /* inside the record's heading band, so the two read as one */
-    var h=el.querySelector('.head .wrap')||el.querySelector('.head')||el;
-    h.insertAdjacentHTML('afterbegin','<div class="backbar no-print">'
-      +'<button class="btn btn-s" onclick="listBack()">← All '+esc(TABLES_DEF[lk].label.toLowerCase())+'</button></div>');
+    /* first in the band's one row, so a record's band is no taller than any other */
+    var h=el.querySelector('.head .head-m')||el.querySelector('.head .wrap')||el;
+    h.insertAdjacentHTML('afterbegin','<button class="btn btn-s backbtn no-print" onclick="listBack()">← All '
+      +esc(TABLES_DEF[lk].label.toLowerCase())+'</button>');
   }
   window.listBack=function(){RECORD=false;rPane();};
+  /* One band, one height, on every page: its title and one row. Any
+     further line a page puts in it — a clause note, a row count — is
+     moved to a plain strip just beneath, where it is read, not framed. */
+  function tidyHead(){
+    var el=document.getElementById('pane');if(!el)return;
+    var head=el.querySelector('.head');if(!head)return;
+    var wrap=head.querySelector('.wrap')||head;
+    var extra=[].slice.call(wrap.children).filter(function(c){
+      return !c.classList.contains('head-t')&&!c.classList.contains('head-m');});
+    if(!extra.length)return;
+    var note=document.createElement('div');
+    note.className='head-note';
+    var inner=document.createElement('div');
+    inner.className=wrap===head?'':'wrap';
+    if(wrap!==head&&wrap.getAttribute('style'))inner.setAttribute('style',wrap.getAttribute('style'));
+    extra.forEach(function(c){inner.appendChild(c);});
+    note.appendChild(inner);
+    head.parentNode.insertBefore(note,head.nextSibling);
+  }
+  var rpInner=window.rPane;
+  window.rPane=function(){var r=rpInner.apply(this,arguments);try{tidyHead();}catch(e){}return r;};
   /* "Add" on the board used to point at the rail's search box, which a
      list page no longer shows; it opens the list page's own Add instead */
   var origAdd=window.addNew;
@@ -3716,7 +3737,7 @@ function tableCSS(){
   +'.side{display:none}'
   +'.topbar-tools{margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 4px 6px;flex-shrink:0}'
   /* the tab row in the project navy, with light words on it */
-  +'.topbar{background:#00204d;border-bottom-color:#00204d}'
+  +'.topbar{background:#00163a;border-bottom-color:#00163a}'
   +'.topbar .tab{color:rgba(255,255,255,.72)}'
   +'.topbar .tab:hover{background:rgba(255,255,255,.08);color:#fff}'
   +'.topbar .tab[aria-selected=true]{color:#fff;border-bottom-color:#fff}'
@@ -3740,10 +3761,14 @@ function tableCSS(){
   +'.head :focus-visible{outline-color:#fff}'
   +'@media print{.head{background:none;color:inherit;border-bottom-color:var(--line)}'
   +'.head .head-t,.head .swhy,.head .dim{color:inherit}}'
-  /* the way back sits in the record's purple band, not on a white strip above it */
-  +'.backbar{display:flex;align-items:center;gap:8px;margin:-8px 0 14px}'
-  +'.backbar .btn{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.35);color:#fff;box-shadow:none}'
-  +'.backbar .btn:hover{background:rgba(255,255,255,.24);border-color:rgba(255,255,255,.55)}'
+  /* the way back sits in the band's row, first */
+  +'.head .backbtn{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.35);color:#fff;box-shadow:none}'
+  +'.head .backbtn:hover{background:rgba(255,255,255,.24);border-color:rgba(255,255,255,.55)}'
+  /* every band the same height: title and one row, centred */
+  +'.head{box-sizing:border-box;min-height:128px;display:flex;flex-direction:column;justify-content:center}'
+  +'.head-note{background:var(--card);border-bottom:1px solid var(--line);padding:10px 40px;flex-shrink:0}'
+  +'.head-note .swhy{margin-top:0}'
+  +'@media(max-width:880px){.head-note{padding:10px 18px}}'
   +'#saved2{white-space:nowrap}'
   +'@media print{.tbl th{position:static}#tbl-body{padding:0;overflow:visible}'
   +'.th-f{display:none}.tbl{font-size:9px}}';
