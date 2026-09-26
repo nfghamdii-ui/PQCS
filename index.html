@@ -666,8 +666,20 @@ window.signUp=async function(){
   }catch(e){gmsg(esc(niceError(e)));}
   b.disabled=false;b.textContent='Create an account';
 };
-window.signOut=async function(){
-  if(DIRTY)await save();
+window.signOut=async function(anyway){
+  if(!anyway&&(DIRTY||SYNCING)){
+    var saved=await save();
+    if(!saved||DIRTY){
+      return sheet('Not signed out',
+        '<div style="font-size:14px;line-height:1.75">'
+        +'Some of your changes are not in the database yet, and signing out now would lose them. '
+        +'Wait for the save to finish and try again, or download a backup first.</div>'
+        +'<div class="f-act" style="margin-top:20px">'
+        +'<button class="btn btn-p" onclick="closeSheet();HELD=false;save()">Save now</button>'
+        +'<button class="btn" onclick="closeSheet();backup()">Download a backup</button>'
+        +'<button class="btn btn-d btn-s" onclick="closeSheet();signOut(true)">Sign out anyway</button></div>');
+    }
+  }
   try{await client().auth.signOut();}catch(e){}
   USER=null;DB=null;SNAP=null;
   document.getElementById('app').style.display='none';
@@ -814,11 +826,20 @@ function nameOf(key,id){
    look like a save that was still going, for ever. */
 var HELD=false;
 var SYNC_AT=0;
+/* EDITS counts every change made on screen, so a save can tell whether
+   anything moved while it was on the network. SAVE_GEN names the save
+   that owns the baseline; one the watchdog gave up on finds it no longer
+   does, and leaves the baseline and the lock alone when it wakes. */
+var EDITS=0, SAVE_GEN=0;
+/* Resolves true only when everything that was on screen when it started
+   is in the database. Anything else — busy, held on a question, failed —
+   is false, and a caller about to throw the screen away must stop. */
 window.save=async function(force){
-  if(!DB||!USER)return;
-  var c=client();if(!c)return;
-  if(SYNCING){PENDING=true;return;}    /* never drop it; do it after */
+  if(!DB||!USER)return false;
+  var c=client();if(!c)return false;
+  if(SYNCING){PENDING=true;return false;}    /* never drop it; do it after */
   SYNCING=true;SYNC_AT=Date.now();HELD=false;stamp();
+  var gen=++SAVE_GEN, edits0=EDITS, sentProject=DB.project, sent={};
   try{
     var plan={}, dels={}, any=false;
     for(var key in TABLES){
@@ -827,7 +848,7 @@ window.save=async function(force){
         now[o.id]=JSON.stringify(slim(o));
         if(SNAP[key][o.id]!==now[o.id])ups.push(o);
       });
-      plan[key]=ups;
+      plan[key]=ups;sent[key]=now;
       dels[key]=Object.keys(SNAP[key]).filter(function(id){return !(id in now);});
       if(ups.length||dels[key].length)any=true;
     }
@@ -840,17 +861,18 @@ window.save=async function(force){
       if(clash.length){
         HELD=true;
         var first=clash[0];
-        return sheet('Someone else got there first',
+        sheet('Someone else got there first',
            '<div style="font-size:14px;line-height:1.75">'
           +'<b>'+esc(nameOf(first.key,first.id))+'</b> was changed by another person '
           +esc(sinceWhen(first.at))+(clash.length>1?(', along with '+(clash.length-1)+' other record'+(clash.length===2?'':'s')):'')+'.'
           +'<br><br>Saving now would wipe out what they wrote. Reload to take their version — '
-          +'your unsaved edits to those records are lost, and anything you changed elsewhere is kept. '
+          +'everything on this screen that is not saved yet is lost, not only those records. '
           +'Or overwrite, if you know theirs is the stale one.</div>'
           +'<div class="f-act" style="margin-top:20px">'
-          +'<button class="btn btn-p" onclick="closeSheet();refresh()">Reload theirs</button>'
+          +'<button class="btn btn-p" onclick="closeSheet();refresh(false,true)">Reload theirs</button>'
           +'<button class="btn btn-d btn-s" onclick="closeSheet();HELD=false;save(true)">Overwrite with mine</button>'
           +'</div>');
+        return false;
       }
     }
     for(var key3 in TABLES){
@@ -874,8 +896,8 @@ window.save=async function(force){
         dels[key3].forEach(function(id){if(STAMPS[key3])delete STAMPS[key3][id];});
       }
     }
-    if(SNAP.project!==DB.project){
-      var p=await c.from('settings').upsert({key:'project',value:{name:DB.project}},{onConflict:'key'});
+    if(SNAP.project!==sentProject){
+      var p=await c.from('settings').upsert({key:'project',value:{name:sentProject}},{onConflict:'key'});
       if(p.error)throw p.error;
     }
     /* our own writes become the new baseline */
@@ -892,8 +914,21 @@ window.save=async function(force){
         }
       }
     }
-    snapshot();DIRTY=false;HELD=false;SAVED=new Date();PROG=null;stamp();
+    if(gen!==SAVE_GEN)return false;
+    /* The new baseline is what was sent, not what is on screen now. It
+       used to be a fresh snapshot of the screen, which swallowed any edit
+       made while this save was on the network: the edit was counted as
+       saved, never sent, and the page stopped warning on close. */
+    for(var key5 in TABLES){
+      plan[key5].forEach(function(o){SNAP[key5][o.id]=sent[key5][o.id];});
+      dels[key5].forEach(function(id){delete SNAP[key5][id];});
+    }
+    SNAP.project=sentProject;
+    if(EDITS===edits0)DIRTY=false;else PENDING=true;
+    HELD=false;SAVED=new Date();PROG=null;stamp();
+    return true;
   }catch(e){
+    if(gen!==SAVE_GEN)return false;
     PROG=null;HELD=true;busy(false);
     /* A toast disappears. Work that never reached the database and is
        about to be reloaded away deserves more than four seconds of
@@ -908,21 +943,27 @@ window.save=async function(force){
       +'<button class="btn btn-p" onclick="closeSheet();HELD=false;save()">Try again</button>'
       +'<button class="btn" onclick="closeSheet();backup()">Download a backup</button>'
       +'<button class="btn-q" onclick="closeSheet()">Later</button></div>');
+    return false;
   }finally{
     /* Whatever happened above — written, refused, thrown — the lock is
-       released here and the word on the screen is made to match. */
-    SYNCING=false;PROG=null;stamp();
-    if(PENDING){PENDING=false;setTimeout(function(){save();},60);}
+       released here and the word on the screen is made to match. A save
+       the watchdog already gave up on no longer holds the lock, so it
+       leaves it to the one that does. */
+    if(gen===SAVE_GEN){
+      SYNCING=false;PROG=null;stamp();
+      if(PENDING){PENDING=false;setTimeout(function(){save();},60);}
+    }
   }
 };
 
 /* A lock is a promise to release it, and promises get broken. If one has
    been held for two minutes the save is not running any more, whatever
-   the flag says. */
+   the flag says. Moving SAVE_GEN on disowns it, so if it does wake up
+   it cannot overwrite the baseline of the save that replaced it. */
 setInterval(function(){
   if(SYNCING&&Date.now()-SYNC_AT>120000){
-    SYNCING=false;stamp();
-    if(DIRTY)save();
+    SAVE_GEN++;SYNCING=false;stamp();
+    save();
   }
 },15000);
 function sinceWhen(iso){
@@ -935,7 +976,7 @@ function sinceWhen(iso){
 }
 var timer=null;
 function touch(){
-  DIRTY=true;stamp();
+  DIRTY=true;EDITS++;stamp();
   clearTimeout(timer);
   timer=setTimeout(function(){if(SYNCING)PENDING=true;else save();},1200);
 }
@@ -960,12 +1001,21 @@ function stamp(){
   e.className='brand-s';
   e.textContent=SAVED?('saved '+SAVED.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})):'';
 }
-window.addEventListener('beforeunload',function(e){if(DIRTY){e.preventDefault();e.returnValue='';}});
+window.addEventListener('beforeunload',function(e){if(DIRTY||SYNCING){e.preventDefault();e.returnValue='';}});
 
-/* somebody else may have changed something while this tab sat idle */
-window.refresh=async function(quiet){
+/* somebody else may have changed something while this tab sat idle.
+   A refresh replaces the screen with the database, so it only goes ahead
+   once the screen is in the database — unless the caller has chosen to
+   throw the screen away (discard), as "Reload theirs" does. */
+window.refresh=async function(quiet,discard){
   if(!USER)return;
-  if(DIRTY)await save();
+  if(!discard&&(DIRTY||SYNCING)){
+    var saved=await save();
+    if(!saved||DIRTY){
+      if(!quiet)toast('Not refreshed — your changes are not saved yet');
+      return;
+    }
+  }
   if(!quiet)busy(true,'Checking for changes');
   var keepTab=TAB, keepSel={mat:SEL.mat,mfr:SEL.mfr,insp:SEL.insp};
   try{
@@ -1052,9 +1102,11 @@ async function runImport(){
       }
       DB.events.push(e2);});
     if(!DB.project&&d.project)DB.project=d.project;
-    await save();
+    DIRTY=true;EDITS++;
+    var saved=await save();
     busy(false);
-    toast('Brought across '+(d.mats||[]).length+' materials and '+(d.mfrs||[]).length+' vendors');
+    /* a failed save has already said so, in a sheet that stays */
+    if(saved)toast('Brought across '+(d.mats||[]).length+' materials and '+(d.mfrs||[]).length+' vendors');
   }catch(e){busy(false);toast('Could not bring the file across — '+niceError(e));}
 }
 
