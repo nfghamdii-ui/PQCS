@@ -1278,9 +1278,19 @@ async function readRegister(file){
    --------------------------------------------------------------- */
 function planRegister(reg){
   var idx=refIndex();
-  var p={moved:[],ended:[],locked:[],same:[],newC23:[],newPlain:[],newC01:[],unknown:0};
+  var p={moved:[],ended:[],locked:[],same:[],newC23:[],newPlain:[],newC01:[],unknown:0,dead:[]};
   reg.forEach(function(d){
     var hits=idx[K(d.no)];
+    /* Every document Aconex calls terminated, whatever the tracker holds
+       and whichever column says it — listed on its own so it can be read
+       as a whole. A document whose Status is Terminated while its Review
+       Status still carries a verdict is the case worth a second look. */
+    if(verdictOf(d.status)==='Terminated'||verdictOf(d.review)==='Terminated'){
+      var h0=(hits||[])[0], w0=h0?STATUS_OF[h0.col]:null;
+      p.dead.push({d:d,h:h0,
+        now:!h0?'':h0.del?trim(h0.del.status):h0.m?trim((h0.m.raw||{})[w0?w0.s:'']):
+          trim(((h0.v.steps||{})[(h0.v.kind==='agency')?'appr':'pqd']||{}).status)});
+    }
     /* Review Status is the reviewer's word and Status the document's own;
        where they disagree the review is the later of the two. */
     var want=verdictOf(d.review)||verdictOf(d.status);
@@ -1505,6 +1515,23 @@ function byType(list){
   order.sort(function(a,b){return n[b]-n[a];});
   return order.map(function(t){return n[t]+' '+t;}).join(' · ');
 }
+/* a terminated document: what Aconex says in both its columns, and
+   what the tracker holds for it, if anything */
+function deadRow(it){
+  var d=it.d, h=it.h, rec=h?(h.m||h.v):null;
+  var go=h?(h.m?("jump('mat',"+h.m.id+")"):("jump('mfr',"+h.v.id+")")):'';
+  var rv=trim(d.review), odd=rv&&verdictOf(rv)&&verdictOf(rv)!=='Terminated';
+  return '<div class="line'+(go?' row-a':'')+'"'+(go?(' onclick="'+go+'"'):'')+'>'
+    +'<span class="tag t-bad" style="min-width:118px;text-align:center;flex-shrink:0">'
+    +esc(rec?(it.now||'nothing yet'):'not in the tracker')+'</span>'
+    +'<div class="line-m"><div>'+esc(rec?rec.name:(d.title||d.no))+'</div>'
+    +'<div class="dim" style="font-size:12.5px;margin-top:2px"><span class="mono">'+esc(d.no)+'</span>'
+    +(d.rev!==''?(' · rev '+esc(d.rev)):'')
+    +' · Status: '+esc(d.status||'—')+' · Review: '+esc(rv||'—')+'</div>'
+    +(odd?('<div style="font-size:12.5px;margin-top:2px;color:var(--now-t)">Terminated, yet the review says '
+      +esc(verdictOf(rv))+' — the tracker follows the review. Check whether it was re-issued under another number.</div>'):'')
+    +'</div></div>';
+}
 function regBlock(title, list, draw, cap){
   if(!list.length)return '';
   cap=cap||40;
@@ -1525,6 +1552,8 @@ function showRegister(){
    +stat(p.newPlain.length,'New · no category')
    +stat(p.newC01.length,'New · C0 and C1')
    +stat(p.same.length,'Already matching')
+   +(p.dead.length?('<div class="stat" style="cursor:pointer" onclick="document.getElementById(\'reg-dead\').scrollIntoView({behavior:\'smooth\'})">'
+     +'<div class="stat-v">'+p.dead.length+'</div><div class="stat-l">Terminated in Aconex — see all</div></div>'):'')
    +'</div>';
 
   if(p.locked.length)body+='<div class="panel" style="border-color:var(--now);'
@@ -1540,6 +1569,8 @@ function showRegister(){
   body+=regBlock('New · no category named in the title',p.newPlain,newRow,25);
   body+=regBlock('New · category 0 and 1 — this tracker does not follow these',p.newC01,newRow,10);
   body+=regBlock('Shares a cell with other references',p.locked,regRow,15);
+  if(p.dead.length)body+='<div id="reg-dead"></div>'+regBlock('Terminated in Aconex — all of them, whatever the tracker holds',
+    p.dead,deadRow,p.dead.length);
 
   var fresh=p.newC23.length+p.newPlain.length+p.newC01.length;
   body+='<div class="f-act" style="margin-top:22px">'
