@@ -2873,12 +2873,11 @@ window.showSnoozed=function(){
 };
 /* A count on the board opens into what it is made of: grouped by kind,
    biggest group first, each row the same as on the board. */
-var BUCKET_NAMES={'material move':'Materials — your next step','vendor move':'Vendors — your next step',
-  'vendor gap':'Vendors short of something',
+var BUCKET_NAMES={'material move':'Materials — your next step','vendors':'Vendors',
   'set it':'No category','name it':'No vendor named','waiting':'With the reviewer',
   'soon':'Due within three weeks','pending':'Inspectors not approved','no name':'Inspectors with no name'};
 var BUCKET_OPEN='';
-var VENDOR_BUCKETS={'vendor move':1,'vendor gap':1};
+var VENDOR_BUCKETS={'vendors':1};
 window.showBucket=function(tone){
   var list=awake(findings()).filter(function(o){return o.tone===tone;});
   BUCKET_OPEN=tone;
@@ -2887,7 +2886,9 @@ window.showBucket=function(tone){
   list.forEach(function(o){
     var w=/^in \d+d$/.test(o.word)?'soon':o.word;
     /* a material's next step and a vendor's are different days' work */
-    if(w==='your move')w=(o.tab==='mfr')?'vendor move':'material move';
+    if(w==='your move')w=(o.tab==='mfr')?'vendors':'material move';
+    /* a vendor's next step and a vendor's other gaps are the same work */
+    if(w==='vendor gap')w='vendors';
     (groups[w]=groups[w]||[]).push(o);
   });
   var order=Object.keys(groups).sort(function(a,b){return groups[b].length-groups[a].length;});
@@ -3024,6 +3025,11 @@ function findings(){
     matRoad(m).steps.forEach(function(x){
       var d=x.data, st=x.s;
       if(x.state==='bad'&&!st.linked)add(88,'bad','blocked',m.name,st.n+' came back '+String(d.status||'rejected').toLowerCase(),m.id,'mat');
+      /* "Vendor qualified" is the vendor's step, not the material's: the
+         vendor already says what it is short of, and a material with no
+         vendor says that instead. Saying it again on every material
+         counted one piece of work hundreds of times. */
+      else if(st.linked){}
       else if(x.now&&x.state==='open')add(42,'now','your move',m.name,'waiting on you — '+st.n,m.id,'mat');
       else if(x.now&&x.state==='wait')add(24,'wait','waiting',m.name,'with the reviewer — '+st.n,m.id,'mat');
       var due=st.due?st.due(m,d):null;
