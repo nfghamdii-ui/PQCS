@@ -87,10 +87,20 @@ var OWNED=['Item Description','Material Category','Discipline','Sub-contractor N
    2. SMALL THINGS
    --------------------------------------------------------------- */
 function pad2(n){return ('0'+n).slice(-2);}
-function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-/* the host page has one of these too, but a module that borrows a
-   global it did not define breaks quietly the day the global moves */
-function attr(s){return String(s==null?'':s).replace(/"/g,'&quot;');}
+/* the host page has these too, but a module that borrows a global it
+   did not define breaks quietly the day the global moves. Quotes are
+   escaped so a value can never close the attribute it sits in. */
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function attr(s){return esc(s);}
+/* a string handed to an inline handler: onclick="f('+jsq(x)+')" */
+function jsq(s){return esc(JSON.stringify(String(s==null?'':s)));}
+/* a cell a spreadsheet would read as a formula is written as text */
+function csvCell(c){
+  var s=String(c==null?'':c);
+  if(/^[=+\-@\t\r]/.test(s)&&!/^[+-]?\d+(\.\d+)?$/.test(s))s="'"+s;
+  return '"'+s.replace(/"/g,'""')+'"';
+}
 function xml(s){return String(s==null?'':s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
   .replace(/"/g,'&quot;').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');}
@@ -1453,7 +1463,7 @@ window.regCSV=function(){
   function add(group,d,extra){
     lines.push([group,d.no,d.type,d.disc,d.cat||'',d.title,d.rev,d.status,d.review,
       d.date?show(d.date):'',extra||''].map(function(c){
-        return '"'+String(c==null?'':c).replace(/"/g,'""')+'"';}).join(','));
+        return csvCell(c);}).join(','));
   }
   p.moved.forEach(function(it){add('outcome moved',it.d,it.now+' → '+it.want+' · '+it.rec.name);});
   p.ended.forEach(function(it){add('terminated',it.d,it.rec.name);});
@@ -1696,7 +1706,7 @@ window.regReview=function(){
     +Object.keys(b).map(function(t){
       return '<div class="line"><span class="tag t-na">'+b[t]+'</span>'
         +'<div class="line-m">'+esc(t)+'</div>'
-        +'<button class="btn btn-s btn-d" onclick="regUndo(\''+attr(t)+'\')">Take this upload back</button>'
+        +'<button class="btn btn-s btn-d" onclick="regUndo('+jsq(t)+')">Take this upload back</button>'
         +'</div>';}).join('')
     +'</div></div>'
     +'<div class="sec">The records</div><div class="panel"><div class="panel-b">'
@@ -1735,7 +1745,7 @@ window.regUndo=function(tag){
     +'have already marked reviewed stays, and nothing that was in the file before the '
     +'upload is touched.</div>'
     +'<div class="f-act" style="margin-top:20px">'
-    +'<button class="btn btn-d" onclick="regUndoYes(\''+attr(tag)+'\')">Delete them</button>'
+    +'<button class="btn btn-d" onclick="regUndoYes('+jsq(tag)+')">Delete them</button>'
     +'<button class="btn-q" onclick="regReview()">Keep them</button></div>');
 };
 window.regUndoYes=function(tag){

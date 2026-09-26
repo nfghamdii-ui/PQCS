@@ -543,8 +543,34 @@ var SB=null, USER=null, SNAP=null, SYNCING=false, PENDING=false;
 var TABLES={mfrs:'vendors',mats:'materials',people:'people',events:'events'};
 
 function blank(){return {_v:4,project:'',mfrs:[],mats:[],people:[],events:[]};}
-function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function attr(s){return String(s==null?'':s).replace(/"/g,'&quot;');}
+/* One escaper for text and attributes alike. Quotes are escaped too, so a
+   value can never close the attribute it sits in. */
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function attr(s){return esc(s);}
+/* A string handed to an inline handler: a JS literal first, then escaped
+   for the attribute it lives in. Use as onclick="f('+jsq(x)+')". */
+function jsq(s){return esc(JSON.stringify(String(s==null?'':s)));}
+/* A cell a spreadsheet would read as a formula is written as text. */
+function csvCell(c){
+  var s=String(c==null?'':c);
+  if(/^[=+\-@\t\r]/.test(s)&&!/^[+-]?\d+(\.\d+)?$/.test(s))s="'"+s;
+  return '"'+s.replace(/"/g,'""')+'"';
+}
+/* Ids are numbers everywhere the page makes them. One that is not —
+   written straight to the database, or brought in from an old file —
+   would land unquoted inside an onclick, so it is made one here. */
+function cleanIds(o,top){
+  if(Array.isArray(o)){o.forEach(function(x){cleanIds(x,false);});return o;}
+  if(!o||typeof o!=='object')return o;
+  Object.keys(o).forEach(function(k){
+    if(k==='id'&&!top&&typeof o.id!=='number'){
+      var n=Number(o.id);o.id=(o.id!==''&&Number.isSafeInteger(n))?n:uid();
+    }else if(o[k]&&typeof o[k]==='object')cleanIds(o[k],false);
+  });
+  return o;
+}
+function evKind(t){return Object.prototype.hasOwnProperty.call(EV_KIND,t)?EV_KIND[t]:EV_KIND.other;}
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('on');
   clearTimeout(window._t);window._t=setTimeout(function(){t.classList.remove('on');},2100);}
 function gmsg(m,ok){var e=document.getElementById('gate-msg');e.className='msg'+(ok?' ok':'');e.innerHTML=m||'';}
@@ -621,7 +647,7 @@ window.signIn=async function(){
     if(r.error)throw r.error;
     USER=r.data.user;
     await loadAll();
-  }catch(e){gmsg(niceError(e));}
+  }catch(e){gmsg(esc(niceError(e)));}
   b.disabled=false;b.textContent='Sign in';
 };
 window.signUp=async function(){
@@ -637,7 +663,7 @@ window.signUp=async function(){
     if(r.error)throw r.error;
     if(r.data.session){USER=r.data.user;await loadAll();}
     else gmsg('Account created. Confirm the address from your inbox, then sign in.',true);
-  }catch(e){gmsg(niceError(e));}
+  }catch(e){gmsg(esc(niceError(e)));}
   b.disabled=false;b.textContent='Create an account';
 };
 window.signOut=async function(){
@@ -689,7 +715,7 @@ async function loadAll(){
       STAMPS[key]={};
       out[key]=rows.map(function(row){
         STAMPS[key][row.id]={at:row.updated_at,by:row.updated_by};
-        var o=row.data||{};o.id=Number(row.id);return o;});
+        var o=cleanIds(row.data||{},true);o.id=Number(row.id);return o;});
     }
     var st=await c.from('settings').select('key,value').eq('key','project').maybeSingle();
     if(st.error&&st.error.code!=='PGRST116')throw st.error;
@@ -698,7 +724,7 @@ async function loadAll(){
     busy(false);enter();
   }catch(e){
     busy(false);
-    gmsg(niceError(e));
+    gmsg(esc(niceError(e)));
   }
 }
 /* A material carries seventy-seven columns and fills perhaps a dozen.
@@ -950,7 +976,7 @@ window.refresh=async function(quiet){
       STAMPS[key]={};
       out[key]=rows.map(function(row){
         STAMPS[key][row.id]={at:row.updated_at,by:row.updated_by};
-        var o=row.data||{};o.id=Number(row.id);return o;});
+        var o=cleanIds(row.data||{},true);o.id=Number(row.id);return o;});
     }
     var st=await c.from('settings').select('value').eq('key','project').maybeSingle();
     out.project=(st.data&&st.data.value&&st.data.value.name)||DB.project;
@@ -996,24 +1022,30 @@ async function runImport(){
     var used={};
     ['mfrs','mats','people','events'].forEach(function(k){
       (DB[k]||[]).forEach(function(o){used[o.id]=1;});
+      /* a file is not trusted to hold number ids, at the top or inside */
+      (d[k]||[]).forEach(function(o){
+        cleanIds(o,true);
+        if(!Number.isSafeInteger(Number(o.id))||o.id==='')o.id=uid();
+        else o.id=Number(o.id);
+      });
     });
     var remap={};
     (d.mfrs||[]).forEach(function(v){
       var old=v.id;
-      if(used[v.id])v.id=uid();
+      while(used[v.id])v.id=uid();
       used[v.id]=1;remap[old]=v.id;
       DB.mfrs.push(v);
     });
     (d.mats||[]).forEach(function(m){
-      if(used[m.id])m.id=uid();
+      while(used[m.id])m.id=uid();
       used[m.id]=1;
       if(m.mfr&&remap[m.mfr]!==undefined)m.mfr=String(remap[m.mfr]);
       DB.mats.push(m);
     });
     (d.people||[]).forEach(function(p){
-      if(used[p.id])p.id=uid();used[p.id]=1;DB.people.push(p);});
+      while(used[p.id])p.id=uid();used[p.id]=1;DB.people.push(p);});
     (d.events||[]).forEach(function(e2){
-      if(used[e2.id])e2.id=uid();used[e2.id]=1;
+      while(used[e2.id])e2.id=uid();used[e2.id]=1;
       if(e2.link&&/^mfr:/.test(e2.link)){
         var oldId=e2.link.slice(4);
         if(remap[oldId]!==undefined)e2.link='mfr:'+remap[oldId];
@@ -1798,7 +1830,7 @@ function week(){
   });
   (DB.events||[]).forEach(function(e){
     if(!e.date)return;
-    occurs(e,t0,addDays(t0,6)).forEach(function(d){put(d,(e.rep?'\u21bb ':'')+e.title,EV_KIND[e.type||'other'].t);});
+    occurs(e,t0,addDays(t0,6)).forEach(function(d){put(d,(e.rep?'\u21bb ':'')+e.title,evKind(e.type).t);});
   });
   var days='';
   for(var i=0;i<7;i++){
@@ -1893,7 +1925,7 @@ function calItems(from,to){
     var last=e.end||e.date;
     days.forEach(function(d){
       var isStart=(days.length>1&&d===days[0])||d===e.date;
-      out.push({d:d,t:e.title,k:EV_KIND[e.type||'other'].t,own:true,id:e.id,
+      out.push({d:d,t:e.title,k:evKind(e.type).t,own:true,id:e.id,
         rep:!!e.rep, ends:last,
         pos:(!e.end||e.end===e.date)?'':(d===e.date?'start':(d===last?'end':'mid')),
         link:e.link||''});
@@ -1965,7 +1997,7 @@ window.daySheet=function(ds){
            return '<div class="row'+((x.go||x.own)?' row-a':'')+'"'
              +(x.own?(' onclick="editEvent('+x.id+')"'):(x.go?(' onclick="closeSheet();'+x.go+'"'):''))+'>'
              +'<span class="tag t-'+x.k+'" style="min-width:104px;text-align:center;flex-shrink:0">'
-               +esc(x.own?EV_KIND[(evOf(x.id)||{}).type||'other'].l:'from a step')+'</span>'
+               +esc(x.own?evKind((evOf(x.id)||{}).type).l:'from a step')+'</span>'
              +'<div style="flex:1;min-width:0"><div>'+esc(x.t)+'</div>'
              +(extra?'<div class="dim" style="font-size:13px;margin-top:2px">'+esc(extra)+'</div>':'')+'</div></div>';
          }).join('')
@@ -2814,7 +2846,7 @@ window.lookAhead=function(){
   });
   (DB.events||[]).forEach(function(e){
     if(!e.date)return;
-    occurs(e,t0,end).forEach(function(d){add(d,e.title,EV_KIND[e.type||'other'].l.toLowerCase());});
+    occurs(e,t0,end).forEach(function(d){add(d,e.title,evKind(e.type).l.toLowerCase());});
   });
   rows.sort(function(a,b){return a.d.localeCompare(b.d);});
   var days=[];
@@ -2860,7 +2892,7 @@ window.printRecord=function(){
       +(v&&v.site?' <span class="dim">· '+esc(v.site)+'</span>':'')+'</div></div>'
     +'<div class="row"><div style="width:150px" class="dim">Reference</div><div class="mono">'+esc(m.ref||'—')+'</div></div>'
     +'<div class="row"><div style="width:150px" class="dim">Quantity</div><div>'
-      +(m.qty?(received(m)+' of '+m.qty+' '+esc(m.unit||'')+' accepted'):'—')+'</div></div>'
+      +(m.qty?(received(m)+' of '+esc(m.qty)+' '+esc(m.unit||'')+' accepted'):'—')+'</div></div>'
     +'<div class="sec">Steps</div>'+rows
     +(ncr.length?('<div class="sec">Non-conformances</div>'+ncr.map(function(n){
         return '<div class="row"><span class="tag t-'+(n.status==='Closed'?'ok':'bad')+'">'+esc(n.status||'Open')+'</span>'
@@ -2947,7 +2979,7 @@ window.fabCSV=function(){
     return [m.name,m.cat,v?v.name:'',ms?(!needsQual(v)?'Not required':(ms.ok?'Yes':'No')):'',
       cur?cur.s.n:'All steps cleared',(r.at<0?r.steps.length:(r.at+1))+' of '+r.steps.length,
       m.qty?(m.qty+' '+(m.unit||'')):'',received(m),l.join(' | '),openNCR(m)]
-      .map(function(c){return '"'+String(c==null?'':c).replace(/"/g,'""')+'"';}).join(',');
+      .map(function(c){return csvCell(c);}).join(',');
   });
   var blob=new Blob(['\ufeff'+[head].concat(lines).join('\r\n')],{type:'text/csv;charset=utf-8'});
   var u=URL.createObjectURL(blob),a=document.createElement('a');
@@ -3010,7 +3042,7 @@ window.exportCSV=function(){
         var d=(m.steps||{})[s.k]||{};
         return [d.status||'',d.ref||'',d.date?show(d.date):''].filter(Boolean).join(' ');
       }));
-    return cells.map(function(c){return '"'+String(c==null?'':c).replace(/"/g,'""')+'"';}).join(',');
+    return cells.map(function(c){return csvCell(c);}).join(',');
   });
   var blob=new Blob(['\ufeff'+[head].concat(lines).join('\r\n')],{type:'text/csv;charset=utf-8'});
   var u=URL.createObjectURL(blob),a=document.createElement('a');
