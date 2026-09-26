@@ -1871,7 +1871,7 @@ function feedRow(o){
     +'<div class="feed-m"><div class="feed-t">'+esc(o.t)+'</div>'
     +'<div class="feed-s">'+esc(o.s)+'</div></div>'
     +'<div class="feed-w"><span class="tag t-'+o.tone+'">'+esc(o.word)+'</span>'
-    +'<button class="btn-q no-print" style="display:block;margin:6px 0 0 auto;font-size:12.5px" title="Put this aside for a few days" '
+    +'<button class="btn-q no-print" style="display:block;margin:6px 0 0 auto;font-size:12.5px" title="Put this aside for three days" '
     +'onclick="snoozePick(event,'+jsq(snoozeKey(o))+')">Snooze</button></div></div>';
 }
 /* seven days, drawn from the same dates the steps carry */
@@ -2841,16 +2841,15 @@ async function storeSnooze(){
   if(r.error){toast('Could not put it aside — '+niceError(r.error));return false;}
   return true;
 }
-var SNOOZE_OPTS=[{v:'1',l:'For a day'},{v:'3',l:'For three days'},{v:'7',l:'For a week'}];
-window.snoozePick=function(ev,key){
+/* one press, no question: three days, then it is back */
+var SNOOZE_DAYS=3;
+window.snoozePick=async function(ev,key){
   ev.stopPropagation();
-  popPick(ev.currentTarget,'Put this aside',SNOOZE_OPTS,'',
-    'It comes back by itself when the time is up.',async function(d){
-      var was=SNOOZE[key];
-      SNOOZE[key]=new Date(Date.now()+Number(d)*864e5).toISOString();
-      if(!(await storeSnooze())){if(was)SNOOZE[key]=was;else delete SNOOZE[key];return;}
-      rPane();toast('Put aside '+(d==='1'?'for a day':d==='7'?'for a week':'for '+d+' days'));
-    });
+  var was=SNOOZE[key];
+  SNOOZE[key]=new Date(Date.now()+SNOOZE_DAYS*864e5).toISOString();
+  rPane();
+  if(!(await storeSnooze())){if(was)SNOOZE[key]=was;else delete SNOOZE[key];rPane();return;}
+  toast('Put aside for '+SNOOZE_DAYS+' days — "put aside" at the top brings it back');
 };
 window.wake=async function(key){
   var was=SNOOZE[key];delete SNOOZE[key];
