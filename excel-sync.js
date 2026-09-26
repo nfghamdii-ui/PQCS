@@ -631,23 +631,75 @@ function applyRaw(m,raw,made){
    the same, or missing from the file — and the fourth is the one that
    deserves a decision rather than an assumption.
    --------------------------------------------------------------- */
-function planFrom(rows){
+/* Newest wins, cell by cell. The record's raw row is what the file said
+   the last time it was read, so it is the common ancestor of both sides:
+   a cell the file still holds as it was has not been edited there, and a
+   cell the tracker would now write differently has been edited here. Only
+   when both moved, to different values, does the clock decide — the
+   file's saved time against the record's last save in the tracker. A
+   record with no such stamp predates it, and the file wins as it did. */
+function norm(c,v){
+  var s=String(v==null?'':v).replace(/\s+/g,' ').trim();
+  if(/Status$/.test(c)){var st=normStatus(s);if(st)return st;}
+  return s.toLowerCase();
+}
+function appRow(m){return foldDocs(m,rawOut(m));}
+function mergeRow(m,file,fileTime){
+  var base=m.raw||{}, app=appRow(m), out={}, diff=[], kept=[], both=[];
+  var appTime=Date.parse(m.edited||'')||0, appNewer=!!fileTime&&appTime>fileTime;
+  COLS.forEach(function(c){
+    var f=file[c], b=base[c], a=app[c];
+    var fMoved=norm(c,f)!==norm(c,b), aMoved=norm(c,a)!==norm(c,b), pick=f;
+    if(fMoved&&aMoved&&norm(c,f)!==norm(c,a)){
+      both.push({col:c,file:f,app:a,won:appNewer?'tracker':'file'});
+      if(appNewer)pick=a;
+    }else if(!fMoved&&aMoved){pick=a;kept.push(c);}
+    if(pick!=null&&pick!=='')out[c]=pick;
+    /* a cell the file and the tracker already agree on is not news */
+    if(fMoved&&pick===f&&norm(c,f)!==norm(c,a))diff.push(c);
+  });
+  return {raw:out,diff:diff,kept:kept,both:both};
+}
+/* A record carrying history the file has no column for — every delivery
+   but the newest, a non-conformance, a factory visit — is not deleted by
+   a row that merely went missing from a sheet. */
+function history(m){
+  return (m.dels||[]).length+(m.ncrs||[]).length+(m.visits||[]).length;
+}
+function planFrom(rows,fileTime){
   var head=rows[0]||[];
   var map={},shift=0;
   /* the header must be the one we know, or the columns land wrong */
   var seen=head.map(trim);
   var miss=COLS.filter(function(c,i){return K(seen[i]||'')!==K(c);});
-  var out={add:[],change:[],same:[],gone:[],skipped:0,dividers:0,header:miss.length};
-  var byId={},byRef={};
+  var out={add:[],change:[],same:[],gone:[],kept:[],both:[],skipped:0,dividers:0,header:miss.length};
+  var byId={},byRef={},refN={};
   (DB.mats||[]).forEach(function(m){
     if(m.raw){
       byId[idOf(m.raw)]=m;
       REF_FIELDS.forEach(function(c){
-        splitRefs(m.raw[c]).forEach(function(r){if(!byRef[K(r)])byRef[K(r)]=m;});
+        splitRefs(m.raw[c]).forEach(function(r){
+          if(!byRef[K(r)])byRef[K(r)]=m;
+          if(byRef[K(r)]!==m)refN[K(r)]=2;else refN[K(r)]=refN[K(r)]||1;
+        });
       });
     }
   });
-  var hit={};
+  var hit={}, hitRec=[];
+  /* A row whose MAT number was edited is still the same material if one
+     of its other references names exactly one record and nothing else
+     has claimed it. A reference shared by several materials — one
+     inspection plan covers twelve — proves nothing and is not used. */
+  function byOtherRef(raw){
+    for(var i=0;i<REF_FIELDS.length;i++){
+      var refs=splitRefs(raw[REF_FIELDS[i]]);
+      for(var j=0;j<refs.length;j++){
+        var m=byRef[K(refs[j])];
+        if(m&&refN[K(refs[j])]===1&&hitRec.indexOf(m)<0&&!isDoc(m))return m;
+      }
+    }
+    return null;
+  }
 
   rows.slice(1).forEach(function(line,n){
     var desc=trim(line[0]);
@@ -662,13 +714,19 @@ function planFrom(rows){
     var raw=rowToRaw(line), id=idOf(raw);
     var have=byId[id]||byRef[K(trim(raw['MAT Number']))]
       ||(DB.mats||[]).filter(function(m){
-        return !m.raw&&K(m.name)===K(desc);})[0];
+        return !m.raw&&K(m.name)===K(desc);})[0]
+      ||byOtherRef(raw);
     if(!have){out.add.push({raw:raw,row:n+2});return;}
-    hit[id]=1;
-    var diff=COLS.filter(function(c){
-      return String((have.raw||{})[c]==null?'':(have.raw||{})[c])!==String(raw[c]==null?'':raw[c]);
-    });
-    if(diff.length)out.change.push({raw:raw,row:n+2,rec:have,diff:diff});
+    hit[id]=1;hitRec.push(have);
+    var mg=mergeRow(have,raw,fileTime);
+    /* The tracker also writes cells it works out for itself — a delivery
+       date, a running total — that the file never held. Those are kept
+       quietly; only an edit made here after the file was saved is news. */
+    if(mg.kept.length&&fileTime&&(Date.parse(have.edited||'')||0)>fileTime)
+      out.kept.push({rec:have,row:n+2,cols:mg.kept});
+    mg.both.forEach(function(b){out.both.push({rec:have,row:n+2,col:b.col,file:b.file,app:b.app,won:b.won});});
+    if(mg.diff.length||mg.both.length)
+      out.change.push({raw:mg.raw,row:n+2,rec:have,diff:mg.diff});
     else out.same.push({rec:have});
   });
   (DB.mats||[]).forEach(function(m){
@@ -677,8 +735,9 @@ function planFrom(rows){
        put sixteen hundred records under a heading that invites deleting
        them. */
     if(isDoc(m))return;
-    if(m.raw&&!hit[idOf(m.raw)])out.gone.push(m);
+    if(m.raw&&!hit[idOf(m.raw)]&&hitRec.indexOf(m)<0)out.gone.push(m);
   });
+  out.goneSafe=out.gone.filter(function(m){return !history(m);});
 
   /* Two things in the file are worth saying out loud before anything
      is written: a date nobody can read, and one manufacturer holding
@@ -725,7 +784,7 @@ function applyPlan(p,dropGone){
     DB.mats.push(m);
   });
   p.change.forEach(function(c){applyRaw(c.rec,c.raw,made);});
-  if(dropGone)DB.mats=DB.mats.filter(function(m){return p.gone.indexOf(m)<0;});
+  if(dropGone)DB.mats=DB.mats.filter(function(m){return p.goneSafe.indexOf(m)<0;});
   touch();rList();rPane();
   return made;
 }
@@ -909,8 +968,8 @@ window.excelRead=async function(ev){
   if(typeof busy==='function')busy(true,'Reading the workbook');
   try{
     var got=await readMainLog(f);
-    PLAN=planFrom(got.rows);
-    PLAN.file=f.name;PLAN.sheet=got.name;PLAN.guessed=!!got.guessed;
+    PLAN=planFrom(got.rows,f.lastModified);
+    PLAN.fileTime=f.lastModified;PLAN.file=f.name;PLAN.sheet=got.name;PLAN.guessed=!!got.guessed;
     if(typeof busy==='function')busy(false);
     showPlan();
   }catch(e){
@@ -961,11 +1020,42 @@ function showPlan(){
         +'<span class="meta">row '+c.row+'</span></div>';
     }).join('')+more(p.change.length,40));
 
+  var keptRecs=p.kept||[];
+  body+=block('Kept from the tracker — edited here, untouched in the file',keptRecs,
+    '<div class="dim" style="font-size:13.5px;margin-bottom:12px">The file still holds what these cells said '
+    +'before, so the edit made in the tracker is the newer one and stays.</div>'
+    +keptRecs.slice(0,40).map(function(k){
+      return '<div class="line"><span class="tag t-ok">'+k.cols.length+' kept</span>'
+        +'<div class="line-m"><div>'+esc(k.rec.name)+'</div>'
+        +'<div class="dim" style="font-size:12.5px;margin-top:2px">'+esc(k.cols.slice(0,6).join(', '))
+        +(k.cols.length>6?(' and '+(k.cols.length-6)+' more'):'')+'</div></div>'
+        +'<span class="meta">row '+k.row+'</span></div>';
+    }).join('')+more(keptRecs.length,40));
+
+  var both=p.both||[];
+  body+=block('Changed in both — the newer one wins',both,
+    '<div class="dim" style="font-size:13.5px;margin-bottom:12px">These cells were changed in the file and in '
+    +'the tracker, to different values. The file was saved '
+    +esc(p.fileTime?new Date(p.fileTime).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'at an unknown time')
+    +'; each record keeps whichever side was changed last.</div>'
+    +both.slice(0,40).map(function(b){
+      return '<div class="line"><span class="tag '+(b.won==='tracker'?'t-ok':'t-wait')+'">'
+        +(b.won==='tracker'?'tracker':'file')+'</span>'
+        +'<div class="line-m"><div>'+esc(b.rec.name)+' <span class="dim">· '+esc(b.col)+'</span></div>'
+        +'<div class="dim" style="font-size:12.5px;margin-top:2px">file: <span class="mono">'+esc(b.file==null?'—':b.file)
+        +'</span> · tracker: <span class="mono">'+esc(b.app==null?'—':b.app)+'</span></div></div>'
+        +'<span class="meta">row '+b.row+'</span></div>';
+    }).join('')+more(both.length,40));
+
+  var guarded=p.gone.length-p.goneSafe.length;
   body+=block('In the tracker but not in the file',p.gone,
     '<div class="dim" style="font-size:13.5px;margin-bottom:12px">These are kept unless you say otherwise. '
-    +'A row deleted from the sheet and a row never in it look the same from here, so nothing is removed by accident.</div>'
+    +'A row deleted from the sheet and a row never in it look the same from here, so nothing is removed by accident.'
+    +(guarded?(' '+guarded+' of them '+(guarded===1?'carries':'carry')+' deliveries, non-conformances or visits the file has no column for, '
+      +'so they are never deleted from here — delete them on the record if that is what you mean.'):'')+'</div>'
     +p.gone.slice(0,40).map(function(m){
-      return '<div class="line"><span class="tag t-na">kept</span>'
+      var h=history(m);
+      return '<div class="line"><span class="tag '+(h?'t-ok':'t-na')+'">'+(h?'protected':'kept')+'</span>'
         +'<div class="line-m"><div>'+esc(m.name)+'</div>'
         +'<div class="dim" style="font-size:12.5px;margin-top:2px">'+esc(m.ref||'')+'</div></div></div>';
     }).join('')+more(p.gone.length,40));
@@ -995,8 +1085,8 @@ function showPlan(){
   body+='<div class="f-act" style="margin-top:22px">'
    +'<button class="btn btn-p" onclick="excelApply(false)">Apply — '
    +(p.add.length+p.change.length)+' record'+((p.add.length+p.change.length)===1?'':'s')+'</button>'
-   +(p.gone.length?('<button class="btn btn-d btn-s" onclick="excelApply(true)">Apply and delete the '
-      +p.gone.length+' missing</button>'):'')
+   +(p.goneSafe.length?('<button class="btn btn-d btn-s" onclick="excelApply(true)">Apply and delete the '
+      +p.goneSafe.length+' missing</button>'):'')
    +'<button class="btn-q" onclick="closeSheet()">Cancel</button></div>';
 
   sheet('From '+p.file,'<div class="dim" style="font-size:13.5px;margin-bottom:16px">'
@@ -1014,7 +1104,7 @@ window.excelApply=function(dropGone){
   var p=PLAN,made=applyPlan(p,dropGone);
   closeSheet();
   var msg=p.add.length+' added, '+p.change.length+' updated';
-  if(dropGone&&p.gone.length)msg+=', '+p.gone.length+' deleted';
+  if(dropGone&&p.goneSafe.length)msg+=', '+p.goneSafe.length+' deleted';
   if(made.vendors.length)msg+=', '+made.vendors.length+' new vendor'+(made.vendors.length===1?'':'s');
   toast(msg);
   PLAN=null;

@@ -841,12 +841,18 @@ window.save=async function(force){
   SYNCING=true;SYNC_AT=Date.now();HELD=false;stamp();
   var gen=++SAVE_GEN, edits0=EDITS, sentProject=DB.project, sent={};
   try{
-    var plan={}, dels={}, any=false;
+    var plan={}, dels={}, any=false, at=new Date().toISOString();
     for(var key in TABLES){
       var now={}, ups=[];
       (DB[key]||[]).forEach(function(o){
         now[o.id]=JSON.stringify(slim(o));
-        if(SNAP[key][o.id]!==now[o.id])ups.push(o);
+        if(SNAP[key][o.id]!==now[o.id]){
+          /* when this record last changed here — a workbook upload asks,
+             so the newer of the file and the tracker wins a cell both
+             changed */
+          o.edited=at;now[o.id]=JSON.stringify(slim(o));
+          ups.push(o);
+        }
       });
       plan[key]=ups;sent[key]=now;
       dels[key]=Object.keys(SNAP[key]).filter(function(id){return !(id in now);});
