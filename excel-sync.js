@@ -3766,6 +3766,8 @@ function tableCSS(){
   +'.head .backbtn:hover{background:rgba(255,255,255,.24);border-color:rgba(255,255,255,.55)}'
   /* every band the same height: title and one row, centred */
   +'.head{box-sizing:border-box;min-height:128px;display:flex;flex-direction:column;justify-content:center}'
+  /* its content keeps its full width, so the words stay where they were */
+  +'.head>.wrap{width:100%;box-sizing:border-box}'
   +'.head-note{background:var(--card);border-bottom:1px solid var(--line);padding:10px 40px;flex-shrink:0}'
   +'.head-note .swhy{margin-top:0}'
   +'@media(max-width:880px){.head-note{padding:10px 18px}}'
