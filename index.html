@@ -1319,12 +1319,15 @@ var MFR_ROAD=[
   due:function(v,s){return s.date?{on:s.date,t:'certificate expires'}:null;}},
  {k:'pa',n:'Physical assessment',clause:'2.1.9',
   why:'A survey of the factory by a certified lead auditor with a technical expert. It may be waived for C1 and C2 only.',
-  /* Two go out and two reports come back: the QMS auditor's and the
-     technical expert's. The auditor keeps the fields the single assessor
-     had, so a survey recorded before this still reads right. */
+  /* Two go out — the QMS auditor and the technical expert — and nearly
+     always one report comes back, under one reference. Now and then the
+     expert writes his own; that second reference is there when asked
+     for and out of the way otherwise. The auditor keeps the fields the
+     single assessor had, so a survey recorded before this reads right. */
   f:[['date','Survey date','date'],
-     ['by','QMS auditor','person'],['ref','QMS report','text'],
-     ['by2','Technical expert','person'],['ref2','Technical report','text'],
+     ['by','QMS auditor','person'],['by2','Technical expert','person'],
+     ['ref','Report reference','text'],
+     ['ref2','Technical expert’s own report','text','optional'],
      ['status','Result','sel',['Pending','Scheduled','Passed','Failed','Waived']]],
   warn:function(v,s){return (v.cat==='C3'&&s.status==='Waived')?'A waiver is allowed for C1 and C2 only. This manufacturer is C3.':'';}},
 
@@ -2385,20 +2388,27 @@ function stepCard(rec,x,i,kind){
     /* a step with two people and two reports (the factory survey) says
        who wrote which, one line each, under its status and date */
     var two=(st.f||[]).some(function(f){return f[0]==='by2';});
+    /* two reports only when the second number is really a second one */
+    var split=two&&d.ref2&&d.ref2!==d.ref;
     var bits=[];
     if(d.status)bits.push('<span class="tag t-'+(state==='done'?'ok':state==='bad'?'bad':state==='wait'?'wait':'na')+'">'+esc(d.status)+'</span>');
-    if(d.ref&&!two)bits.push('<span class="mono">'+esc(d.ref)+'</span>');
+    if(d.ref&&!split)bits.push('<span class="mono">'+esc(d.ref)+'</span>');
     if(d.date)bits.push('<span class="dim">'+esc(dateLabel(st))+' '+show(d.date)+'</span>');
     if(d.by&&!two)bits.push('<span class="dim">'+esc(d.by)+'</span>');
     if(bits.length)inner+='<div class="srec">'+bits.join('')+'</div>';
-    if(two){
-      [['by','ref'],['by2','ref2']].forEach(function(p){
-        if(!d[p[0]]&&!d[p[1]])return;
-        var lab=((st.f||[]).filter(function(f){return f[0]===p[0];})[0]||[])[1]||'';
-        inner+='<div class="srec" style="margin-top:6px"><span class="dim">'+esc(lab)+'</span>'
-          +(d[p[0]]?'<span>'+esc(d[p[0]])+'</span>':'')
-          +(d[p[1]]?'<span class="mono">'+esc(d[p[1]])+'</span>':'')+'</div>';
-      });
+    if(two&&(d.by||d.by2||split)){
+      var labOf=function(k){return ((st.f||[]).filter(function(f){return f[0]===k;})[0]||[])[1]||'';};
+      /* one report: the two names on one line; two reports: a line each,
+         with its own number */
+      inner+=split
+        ?[['by','ref'],['by2','ref2']].map(function(p){
+            return '<div class="srec" style="margin-top:6px"><span class="dim">'+esc(labOf(p[0]))+'</span>'
+              +(d[p[0]]?'<span>'+esc(d[p[0]])+'</span>':'')
+              +(d[p[1]]?'<span class="mono">'+esc(d[p[1]])+'</span>':'')+'</div>';}).join('')
+        :'<div class="srec" style="margin-top:6px">'
+          +(d.by?'<span class="dim">'+esc(labOf('by'))+'</span><span>'+esc(d.by)+'</span>':'')
+          +(d.by2?'<span class="dim" style="margin-left:10px">'+esc(labOf('by2'))+'</span><span>'+esc(d.by2)+'</span>':'')
+          +'</div>';
     }
     var due=st.due?st.due(rec,d):null;
     if(due){
@@ -2414,13 +2424,16 @@ function stepCard(rec,x,i,kind){
     if(warn)inner+='<div class="sdue d-soon">'+ICON.alert+'<span>'+esc(warn)+'</span></div>';
     /* an inspector who is not approved must not pass unremarked — either
        of them, where a step has two */
+    var whoWarn=[];
     [d.by,d.by2].filter(Boolean).forEach(function(nm){
       var who=(DB.people||[]).find(function(p){return key(p.name)===key(nm);});
-      if(!who)inner+='<div class="sdue d-soon">'+ICON.alert+'<span><b>'+esc(nm)+'</b> is not in your inspector list. Clause 2.2.17 has SEVEN approve every inspector.</span></div>';
+      if(!who)whoWarn.push('<div class="sdue d-soon">'+ICON.alert+'<span><b>'+esc(nm)+'</b> is not in your inspector list. Clause 2.2.17 has SEVEN approve every inspector.</span></div>');
       else if((who.status||'Pending')!=='Approved')
-        inner+='<div class="sdue '+((who.status==='Suspended')?'d-late':'d-soon')+'">'+ICON.alert
-          +'<span><b>'+esc(who.name)+'</b> is '+esc(String(who.status||'pending').toLowerCase())+', not approved.</span></div>';
+        whoWarn.push('<div class="sdue '+((who.status==='Suspended')?'d-late':'d-soon')+'">'+ICON.alert
+          +'<span><b>'+esc(who.name)+'</b> is '+esc(String(who.status||'pending').toLowerCase())+', not approved.</span></div>');
     });
+    /* two warnings stack, one under the other, rather than jostle on a line */
+    if(whoWarn.length)inner+='<div style="display:flex;flex-direction:column;align-items:flex-start">'+whoWarn.join('')+'</div>';
     inner+=editing?form(rec,st,d,kind)
       :'<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
         +'<button class="btn '+(x.now?'btn-p ':'')+'btn-s" onclick="openStep(\''+kind+':'+st.k+'\')">'
@@ -2458,7 +2471,15 @@ function form(rec,st,d,kind){
   var h='<div class="form">';
   st.f.forEach(function(f){
     var k=f[0],lab=f[1],ty=f[2],opts=f[3];
-    h+='<div class="f'+(/^ref/.test(k)?' wide':'')+'"><label for="i-'+k+'">'+esc(lab)+'</label>';
+    /* a field that is seldom needed stays folded behind one line until
+       asked for, or until it already holds something different */
+    var folded=(opts==='optional')&&!(d[k]&&d[k]!==d.ref);
+    if(opts==='optional')h+='<div class="f wide" id="o-'+k+'"'+(folded?'':' style="display:none"')+'>'
+      +'<button type="button" class="btn-q" style="padding-left:0" onclick="'
+      +'this.parentNode.style.display=\'none\';document.getElementById(\'w-'+k+'\').style.display=\'\';'
+      +'document.getElementById(\'i-'+k+'\').focus()">+ '+esc(lab)+'</button></div>';
+    h+='<div class="f'+(/^ref/.test(k)?' wide':'')+'" id="w-'+k+'"'+(folded?' style="display:none"':'')+'>'
+      +'<label for="i-'+k+'">'+esc(lab)+'</label>';
     if(ty==='date')h+='<input class="mono" id="i-'+k+'" value="'+attr(show(d[k]))+'" placeholder="dd/mm/yyyy" autocomplete="off">';
     else if(ty==='status'||ty==='sel'){
       var list=(ty==='status')?STATUS:opts, cur=d[k]||list[0];
@@ -2477,7 +2498,7 @@ function form(rec,st,d,kind){
               +(p.agency?(' \u00b7 '+esc(p.agency)):'')+'</option>';}).join('')
         +(cur&&!known?'<option value="'+attr(cur)+'" selected>'+esc(cur)+' \u00b7 not on your list</option>':'')
         +'<option value="__new">Add someone new\u2026</option></select>';
-    }else h+='<input id="i-'+k+'" value="'+attr(d[k]||'')+'" autocomplete="off">';
+    }else h+='<input id="i-'+k+'" value="'+attr(folded?'':(d[k]||''))+'" autocomplete="off">';
     h+='<span class="err" id="e-'+k+'"></span></div>';
   });
   h+='<div class="f-act"><button class="btn btn-p" onclick="saveStep(\''+kind+'\',\''+st.k+'\')">Save</button>'
@@ -2540,6 +2561,8 @@ window.saveStep=function(kind,k){
     }else out[f[0]]=v;
   });
   if(bad)return;
+  /* the same number typed twice is one report, not two */
+  if(out.ref2&&out.ref2===out.ref)out.ref2='';
   rec.steps=rec.steps||{};rec.steps[k]=out;
   touch();OPEN=null;rList();rPane();
 };
