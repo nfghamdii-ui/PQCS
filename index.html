@@ -1319,8 +1319,12 @@ var MFR_ROAD=[
   due:function(v,s){return s.date?{on:s.date,t:'certificate expires'}:null;}},
  {k:'pa',n:'Physical assessment',clause:'2.1.9',
   why:'A survey of the factory by a certified lead auditor with a technical expert. It may be waived for C1 and C2 only.',
-  f:[['date','Survey date','date'],['by','Lead assessor','person'],
-     ['ref','Report reference','text'],
+  /* Two go out and two reports come back: the QMS auditor's and the
+     technical expert's. The auditor keeps the fields the single assessor
+     had, so a survey recorded before this still reads right. */
+  f:[['date','Survey date','date'],
+     ['by','QMS auditor','person'],['ref','QMS report','text'],
+     ['by2','Technical expert','person'],['ref2','Technical report','text'],
      ['status','Result','sel',['Pending','Scheduled','Passed','Failed','Waived']]],
   warn:function(v,s){return (v.cat==='C3'&&s.status==='Waived')?'A waiver is allowed for C1 and C2 only. This manufacturer is C3.':'';}},
 
@@ -1731,7 +1735,9 @@ function assignments(p){
       if(key(m.steps[s].by)===k)out.push({t:m.name,s:s,tab:'mat',id:m.id});});});
   (DB.mfrs||[]).forEach(function(v){
     Object.keys(v.steps||{}).forEach(function(s){
-      if(key(v.steps[s].by)===k)out.push({t:v.name,s:s,tab:'mfr',id:v.id});});});
+      /* a factory survey names two: the QMS auditor and the technical expert */
+      if(key(v.steps[s].by)===k||(v.steps[s].by2&&key(v.steps[s].by2)===k))
+        out.push({t:v.name,s:s,tab:'mfr',id:v.id});});});
   return out;
 }
 window.remove=function(ev){
@@ -2376,12 +2382,24 @@ function stepCard(rec,x,i,kind){
     inner='<div class="srec">'+(n?(n+' consignment'+(n===1?'':'s')+' recorded'+(ord?', '+got+' of '+ord+' '+esc(rec.unit||'')+' accepted':'')):'Nothing has arrived yet')+'</div>'
       +'<div style="margin-top:11px"><button class="btn '+(x.now?'btn-p ':'')+'btn-s" onclick="addDel()">Record a delivery</button></div>';
   }else{
+    /* a step with two people and two reports (the factory survey) says
+       who wrote which, one line each, under its status and date */
+    var two=(st.f||[]).some(function(f){return f[0]==='by2';});
     var bits=[];
     if(d.status)bits.push('<span class="tag t-'+(state==='done'?'ok':state==='bad'?'bad':state==='wait'?'wait':'na')+'">'+esc(d.status)+'</span>');
-    if(d.ref)bits.push('<span class="mono">'+esc(d.ref)+'</span>');
+    if(d.ref&&!two)bits.push('<span class="mono">'+esc(d.ref)+'</span>');
     if(d.date)bits.push('<span class="dim">'+esc(dateLabel(st))+' '+show(d.date)+'</span>');
-    if(d.by)bits.push('<span class="dim">'+esc(d.by)+'</span>');
+    if(d.by&&!two)bits.push('<span class="dim">'+esc(d.by)+'</span>');
     if(bits.length)inner+='<div class="srec">'+bits.join('')+'</div>';
+    if(two){
+      [['by','ref'],['by2','ref2']].forEach(function(p){
+        if(!d[p[0]]&&!d[p[1]])return;
+        var lab=((st.f||[]).filter(function(f){return f[0]===p[0];})[0]||[])[1]||'';
+        inner+='<div class="srec" style="margin-top:6px"><span class="dim">'+esc(lab)+'</span>'
+          +(d[p[0]]?'<span>'+esc(d[p[0]])+'</span>':'')
+          +(d[p[1]]?'<span class="mono">'+esc(d[p[1]])+'</span>':'')+'</div>';
+      });
+    }
     var due=st.due?st.due(rec,d):null;
     if(due){
       /* two different things wear a date: a deadline you can miss, and
@@ -2394,14 +2412,15 @@ function stepCard(rec,x,i,kind){
     }
     var warn=st.warn?st.warn(rec,d):'';
     if(warn)inner+='<div class="sdue d-soon">'+ICON.alert+'<span>'+esc(warn)+'</span></div>';
-    /* an inspector who is not approved must not pass unremarked */
-    if(d.by){
-      var who=(DB.people||[]).find(function(p){return key(p.name)===key(d.by);});
-      if(!who)inner+='<div class="sdue d-soon">'+ICON.alert+'<span><b>'+esc(d.by)+'</b> is not in your inspector list. Clause 2.2.17 has SEVEN approve every inspector.</span></div>';
+    /* an inspector who is not approved must not pass unremarked — either
+       of them, where a step has two */
+    [d.by,d.by2].filter(Boolean).forEach(function(nm){
+      var who=(DB.people||[]).find(function(p){return key(p.name)===key(nm);});
+      if(!who)inner+='<div class="sdue d-soon">'+ICON.alert+'<span><b>'+esc(nm)+'</b> is not in your inspector list. Clause 2.2.17 has SEVEN approve every inspector.</span></div>';
       else if((who.status||'Pending')!=='Approved')
         inner+='<div class="sdue '+((who.status==='Suspended')?'d-late':'d-soon')+'">'+ICON.alert
           +'<span><b>'+esc(who.name)+'</b> is '+esc(String(who.status||'pending').toLowerCase())+', not approved.</span></div>';
-    }
+    });
     inner+=editing?form(rec,st,d,kind)
       :'<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
         +'<button class="btn '+(x.now?'btn-p ':'')+'btn-s" onclick="openStep(\''+kind+':'+st.k+'\')">'
@@ -2439,7 +2458,7 @@ function form(rec,st,d,kind){
   var h='<div class="form">';
   st.f.forEach(function(f){
     var k=f[0],lab=f[1],ty=f[2],opts=f[3];
-    h+='<div class="f'+(k==='ref'?' wide':'')+'"><label for="i-'+k+'">'+esc(lab)+'</label>';
+    h+='<div class="f'+(/^ref/.test(k)?' wide':'')+'"><label for="i-'+k+'">'+esc(lab)+'</label>';
     if(ty==='date')h+='<input class="mono" id="i-'+k+'" value="'+attr(show(d[k]))+'" placeholder="dd/mm/yyyy" autocomplete="off">';
     else if(ty==='status'||ty==='sel'){
       var list=(ty==='status')?STATUS:opts, cur=d[k]||list[0];
