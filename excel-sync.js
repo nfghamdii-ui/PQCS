@@ -3375,6 +3375,14 @@ function stepWord(v,k){
 }
 var STEP_TONE={'Done':'ok','Valid':'ok','With reviewer':'wait','Not confirmed':'wait',
   'Not started':'now','Not recorded':'now'};
+/* a vendor's ISO certificate in one word, for every kind of vendor */
+function isoWord(r){
+  var d=(r.steps||{}).iso||{};
+  if(d.date&&daysTo(d.date)<0)return 'Expired';
+  if(d.status==='Expired')return 'Expired';
+  if(d.status==='Valid')return 'Valid';
+  return (d.ref||d.date)?'Not confirmed':'Not recorded';
+}
 var MS_TONE={ok:'ok',wait:'wait',bad:'bad',now:'now'};
 
 function stepOf(r,k,f){var d=((r.steps||{})[k])||{};return d[f]||'';}
@@ -3442,24 +3450,24 @@ var TABLES_DEF={
  mfr:{label:'Vendors',rows:function(){return (DB.mfrs||[]).slice();},
    open:function(r){jump('mfr',r.id);},
    cols:[
-    col('Vendor','name',function(r){return r.name;},'text',300),
+    /* the name, with what the company does written small beneath it */
+    (function(c){c.sub=function(r){return r.scope||'';};return c;})(
+      col('Vendor','name',function(r){return r.name;},'text',300)),
     col('Kind','kind',function(r){return KINDS[kindOf(r)].l;},'pick',150),
+    /* The same few questions for every vendor, whatever kind it is: its
+       category, where its pre-qualification stands, its ISO certificate,
+       the factory visit, and whether it is local and where. */
+    col('Category','vcat',function(r){return r.cat||'';},'pick',100),
+    asTag(col('PQD','pqd',function(r){return trim(pqOf(r).status)||'Not started';},'pick',170),
+      function(v){return statusTone(v)||(v==='Not started'?'now':'');}),
+    asTag(col('ISO 9001','isoall',isoWord,'pick',140),function(v){return STEP_TONE[v]||'bad';}),
+    asTag(col('Visit','visit',function(r){return trim(stepOf(r,'pa','status'))||'Not done';},'pick',150),
+      function(v){return statusTone(v)||(v==='Not done'?'now':'');}),
+    col('Local / Foreign','loc',function(r){return r.locality||'';},'pick',120),
+    col('Location','where',function(r){return [r.site,r.country].filter(Boolean).join(' · ');},'text',220),
+    /* a few more, for when they are wanted */
     asTag(col('Qualification','qual',function(r){return mfrState(r).word;},'pick',160),
-      function(v,r){return MS_TONE[mfrState(r).tone]||'';})]
-    /* one column per requirement, each saying where that one stands, so
-       each can be filtered on its own; blank where the kind of company
-       does not need it. A requirement no vendor on the project has —
-       an agency's approval, a supplier's maker — is not offered at all. */
-    .concat(MFR_ROAD.map(function(s){
-      var c=asTag(col(s.k==='iso'?'ISO 9001':s.n,'st_'+s.k,function(r){return stepWord(r,s.k);},'pick',s.k==='iso'?130:170),
-        function(v){return STEP_TONE[v]||'bad';});
-      c.need=function(){return anyVendorNeeds(s.k);};
-      return c;
-    }))
-    /* the rest: what a vendor holds up, the dates and numbers worth
-       reading off a row, and where it comes from. The statuses that
-       only repeated the requirement columns are gone. */
-    .concat([
+      function(v,r){return MS_TONE[mfrState(r).tone]||'';}),
     asNum(col('Holds up','hold',function(r){var n=holdsUp(r);return n?String(n):'';},'text',90)),
     asNum(col('Materials','n',function(r){return String(matsOf(r).length);},'text',100)),
     asTag(asNum(col('ISO days left','isodays',function(r){
@@ -3467,13 +3475,8 @@ var TABLES_DEF={
       function(v){if(v==='')return '';var n=+v;return n<0?'bad':n<=60?'now':'ok';}),
     col('ISO Expires','isodt',function(r){return show(stepOf(r,'iso','date'));},'text',110),
     col('PQD Number','pq',function(r){return pqOf(r).ref||'';},'text',300),
-    col('ISO Number','iso',function(r){return stepOf(r,'iso','ref');},'text',180),
-    col('Assessment Ref','paref',function(r){return stepOf(r,'pa','ref');},'text',260),
-    col('Brought by','by',function(r){return r.by||'';},'pick',180),
-    col('Country','country',function(r){return r.country||'';},'pick',150),
-    col('Local / Foreign','loc',function(r){return r.locality||'';},'pick',120),
-    col('Production site','site',function(r){return r.site||'';},'text',180)]),
-   show:['name','kind','qual','st_pqd','st_iso','st_pa','st_qms','hold','isodays','n']},
+    col('Brought by','by',function(r){return r.by||'';},'pick',180)],
+   show:['name','kind','vcat','pqd','isoall','visit','loc','where']},
 
  insp:{label:'Inspectors',rows:function(){return (DB.people||[]).slice();},
    open:function(r){jump('insp',r.id);},
@@ -3592,8 +3595,10 @@ function tablePane(list){
         +cols.map(function(c){
           var v=cellOf(r,c), t=(v!==''&&c.tone)?c.tone(v,r):'';
           var cls=[c.kind==='pick'?'nowrap':'',c.num?'num':''].filter(Boolean).join(' ');
+          var sub=c.sub?trim(c.sub(r)):'';
           return '<td'+(cls?' class="'+cls+'"':'')+(v.length>40?' title="'+attr(v)+'"':'')+'>'
-            +(t?('<span class="tag t-'+t+'">'+esc(v)+'</span>'):esc(v))+'</td>';
+            +(t?('<span class="tag t-'+t+'">'+esc(v)+'</span>'):esc(v))
+            +(sub?'<div class="cell-sub" title="'+attr(sub)+'">'+esc(sub)+'</div>':'')+'</td>';
         }).join('')+'</tr>';
     }).join('')
     +'</tbody></table>'
@@ -3720,6 +3725,8 @@ function tableCSS(){
   +'.tbl td.nowrap{white-space:nowrap}'
   +'.tbl td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}'
   +'.tbl td .tag{white-space:nowrap}'
+  +'.cell-sub{font-size:12px;font-weight:400;color:var(--ink-3);margin-top:3px;line-height:1.4;'
+  +'white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
   +'.tbl tbody tr{cursor:pointer}'
   /* a quiet band on every other row, so a long row can be followed across */
   +'.tbl tbody td{background:var(--card)}'
