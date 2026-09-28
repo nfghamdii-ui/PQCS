@@ -3445,33 +3445,34 @@ var TABLES_DEF={
     col('Vendor','name',function(r){return r.name;},'text',300),
     col('Kind','kind',function(r){return KINDS[kindOf(r)].l;},'pick',150),
     asTag(col('Qualification','qual',function(r){return mfrState(r).word;},'pick',160),
-      function(v,r){return MS_TONE[mfrState(r).tone]||'';}),
-    col('Still needs','gaps',function(r){return vendorGaps(r).map(function(x){return x.name;}).join(', ');},'text',260)]
+      function(v,r){return MS_TONE[mfrState(r).tone]||'';})]
     /* one column per requirement, each saying where that one stands, so
        each can be filtered on its own; blank where the kind of company
-       does not need it */
+       does not need it. A requirement no vendor on the project has —
+       an agency's approval, a supplier's maker — is not offered at all. */
     .concat(MFR_ROAD.map(function(s){
-      return asTag(col(s.k==='iso'?'ISO 9001':s.n,'st_'+s.k,function(r){return stepWord(r,s.k);},'pick',s.k==='iso'?130:170),
+      var c=asTag(col(s.k==='iso'?'ISO 9001':s.n,'st_'+s.k,function(r){return stepWord(r,s.k);},'pick',s.k==='iso'?130:170),
         function(v){return STEP_TONE[v]||'bad';});
+      c.need=function(){return anyVendorNeeds(s.k);};
+      return c;
     }))
+    /* the rest: what a vendor holds up, the dates and numbers worth
+       reading off a row, and where it comes from. The statuses that
+       only repeated the requirement columns are gone. */
     .concat([
     asNum(col('Holds up','hold',function(r){var n=holdsUp(r);return n?String(n):'';},'text',90)),
+    asNum(col('Materials','n',function(r){return String(matsOf(r).length);},'text',100)),
     asTag(asNum(col('ISO days left','isodays',function(r){
       var d=stepOf(r,'iso','date');return d?String(daysTo(d)):'';},'text',110)),
       function(v){if(v==='')return '';var n=+v;return n<0?'bad':n<=60?'now':'ok';}),
+    col('ISO Expires','isodt',function(r){return show(stepOf(r,'iso','date'));},'text',110),
+    col('PQD Number','pq',function(r){return pqOf(r).ref||'';},'text',300),
+    col('ISO Number','iso',function(r){return stepOf(r,'iso','ref');},'text',180),
+    col('Assessment Ref','paref',function(r){return stepOf(r,'pa','ref');},'text',260),
     col('Brought by','by',function(r){return r.by||'';},'pick',180),
     col('Country','country',function(r){return r.country||'';},'pick',150),
     col('Local / Foreign','loc',function(r){return r.locality||'';},'pick',120),
-    col('Production site','site',function(r){return r.site||'';},'text',180),
-    col('PQD Number','pq',function(r){return pqOf(r).ref||'';},'text',300),
-    asTag(col('PQD Status','pqst',function(r){return pqStatus(r);},'pick',170)),
-    col('PQD Date','pqdt',function(r){return show(pqOf(r).date||'');},'text',110),
-    col('ISO Number','iso',function(r){return stepOf(r,'iso','ref');},'text',180),
-    col('ISO Expires','isodt',function(r){return show(stepOf(r,'iso','date'));},'text',110),
-    asTag(col('ISO Status','isost',function(r){return stepOf(r,'iso','status');},'pick',120)),
-    asTag(col('Assessment','pa',function(r){return stepOf(r,'pa','status');},'pick',140)),
-    col('Assessment Ref','paref',function(r){return stepOf(r,'pa','ref');},'text',260),
-    asNum(col('Materials','n',function(r){return String(matsOf(r).length);},'text',100))]),
+    col('Production site','site',function(r){return r.site||'';},'text',180)]),
    show:['name','kind','qual','st_pqd','st_iso','st_pa','st_qms','hold','isodays','n']},
 
  insp:{label:'Inspectors',rows:function(){return (DB.people||[]).slice();},
@@ -3486,11 +3487,18 @@ var TABLES_DEF={
 };
 
 function tdef(){return TABLES_DEF[TBL];}
+/* the columns a table offers today: one that says nothing about anything
+   on the project — a requirement no vendor has — is left out */
+function colsOf(d){return d.cols.filter(function(c){return !c.need||c.need();});}
+function anyVendorNeeds(k){
+  return (DB.mfrs||[]).some(function(v){
+    return needsQual(v)&&KINDS[kindOf(v)].steps.indexOf(k)>=0;});
+}
 function shownCols(){
   var d=tdef();
   if(!TBLSHOW[TBL])TBLSHOW[TBL]=d.show.slice();
   var want={};TBLSHOW[TBL].forEach(function(k){want[k]=1;});
-  return d.cols.filter(function(c){return want[c.k];});
+  return colsOf(d).filter(function(c){return want[c.k];});
 }
 function cellOf(r,c){
   try{return trim(c.read(r));}catch(e){return '';}
@@ -3659,7 +3667,7 @@ window.tblCols=function(){
     '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'
     +'Tick what you want to see. The order is fixed; the choice is not.</div>'
     +'<div class="panel"><div class="panel-b">'
-    +d.cols.map(function(c){
+    +colsOf(d).map(function(c){
       return '<label class="cl-item"><input type="checkbox" '+(on[c.k]?'checked ':'')
         +'onchange="tblToggle(\''+c.k+'\',this.checked)"><span>'+esc(c.t)+'</span></label>';
     }).join('')
@@ -3683,7 +3691,7 @@ window.tblToggle=function(k,on){
 };
 window.tblColsAll=function(all){
   var d=tdef();
-  TBLSHOW[TBL]=all?d.cols.map(function(c){return c.k;}):d.show.slice();
+  TBLSHOW[TBL]=all?colsOf(d).map(function(c){return c.k;}):d.show.slice();
   closeSheet();rPane();
 };
 window.tblExport=function(){
