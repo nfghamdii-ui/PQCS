@@ -1291,7 +1291,20 @@ async function readRegister(file){
     });
   });
   if(!out.length)throw new Error('That sheet has a heading but no document rows under it.');
-  return {rows:out,sheet:name,about:about,cols:Object.keys(col)};
+  /* An export with its history shows a document once per revision. Only
+     the latest speaks for it — the highest revision, then the latest
+     date — or an old revision's outcome could be written over the new. */
+  var best={};
+  function revKey(r){return /^\d+$/.test(r)?[0,+r]:[1,String(r).toUpperCase()];}
+  function newer(a,b){
+    var x=revKey(a.rev),y=revKey(b.rev);
+    if(x[0]!==y[0])return x[0]>y[0];
+    if(x[1]!==y[1])return x[1]>y[1];
+    return String(a.date||'')>String(b.date||'');
+  }
+  out.forEach(function(d){var k=K(d.no);if(!best[k]||newer(d,best[k]))best[k]=d;});
+  var kept=out.filter(function(d){return best[K(d.no)]===d;});
+  return {rows:kept,sheet:name,about:about,cols:Object.keys(col),revisions:out.length-kept.length};
 }
 
 /* ---------------------------------------------------------------
@@ -1672,6 +1685,85 @@ window.regApply=function(alsoEnded){
    terminated ones are marked, and everything the file has never seen is
    brought in for review. The separate buttons stay for the times when
    only half of that is wanted. */
+/* ---------------------------------------------------------------
+   Starting over from Aconex. The materials, documents and vendors are
+   thrown away and built again from the register alone: materials from
+   the material submittals, vendors from the pre-qualifications, every
+   other document in its own place. Inspectors and your own events stay.
+   A backup has to be downloaded first; nothing is replaced before it.
+   --------------------------------------------------------------- */
+var SO={backed:false,reg:null,file:''};
+window.startOver=function(){
+  var r=SO.reg, n=null;
+  if(r){
+    n={mat:0,ven:0,doc:0,mir:0,dead:0};
+    r.rows.forEach(function(d){
+      var want=verdictOf(d.review)||verdictOf(d.status);
+      if(verdictOf(d.status)==='Terminated'||want==='Terminated'){n.dead++;return;}
+      if(K(d.type)==='pre-qualification')n.ven++;
+      else{var k=docKind(d.no,d.type);if(!k)n.mat++;else if(k==='MIR')n.mir++;else n.doc++;}
+    });
+  }
+  var have=(DB.mats||[]).length, hv=(DB.mfrs||[]).length;
+  sheet('Start over from Aconex',
+    '<div style="font-size:14px;line-height:1.75">The '+have+' materials and documents and the '+hv
+    +' vendors here are deleted and built again from the Aconex register alone. Quantities, deliveries, '
+    +'purchase orders and anything typed here that Aconex does not carry are lost with them. '
+    +'Inspectors and your own events stay; an event linked to a material loses the link.</div>'
+    +'<div class="sec">1. Keep a copy</div><div class="panel"><div class="panel-b">'
+    +(SO.backed?'<span class="tag t-ok">backup downloaded</span>'
+      :'<button class="btn btn-p" onclick="soBackup()">Download a backup</button>')
+    +'</div></div>'
+    +'<div class="sec">2. The register</div><div class="panel"><div class="panel-b">'
+    +(n?('<div style="margin-bottom:10px"><b>'+esc(SO.file)+'</b>'
+        +(r.revisions?(' <span class="dim">· '+r.revisions+' older revisions set aside</span>'):'')+'</div>'
+        +'<div class="grid">'+stat(n.mat,'Materials')+stat(n.ven,'Vendors')+stat(n.mir,'Inspection requests')
+        +stat(n.doc,'Other documents')+stat(n.dead,'Terminated, left out')+'</div>')
+      :'<div class="dim" style="margin-bottom:10px">The register export from Aconex (Document register → Export).</div>')
+    +'<button class="btn'+(n?'':' btn-p')+'" onclick="soPick()">'+(n?'Choose another file':'Choose the register')+'</button>'
+    +'</div></div>'
+    +'<div class="f-act" style="margin-top:20px">'
+    +'<button class="btn btn-d"'+((SO.backed&&n)?' onclick="soConfirm()"':' disabled')+'>Replace everything</button>'
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button></div>'
+    +((!SO.backed&&n)?'<div class="dim" style="font-size:13px;margin-top:8px">Download the backup first.</div>':''));
+};
+window.soBackup=function(){backup();SO.backed=true;startOver();};
+window.soPick=function(){
+  var f=document.getElementById('so-file');
+  if(!f){f=document.createElement('input');f.type='file';f.id='so-file';f.accept='.xlsx';f.style.display='none';
+    f.onchange=async function(ev){
+      var file=ev.target.files[0];if(!file)return;
+      busy(true,'Reading the register');
+      try{SO.reg=await readRegister(file);SO.file=file.name;busy(false);startOver();}
+      catch(e){busy(false);toast('That file could not be read — '+(e.message||e));}
+    };
+    document.body.appendChild(f);}
+  f.value='';f.click();
+};
+window.soConfirm=function(){
+  sheet('Replace everything?',
+    '<div style="font-size:14px;line-height:1.75">Every material, document and vendor here is deleted and the '
+    +'project is built again from <b>'+esc(SO.file)+'</b>. This cannot be taken back from inside the page — '
+    +'only from the backup you downloaded.</div>'
+    +'<div class="f-act" style="margin-top:20px"><button class="btn btn-d" onclick="soReplace()">Yes, replace everything</button>'
+    +'<button class="btn-q" onclick="startOver()">Back</button></div>');
+};
+window.soReplace=function(){
+  if(!SO.backed||!SO.reg)return;
+  busy(true,'Building from Aconex');
+  try{
+    DB.mats=[];DB.mfrs=[];
+    SEL.mat=SEL.mfr=null;RECORD=false;
+    var p=planRegister(SO.reg.rows);
+    p.file=SO.file;
+    var tag=regTag(p);
+    var made=createFromRegister(p,tag,{fresh:true});
+    busy(false);closeSheet();
+    SO={backed:false,reg:null,file:''};
+    toast('Built from Aconex: '+made.mats+' records and '+made.vendors+' vendors');
+    setTab('mat');
+  }catch(e){busy(false);toast('Could not build from the register — '+(e.message||e));}
+};
 window.regAll=function(){
   if(!REG)return;
   var p=REG;
@@ -1865,9 +1957,16 @@ function rawFromDoc(d){
   return raw;
 }
 
-function createFromRegister(p,tag){
+function createFromRegister(p,tag,opts){
+  opts=opts||{};
   var made={n:1,vendors:[],id:idMaker()},mats=0,vends=0;
   var all=p.newC23.concat(p.newPlain,p.newC01);
+  /* starting over: a dead document makes no record of its own, and the
+     pre-qualifications go first so the materials can find their vendors */
+  if(opts.fresh){
+    all=all.filter(function(d){return d.want!=='Terminated';});
+    all.sort(function(a,b){return (K(b.type)==='pre-qualification')-(K(a.type)==='pre-qualification');});
+  }
   all.forEach(function(d){
     if(K(d.type)==='pre-qualification'){
       var name=companyOf(d.title);
@@ -1893,15 +1992,33 @@ function createFromRegister(p,tag){
         if(!v.pq2.some(function(x){return K(x.ref)===K(d.no);}))
           v.pq2.push({ref:d.no,date:d.date||'',status:d.want||'',title:d.title||''});
       }
-      if(!twin){v.reg=tag;v.review=1;DB.mfrs.push(v);vends++;}
+      if(!twin){v.reg=tag;if(!opts.fresh)v.review=1;DB.mfrs.push(v);vends++;}
       return;
     }
     var m={id:made.id(),name:'',cat:'',ref:'',mfr:'',qty:'',unit:'',
       steps:{},dels:[],ncrs:[],added:today()};
     applyRaw(m,rawFromDoc(d),made);
-    m.reg=tag;m.review=1;
+    m.reg=tag;if(!opts.fresh)m.review=1;
     var kind=docKind(d.no,d.type);
     if(kind)m.doc=kind;          /* a document, not a material of its own */
+    else{
+      /* "MAT for Dosing Pump by Prominent / Al Maymanah Material Category: C0":
+         the maker after "by", the subcontractor after the slash. The maker is
+         linked if it is a vendor here; the subcontractor is kept by name. */
+      var by=/\bby\s+(.+?)(?:\s+(?:material\s+)?categor|\s*$)/i.exec(d.title||'');
+      if(by){
+        var parts=by[1].split('/').map(trim).filter(Boolean);
+        var maker=parts[0]||'', sub=parts[1]||'';
+        /* a name taken from a pre-qualification title runs on into its
+           scope ("Al Maymanah Contracting Co. Water Treatment Plants"), so
+           one name starting with the other is a match */
+        var same=function(a,b){a=coName(a);b=coName(b);return !!(a&&b&&(a===b||a.indexOf(b+' ')===0||b.indexOf(a+' ')===0));};
+        var hit=(DB.mfrs||[]).filter(function(v){return maker&&same(v.name,maker);})[0]
+          ||(DB.mfrs||[]).filter(function(v){return sub&&same(v.name,sub);})[0];
+        if(hit)m.mfr=String(hit.id);
+        if(sub&&!m.sub)m.sub=sub;
+      }
+    }
     DB.mats.push(m);mats++;
   });
   touch();rList();rPane();
@@ -3296,7 +3413,7 @@ function applyInspectors(p){
 }
 
 var REPORTS=[
- {k:'log',t:'The general log',back:true,
+ {k:'log',t:'The general log',back:false,   /* written out only: Aconex is the source */
   d:'Every material on one row, with its documents folded back into the columns the project '
     +'already reads — the same seventy-seven columns in the same order, sorted by discipline '
     +'and no heading rows between them. Documents attached to nothing are written to a second '
@@ -4740,24 +4857,25 @@ function install(){
     var b=document.getElementById('sheet-b');
     if(!b)return;
     b.insertAdjacentHTML('beforeend',
-      '<div class="sec">The Main Log</div>'
+      /* Aconex is the source now. The Main Log is only written out, as a
+         report; it is no longer read back in. */
+      '<div class="sec">The Aconex register</div>'
      +'<div class="panel"><div class="panel-b">'
      +'<div class="dim" style="font-size:13.5px;line-height:1.7">'
-     +'The whole log, written out with its '+COLS.length+' columns in their original order and read back the same way. '
-     +'A column this page has no opinion about is carried through untouched.</div>'
-     +'<div class="f-act" style="margin-top:14px">'
-     +'<button class="btn btn-p" onclick="excelOut()">Download the workbook</button>'
-     +'<button class="btn" onclick="excelPick()">Upload a workbook</button>'
-     +'</div></div></div>'
-     +'<div class="sec">The Aconex register</div>'
-     +'<div class="panel"><div class="panel-b">'
-     +'<div class="dim" style="font-size:13.5px;line-height:1.7">'
-     +'The register export, read as it comes. One row per document and no history, so every '
-     +'reference appears once. What is already in your file is brought up to date; what is not '
-     +'is shown and left alone.</div>'
+     +'The register export, read as it comes. What is already here is brought up to date from it; '
+     +'what is not is shown, and can be brought in.</div>'
      +'<div class="f-act" style="margin-top:14px">'
      +'<button class="btn btn-p" onclick="regPick()">Upload the register</button>'
      +'<button class="btn" onclick="regReview()">Waiting to be reviewed</button>'
+     +'<button class="btn btn-d btn-s" onclick="startOver()">Start over from Aconex…</button>'
+     +'</div></div></div>'
+     +'<div class="sec">The Main Log</div>'
+     +'<div class="panel"><div class="panel-b">'
+     +'<div class="dim" style="font-size:13.5px;line-height:1.7">'
+     +'Written out in its '+COLS.length+' columns, for whoever still reads it. It is not read back: '
+     +'the records come from Aconex.</div>'
+     +'<div class="f-act" style="margin-top:14px">'
+     +'<button class="btn" onclick="excelOut()">Download the workbook</button>'
      +'</div></div></div>');
   };
   window.showMenu.__xl=true;
