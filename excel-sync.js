@@ -2875,9 +2875,23 @@ function looseRows(){
    It is the only thing on the row that must not be touched: it is how a
    row finds its way home after somebody has corrected everything else
    about it. */
-var VEN_COLS=['ID','Vendor','Kind','Brought by','Country','Local / Foreign','Production site','Scope',
+var VEN_COLS=['ID','Vendor','Kind','Category','Brought by','Country','Local / Foreign','Production site','Scope',
   'PQD Number','PQD Status','PQD Date','ISO Number','ISO Expires','ISO Status',
-  'Assessment','Assessment Reference','Assessment Date','Materials'];
+  'Visit result','Visit date','QMS auditor','Technical expert','Visit report','Technical expert report',
+  'Materials'];
+/* headings an older copy of the sheet used, still read as the new ones */
+var VEN_ALIAS={'Visit result':'Assessment','Visit report':'Assessment Reference','Visit date':'Assessment Date'};
+/* Written as typed, a status the road does not recognise stops it:
+   "approved" is not "Approved". Each is read back into the words the
+   page uses; anything it cannot place is kept as typed. */
+var VISIT_WORDS=['Pending','Scheduled','Passed','Failed','Waived'];
+function pqWord(s){return normStatus(s)||s;}
+function isoWordIn(s){var k=K(s);return /valid/.test(k)?'Valid':/expir/.test(k)?'Expired':s;}
+function visitWordIn(s){
+  var k=K(s);
+  var hit=VISIT_WORDS.filter(function(w){return k.indexOf(w.toLowerCase().slice(0,4))===0;})[0];
+  return hit||s;
+}
 var VEN_KINDS={'manufacturer':'maker','maker':'maker','subcontractor':'sub','sub':'sub',
   'supplier':'supplier','inspection agency':'agency','agency':'agency'};
 
@@ -2900,10 +2914,13 @@ function vendorRows(){
   (DB.mfrs||[]).forEach(function(v){
     var st=v.steps||{}, pq=pqOf(v), iso=st.iso||{};
     var pa=st.pa||{};
-    rows.push([v.id,v.name,KINDS[kindOf(v)].l,v.by||'',v.country||'',v.locality||'',v.site||'',v.scope||'',
+    /* The ID goes out as text. It has sixteen digits and Excel keeps
+       fifteen, so as a number it came back rounded — and found nothing. */
+    rows.push([String(v.id),v.name,KINDS[kindOf(v)].l,v.cat||'',v.by||'',v.country||'',v.locality||'',v.site||'',v.scope||'',
       pq.ref||'',pq.status||'',pq.date?{date:pq.date}:'',
       iso.ref||'',iso.date?{date:iso.date}:'',iso.status||'',
-      pa.status||'',pa.ref||'',pa.date?{date:pa.date}:'',matsOf(v).length]);
+      pa.status||'',pa.date?{date:pa.date}:'',pa.by||'',pa.by2||'',pa.ref||'',
+      (pa.ref2&&pa.ref2!==pa.ref)?pa.ref2:'',matsOf(v).length]);
   });
   return rows;
 }
@@ -2925,6 +2942,7 @@ async function readVendorSheet(file){
           var o={};
           VEN_COLS.forEach(function(c){
             var j=col[K(c)];
+            if(j==null&&VEN_ALIAS[c])j=col[K(VEN_ALIAS[c])];
             o[c]=(j==null)?'':line[j];
           });
           out.push(o);
@@ -2958,65 +2976,81 @@ function planVendors(rows){
   (DB.mfrs||[]).forEach(function(v){if(!hit[String(v.id)])p.gone.push(v);});
   return p;
 }
+/* Every editable column, once: which heading, where it lives on the
+   vendor, and how a typed value is read. The comparison and the writing
+   both walk this one list, so they cannot disagree about a column.
+   A blank cell says nothing and leaves the value alone; a cell holding
+   only "-" clears it. */
+var VEN_FIELDS=[
+  {c:'Vendor',get:function(v){return v.name;},set:function(v,x){if(x)v.name=x;}},
+  {c:'Kind',get:function(v){return KINDS[kindOf(v)].l;},
+    read:function(x){var k=VEN_KINDS[K(x)];return k?KINDS[k].l:'';},
+    set:function(v,x){var k=VEN_KINDS[K(x)];if(k)v.kind=k;}},
+  {c:'Category',get:function(v){return v.cat;},
+    read:function(x){return normCat(x)||(/^[0-3]$/.test(trim(x))?'C'+trim(x):'');},
+    set:function(v,x){v.cat=x;}},
+  {c:'Brought by',get:function(v){return v.by;},set:function(v,x){v.by=x;}},
+  {c:'Country',get:function(v){return v.country;},set:function(v,x){v.country=x;}},
+  {c:'Local / Foreign',get:function(v){return v.locality;},read:localityOf,set:function(v,x){v.locality=x;}},
+  {c:'Production site',get:function(v){return v.site;},set:function(v,x){v.site=x;}},
+  {c:'Scope',get:function(v){return v.scope;},set:function(v,x){v.scope=x;}},
+  {c:'PQD Number',step:'pq',f:'ref'},
+  {c:'PQD Status',step:'pq',f:'status',read:pqWord},
+  {c:'PQD Date',step:'pq',f:'date',date:true},
+  {c:'ISO Number',step:'iso',f:'ref'},
+  {c:'ISO Expires',step:'iso',f:'date',date:true},
+  {c:'ISO Status',step:'iso',f:'status',read:isoWordIn},
+  {c:'Visit result',step:'pa',f:'status',read:visitWordIn},
+  {c:'Visit date',step:'pa',f:'date',date:true},
+  {c:'QMS auditor',step:'pa',f:'by'},
+  {c:'Technical expert',step:'pa',f:'by2'},
+  {c:'Visit report',step:'pa',f:'ref'},
+  {c:'Technical expert report',step:'pa',f:'ref2'}
+];
+function venSlot(v,step){return step==='pq'?((v.kind==='agency')?'appr':'pqd'):step;}
+function venNow(v,fd){
+  if(fd.get)return trim(fd.get(v));
+  var d=((v.steps||{})[venSlot(v,fd.step)])||{};
+  return trim(d[fd.f]);
+}
+/* what a cell asks for: '' says nothing, null clears, anything else is
+   the value in the page's own words */
+function venWant(r,fd){
+  var raw=trim(r[fd.c]);
+  if(raw==='')return '';
+  if(raw==='-')return null;
+  if(fd.date)return anyDate(r[fd.c])||'';
+  return fd.read?fd.read(raw):raw;
+}
 function vendorDiff(v,r){
-  var st=v.steps||{}, pq=pqOf(v), iso=st.iso||{}, out=[];
-  function cmp(label,now,want){
-    want=trim(want);now=trim(now);
-    if(want!==''&&K(now)!==K(want))out.push(label);
-  }
-  cmp('Vendor',v.name,r['Vendor']);
-  cmp('Kind',KINDS[kindOf(v)].l,r['Kind']);
-  cmp('Brought by',v.by,r['Brought by']);
-  cmp('Country',v.country,r['Country']);
-  cmp('Local / Foreign',v.locality,localityOf(r['Local / Foreign']));
-  cmp('Production site',v.site,r['Production site']);
-  cmp('Scope',v.scope,r['Scope']);
-  cmp('PQD Number',pq.ref,r['PQD Number']);
-  cmp('PQD Status',pq.status,r['PQD Status']);
-  cmp('PQD Date',pq.date,anyDate(r['PQD Date']));
-  cmp('ISO Number',iso.ref,r['ISO Number']);
-  cmp('ISO Expires',iso.date,anyDate(r['ISO Expires']));
-  cmp('ISO Status',iso.status,r['ISO Status']);
-  var pa=st.pa||{};
-  cmp('Assessment',pa.status,r['Assessment']);
-  cmp('Assessment Reference',pa.ref,r['Assessment Reference']);
-  cmp('Assessment Date',pa.date,anyDate(r['Assessment Date']));
+  var out=[];
+  VEN_FIELDS.forEach(function(fd){
+    var want=venWant(r,fd), now=venNow(v,fd);
+    if(want===null){if(now!=='')out.push(fd.c+' cleared');return;}
+    if(want!==''&&K(now)!==K(want))out.push(fd.c);
+  });
   return out;
 }
 function applyVendors(p){
   var made={n:1,vendors:[],id:idMaker()};
   function write(v,r){
-    function set(k,val){val=trim(val);if(val!=='')v[k]=val;}
-    set('name',r['Vendor']);
-    var k=VEN_KINDS[K(r['Kind'])];
-    if(k)v.kind=k;
-    set('by',r['Brought by']);
-    set('country',r['Country']);
-    var loc=localityOf(r['Local / Foreign']);
-    if(loc)v.locality=loc;
-    set('site',r['Production site']);
-    set('scope',r['Scope']);
     v.steps=v.steps||{};
-    var slot=(v.kind==='agency')?'appr':'pqd';
-    var pq=v.steps[slot]||{}, iso=v.steps.iso||{};
-    if(trim(r['PQD Number']))pq.ref=trim(r['PQD Number']);
-    if(trim(r['PQD Status']))pq.status=trim(r['PQD Status']);
-    if(anyDate(r['PQD Date']))pq.date=anyDate(r['PQD Date']);
-    if(pq.ref||pq.status)v.steps[slot]=pq;
-    if(trim(r['ISO Number']))iso.ref=trim(r['ISO Number']);
-    if(anyDate(r['ISO Expires']))iso.date=anyDate(r['ISO Expires']);
-    if(trim(r['ISO Status']))iso.status=trim(r['ISO Status']);
+    /* Kind first: it decides which slot the pre-qualification lives in */
+    VEN_FIELDS.slice().sort(function(a,b){return (b.c==='Kind')-(a.c==='Kind');}).forEach(function(fd){
+      var want=venWant(r,fd);
+      if(want==='')return;
+      if(fd.get){if(want===null){if(fd.c!=='Vendor'&&fd.c!=='Kind')fd.set(v,'');}else fd.set(v,want);return;}
+      var slot=venSlot(v,fd.step), d=v.steps[slot]||{};
+      if(want===null)delete d[fd.f];else d[fd.f]=want;
+      if(Object.keys(d).length)v.steps[slot]=d;else delete v.steps[slot];
+    });
     /* a certificate with a date and no word said about it is valid until
        that date, which is what a certificate means */
-    if((iso.ref||iso.date)&&!iso.status)iso.status='Valid';
-    if(iso.ref||iso.date||iso.status)v.steps.iso=iso;
-    /* Clause 2.1.9: the factory survey. Its outcome, the report it was
-       written in, and when it happened. */
-    var pa=v.steps.pa||{};
-    if(trim(r['Assessment']))pa.status=trim(r['Assessment']);
-    if(trim(r['Assessment Reference']))pa.ref=trim(r['Assessment Reference']);
-    if(anyDate(r['Assessment Date']))pa.date=anyDate(r['Assessment Date']);
-    if(pa.status||pa.ref||pa.date)v.steps.pa=pa;
+    var iso=v.steps.iso;
+    if(iso&&(iso.ref||iso.date)&&!iso.status)iso.status='Valid';
+    /* the same visit report typed twice is one report */
+    var pa=v.steps.pa;
+    if(pa&&pa.ref2&&pa.ref2===pa.ref)delete pa.ref2;
   }
   p.change.forEach(function(c){write(c.v,c.r);});
   p.add.forEach(function(r){
@@ -3152,10 +3186,11 @@ var REPORTS=[
     download(workbook(sheets),name+' — '+today()+'.xlsx');
   }},
  {k:'ven',t:'Vendors and who brought them',back:true,
-  d:'Every company on the project, what kind it is, its pre-qualification, its ISO '
-    +'certificate, and the subcontractor that first brought it on. Correct any of it — '
-    +'including the name and the pre-qualification number — and send it back. Leave the '
-    +'first column alone; it is how a row finds its way home.',
+  d:'Every company on the project: its kind and category, its pre-qualification, its ISO '
+    +'certificate, the factory visit and who made it, where it is and who brought it on. '
+    +'Correct any of it — including the name and the pre-qualification number — and send it '
+    +'back. A blank cell leaves a value as it is; a cell with only "-" in it clears it. Leave '
+    +'the first column alone; it is how a row finds its way home.',
   go:function(){
     download(workbook([{name:'Vendors',rows:vendorRows()}]),
       (DB.project||'Vendors')+' — vendors '+today()+'.xlsx');
