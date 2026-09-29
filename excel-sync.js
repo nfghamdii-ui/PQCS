@@ -2000,25 +2000,10 @@ function createFromRegister(p,tag,opts){
     applyRaw(m,rawFromDoc(d),made);
     m.reg=tag;if(!opts.fresh)m.review=1;
     var kind=docKind(d.no,d.type);
+    /* A record is placed by its document type alone: a material submittal
+       is a material, and nothing in its title links it to a vendor —
+       which vendor supplies it is set by hand. */
     if(kind)m.doc=kind;          /* a document, not a material of its own */
-    else{
-      /* "MAT for Dosing Pump by Prominent / Al Maymanah Material Category: C0":
-         the maker after "by", the subcontractor after the slash. The maker is
-         linked if it is a vendor here; the subcontractor is kept by name. */
-      var by=/\bby\s+(.+?)(?:\s+(?:material\s+)?categor|\s*$)/i.exec(d.title||'');
-      if(by){
-        var parts=by[1].split('/').map(trim).filter(Boolean);
-        var maker=parts[0]||'', sub=parts[1]||'';
-        /* a name taken from a pre-qualification title runs on into its
-           scope ("Al Maymanah Contracting Co. Water Treatment Plants"), so
-           one name starting with the other is a match */
-        var same=function(a,b){a=coName(a);b=coName(b);return !!(a&&b&&(a===b||a.indexOf(b+' ')===0||b.indexOf(a+' ')===0));};
-        var hit=(DB.mfrs||[]).filter(function(v){return maker&&same(v.name,maker);})[0]
-          ||(DB.mfrs||[]).filter(function(v){return sub&&same(v.name,sub);})[0];
-        if(hit)m.mfr=String(hit.id);
-        if(sub&&!m.sub)m.sub=sub;
-      }
-    }
     DB.mats.push(m);mats++;
   });
   touch();rList();rPane();
