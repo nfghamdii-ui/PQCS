@@ -2117,7 +2117,7 @@ var OTHER_PAGES=[
   ['paa','PAA','Personnel Approval (PAA)'],
   ['pqd','PQD','Pre-qualification (PQD)']];
 var OTHER_KIND={};OTHER_PAGES.forEach(function(p){OTHER_KIND[p[0]]=p[1];});
-function isOtherView(v){return !!OTHER_KIND[v]||v==='odoc'||v==='alldoc';}
+function isOtherView(v){return !!OTHER_KIND[v]||v==='odoc'||v==='alldoc'||v==='allmir';}
 /* the kinds without a page of their own */
 function oddKind(m){
   return isDoc(m)&&m.doc!=='MIR'&&!OTHER_PAGES.some(function(p){return p[1]===m.doc;});
@@ -2145,7 +2145,8 @@ window.markSite=function(id,on){
 };
 function viewHas(v,m){
   if(v==='mat'||v==='ipi'||v==='fat'||v==='irn')return !isDoc(m);
-  if(v==='mir')return m.doc==='MIR';
+  if(v==='mir')return m.doc==='MIR'&&!isLinked(m);
+  if(v==='allmir')return m.doc==='MIR';
   if(v==='doc')return waitsForLink(m)&&(!DOCKIND||m.doc===DOCKIND);
   if(OTHER_KIND[v])return m.doc===OTHER_KIND[v];
   if(v==='odoc')return oddKind(m);
@@ -2157,7 +2158,7 @@ function inView(m){return viewHas(VIEW,m);}
 function viewFor(m){
   if(viewHas(VIEW,m))return VIEW;
   if(!isDoc(m))return 'mat';
-  if(m.doc==='MIR')return 'mir';
+  if(m.doc==='MIR')return isLinked(m)?'allmir':'mir';
   if(waitsForLink(m))return 'doc';
   var p=OTHER_PAGES.filter(function(x){return x[1]===m.doc;})[0];
   return p?p[0]:'odoc';
@@ -2172,11 +2173,7 @@ function docsOf(m){
 function looseMir(){
   return (DB.mats||[]).filter(function(m){return m.doc==='MIR'&&!isLinked(m);});
 }
-window.showLooseMir=function(){
-  setTab('mir');
-  TBLQ[TBL]=TBLQ[TBL]||{};TBLQ[TBL].lnk='Not linked';
-  TBLN[TBL]=PAGE_ROWS;rPane();
-};
+window.showLooseMir=function(){setTab('mir');};
 function servedBy(doc){
   return (DB.mats||[]).filter(function(m){
     return (m.docs||[]).some(function(id){return String(id)===String(doc.id);});
@@ -2265,11 +2262,13 @@ function paintTabs(){
       /* each inspection page counts the reports recorded on it */
       (m.visits||[]).forEach(function(v){if(n[v.step]!=null&&stepApplies(m,v.step))n[v.step]++;});
     }
-    else if(m.doc==='MIR')n.mir++;
+    else if(m.doc==='MIR'){if(!isLinked(m))n.mir++;}
     else if(waitsForLink(m))n.doc++;
   });
   var ot=document.getElementById('tab-other');
-  if(ot)ot.setAttribute('aria-selected',String(TAB==='mat'&&isOtherView(VIEW)&&VIEW!=='paa'&&VIEW!=='pqd'));
+  if(ot)ot.setAttribute('aria-selected',String(TAB==='mat'&&isOtherView(VIEW)&&VIEW!=='paa'&&VIEW!=='pqd'&&VIEW!=='allmir'));
+  var mt=document.getElementById('tab-mir');
+  if(mt&&TAB==='mat'&&VIEW==='allmir')mt.setAttribute('aria-selected','true');
   /* the PQD page is the Vendors tab's second page */
   var vt=document.getElementById('tab-mfr');
   if(vt)vt.setAttribute('aria-selected',String(TAB==='mfr'||(TAB==='mat'&&VIEW==='pqd')));
@@ -2279,7 +2278,7 @@ function paintTabs(){
   ['mat','mir','doc','ipi','fat','irn'].forEach(function(k){
     var c=document.getElementById('n-'+k);if(c)c.textContent=n[k];
     var t=document.getElementById('tab-'+k);
-    if(t)t.setAttribute('aria-selected',String(TAB==='mat'&&VIEW===k));
+    if(t)t.setAttribute('aria-selected',String(TAB==='mat'&&(VIEW===k||(k==='mir'&&VIEW==='allmir'))));
   });
   ['rep','tbl','avl'].forEach(function(k){
     var t=document.getElementById('tab-'+k);
@@ -2515,9 +2514,10 @@ function install2(){
     var el=document.getElementById('pane');if(!el)return;
     /* first in the band's one row, so a record's band is no taller than any other */
     var h=el.querySelector('.head .head-m')||el.querySelector('.head .wrap')||el;
-    h.insertAdjacentHTML('afterbegin','<button class="btn btn-s backbtn no-print" onclick="listBack()">← All '
-      +esc(/^[a-z][a-z ]*$/i.test(TABLES_DEF[lk].label)&&!/ [A-Z]/.test(TABLES_DEF[lk].label)
-        ?TABLES_DEF[lk].label.toLowerCase():TABLES_DEF[lk].label)+'</button>');
+    h.insertAdjacentHTML('afterbegin','<button class="btn btn-s backbtn no-print" onclick="listBack()">← '
+      +esc(/^All /.test(TABLES_DEF[lk].label)?TABLES_DEF[lk].label
+        :'All '+(/^[a-z][a-z ]*$/i.test(TABLES_DEF[lk].label)&&!/ [A-Z]/.test(TABLES_DEF[lk].label)
+        ?TABLES_DEF[lk].label.toLowerCase():TABLES_DEF[lk].label))+'</button>');
   }
   window.listBack=function(){RECORD=false;rPane();};
   /* One band, one height, on every page: its title and one row. Any
@@ -2944,7 +2944,7 @@ window.showLoosePaa=function(){
 window.unlink=function(matId,docId){
   var m=mat(matId);if(!m)return;
   m.docs=(m.docs||[]).filter(function(x){return String(x)!==String(docId);});
-  touch();rPane();
+  touch();rPane();paintTabs();
 };
 window.linkPick=function(matId,q){
   var m=mat(matId);if(!m)return;
@@ -2986,7 +2986,7 @@ window.linkAdd=function(matId,docId){
   m.docs=m.docs||[];
   if(m.docs.indexOf(docId)<0&&!m.docs.some(function(x){return String(x)===String(docId);}))
     m.docs.push(docId);
-  touch();closeSheet();rPane();
+  touch();closeSheet();rPane();paintTabs();
   var d=mat(docId);
   toast('Linked '+(d?d.doc:'the document')+' — it still serves '
     +(d?servedBy(d).length:1)+' material'+((d&&servedBy(d).length!==1)?'s':''));
@@ -4114,6 +4114,22 @@ function docTable(label,keep,withKind,withLink){
     open:function(r){jump('mat',r.id);},
     cols:cols,show:cols.map(function(c){return c.k;})};
 }
+function mirTable(label,keep,withLink,extra){
+  var cols=[
+    col('Title','name',function(r){return r.name;},'text',460),
+    col('Number','no',function(r){return refOf(r);},'text',300),
+    col('Category','cat',function(r){return r.cat;},'pick',90),
+    col('Discipline','disc',function(r){return r.disc;},'pick',150),
+    asTag(col('Status','st',function(r){return rawOf(r,'MIR Status')||rawOf(r,'MAT Status');},'pick',170)),
+    col('Date','dt',function(r){return show(rawOf(r,'MIR Approval Date')||rawOf(r,'MAT Submittal Date'));},'text',110)];
+  if(withLink)cols.push(
+    asTag(col('Linked','lnk',function(r){return isLinked(r)?'Linked':'Not linked';},'pick',120),
+      function(v){return v==='Not linked'?'bad':'ok';}),
+    col('Linked to','on',function(r){var x=servedBy(r);return x.length?x[0].name:'';},'text',360));
+  return {label:label,rows:function(){return (DB.mats||[]).filter(keep);},
+    open:function(r){jump('mat',r.id);},extra:extra,
+    cols:cols,show:cols.map(function(c){return c.k;})};
+}
 var TABLES_DEF={
  ipi:visitTable('ipi','In-Process Inspection'),
  itp:docTable('Inspection & Test Plan',function(m){return m.doc==='ITP';},false,true),
@@ -4174,23 +4190,15 @@ var TABLES_DEF={
     asNum(col('Consignments','ndel',function(r){return String((r.dels||[]).length||'');},'text',110))],
    show:['name','cat','disc','ven','vst','stage','who','prog','matst','itpst']},
 
- mir:{label:'Inspection requests',rows:function(){return (DB.mats||[]).filter(function(m){return m.doc==='MIR';});},
-   open:function(r){jump('mat',r.id);},
-   /* the requests still waiting for a material, in one press */
-   extra:function(){var n=looseMir().length;
-     return n?('<button class="btn btn-s" style="border-color:#ffcc3e" onclick="showLooseMir()">'
-       +n+' not linked to a material</button>'):'';},
-   cols:[
-    col('Title','name',function(r){return r.name;},'text',460),
-    col('Number','no',function(r){return refOf(r);},'text',300),
-    col('Category','cat',function(r){return r.cat;},'pick',90),
-    col('Discipline','disc',function(r){return r.disc;},'pick',150),
-    asTag(col('Status','st',function(r){return rawOf(r,'MIR Status')||rawOf(r,'MAT Status');},'pick',170)),
-    col('Date','dt',function(r){return show(rawOf(r,'MIR Approval Date')||rawOf(r,'MAT Submittal Date'));},'text',110),
-    asTag(col('Linked','lnk',function(r){return servedBy(r).length?'Linked':'Not linked';},'pick',120),
-      function(v){return v==='Not linked'?'bad':'ok';}),
-    col('Linked to','on',function(r){var s=servedBy(r);return s.length?s[0].name:'';},'text',360)],
-   show:['name','no','cat','disc','st','dt','lnk','on']},
+ /* The MIR tab is the work still to do, as Documents is: a request
+    leaves it once a material links it, and every request, linked or
+    not, is on "All MIR" to look things up in. */
+ mir:mirTable('Material Inspection Request',function(m){return m.doc==='MIR'&&!isLinked(m);},false,
+   function(){var n=(DB.mats||[]).filter(function(m){return m.doc==='MIR';}).length;
+     return '<span class="chip flat">Not linked to a material yet</span>'
+       +'<button class="btn btn-s" onclick="setTab(\'allmir\')">All MIR '+n+'</button>';}),
+ allmir:mirTable('All MIR',function(m){return m.doc==='MIR';},true,
+   function(){return '<button class="btn btn-s" onclick="setTab(\'mir\')">\u2190 Not linked yet</button>';}),
 
  /* the work still to do; once linked a document is found under Other */
  doc:(function(d){d.extra=function(){return '<span class="chip flat">Not linked to a material yet</span>';};return d;})(
