@@ -1310,10 +1310,15 @@ async function readRegister(file){
 /* ---------------------------------------------------------------
    What the register says against what the tracker holds.
    --------------------------------------------------------------- */
+/* Types the tracker does not keep. Work inspection requests are site
+   work, and seventeen thousand of them made every page slow; the
+   register's rows of that type are passed over, not brought in. */
+var SKIP_TYPE={'work inspection request':1};
 function planRegister(reg){
   var idx=refIndex();
   var p={moved:[],ended:[],locked:[],same:[],newC23:[],newPlain:[],newC01:[],unknown:0,dead:[]};
   reg.forEach(function(d){
+    if(SKIP_TYPE[K(d.type)])return;
     var hits=idx[K(d.no)];
     /* Every document Aconex calls terminated, whatever the tracker holds
        and whichever column says it — listed on its own so it can be read
@@ -2393,7 +2398,7 @@ function otherMenu(btn){
     var p=OTHER_PAGES.filter(function(x){return x[1]===m.doc;})[0];
     var k=p?p[0]:'odoc';n[k]=(n[k]||0)+1;
   });
-  var items=OTHER_PAGES.filter(function(p){return p[0]!=='paa'&&p[0]!=='pqd';}).map(function(p){return [p[0],p[2]];})
+  var items=OTHER_PAGES.filter(function(p){return p[0]!=='paa'&&p[0]!=='pqd'&&n[p[0]];}).map(function(p){return [p[0],p[2]];})
     .concat(n.odoc?[['odoc','Other kinds']]:[]).concat([['alldoc','All documents']]);
   var box=document.createElement('div');
   box.id='other-menu';box.className='other-menu';box.setAttribute('role','menu');
@@ -2402,7 +2407,10 @@ function otherMenu(btn){
     return '<button role="menuitem"'+(TAB==='mat'&&VIEW===it[0]?' aria-current="true"':'')
       +' onclick="otherGo(\''+it[0]+'\')"><span>'+esc(it[1])+'</span>'
       +'<span class="n">'+c+'</span></button>';
-  }).join('');
+  }).join('')
+    +(n.wir?('<button role="menuitem" style="color:var(--bad,#b3261e);border-top:1px solid var(--line);'
+      +'border-radius:0 0 7px 7px;margin-top:4px" onclick="dropWir()"><span>Remove all WIR</span>'
+      +'<span class="n">'+n.wir+'</span></button>'):'');
   document.body.appendChild(box);
   var r=btn.getBoundingClientRect();
   box.style.top=(r.bottom+4)+'px';
@@ -2417,6 +2425,34 @@ function otherMenu(btn){
     document.addEventListener('click',shut);document.addEventListener('keydown',shut);
   },0);
 }
+window.dropWir=function(){
+  var m0=document.getElementById('other-menu');if(m0)m0.remove();
+  var n=(DB.mats||[]).filter(function(m){return m.doc==='WIR';}).length;
+  if(!n)return toast('No WIR left');
+  sheet('Remove all WIR',
+     '<div style="font-size:14px;line-height:1.8">This deletes the <b>'+n+'</b> work inspection '
+    +'requests from the tracker, and takes them off any material they were linked to. '
+    +'Nothing else is touched, and Aconex keeps them all.'
+    +'<br><br>Uploading the register afterwards will not bring them back \u2014 it passes over '
+    +'the WIR type. Saving the deletion takes a moment.</div>'
+    +'<div class="f-act" style="margin-top:22px">'
+    +'<button class="btn btn-d" onclick="dropWirYes()">Remove '+n+' WIR</button>'
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button></div>');
+};
+window.dropWirYes=function(){
+  var gone={};
+  (DB.mats||[]).forEach(function(m){if(m.doc==='WIR')gone[String(m.id)]=1;});
+  var n=Object.keys(gone).length;
+  DB.mats=(DB.mats||[]).filter(function(m){return !gone[String(m.id)];});
+  DB.mats.forEach(function(m){
+    if(m.docs&&m.docs.some(function(id){return gone[String(id)];}))
+      m.docs=m.docs.filter(function(id){return !gone[String(id)];});
+  });
+  closeSheet();
+  if(TAB==='mat'&&VIEW==='wir')setTab('doc');
+  touch();rList();rPane();
+  toast(n+' WIR removed \u2014 saving');
+};
 window.otherGo=function(k){
   var m=document.getElementById('other-menu');if(m)m.remove();
   setTab(k);
