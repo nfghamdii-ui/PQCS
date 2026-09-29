@@ -1699,7 +1699,7 @@ window.startOver=function(){
     n={mat:0,ven:0,doc:0,mir:0,dead:0};
     r.rows.forEach(function(d){
       var want=verdictOf(d.review)||verdictOf(d.status);
-      if(verdictOf(d.status)==='Terminated'||want==='Terminated'){n.dead++;return;}
+      if(verdictOf(d.status)==='Terminated'||want==='Terminated')n.dead++;   /* counted, and kept */
       if(K(d.type)==='pre-qualification')n.ven++;
       else{var k=docKind(d.no,d.type);if(!k)n.mat++;else if(k==='MIR')n.mir++;else n.doc++;}
     });
@@ -1718,7 +1718,7 @@ window.startOver=function(){
     +(n?('<div style="margin-bottom:10px"><b>'+esc(SO.file)+'</b>'
         +(r.revisions?(' <span class="dim">· '+r.revisions+' older revisions set aside</span>'):'')+'</div>'
         +'<div class="grid">'+stat(n.mat,'Materials')+stat(n.ven,'Vendors')+stat(n.mir,'Inspection requests')
-        +stat(n.doc,'Other documents')+stat(n.dead,'Terminated, left out')+'</div>')
+        +stat(n.doc,'Other documents')+stat(n.dead,'Of them terminated, kept as terminated')+'</div>')
       :'<div class="dim" style="margin-bottom:10px">The register export from Aconex (Document register → Export).</div>')
     +'<button class="btn'+(n?'':' btn-p')+'" onclick="soPick()">'+(n?'Choose another file':'Choose the register')+'</button>'
     +'</div></div>'
@@ -1968,16 +1968,14 @@ function createFromRegister(p,tag,opts){
   opts=opts||{};
   var made={n:1,vendors:[],id:idMaker()},mats=0,vends=0;
   var all=p.newC23.concat(p.newPlain,p.newC01);
-  /* starting over: a dead document makes no record of its own, and the
-     pre-qualifications go first so the materials can find their vendors */
-  if(opts.fresh){
-    all=all.filter(function(d){return d.want!=='Terminated';});
-    all.sort(function(a,b){return (K(b.type)==='pre-qualification')-(K(a.type)==='pre-qualification');});
-  }
+  /* Starting over, the project is the register as it stands: every
+     document makes its record, a terminated one included (it carries
+     Terminated as its status), and every pre-qualification is a vendor
+     of its own — the counts match Aconex's. */
   all.forEach(function(d){
     if(K(d.type)==='pre-qualification'){
       var name=companyOf(d.title);
-      var twin=(DB.mfrs||[]).filter(function(v){return K(v.name)===K(name);})[0];
+      var twin=opts.fresh?null:(DB.mfrs||[]).filter(function(v){return K(v.name)===K(name);})[0];
       var v=twin||{id:made.id(),name:name,kind:kindOfTitle(d.title),cat:d.cat||'',
         country:'',site:'',scope:'',steps:{},pq:{},added:today()};
       v.scope=v.scope||d.title;
