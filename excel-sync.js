@@ -3890,18 +3890,8 @@ function tablePane(list){
         +'<button class="th-b" onclick="tblSort(\''+c.k+'\')">'+esc(c.t)+mark+'</button>'
         +tblFilter(c,rows)+'</th>';
     }).join('')
-    +'</tr></thead><tbody>'
-    +rows.slice(0,upto).map(function(r){
-      return '<tr onclick="tblOpen('+r.id+')">'
-        +cols.map(function(c){
-          var v=cellOf(r,c), t=(v!==''&&c.tone)?c.tone(v,r):'';
-          var cls=[c.kind==='pick'?'nowrap':'',c.num?'num':''].filter(Boolean).join(' ');
-          var sub=c.sub?trim(c.sub(r)):'';
-          return '<td'+(cls?' class="'+cls+'"':'')+(v.length>40?' title="'+attr(v)+'"':'')+'>'
-            +(t?('<span class="tag t-'+t+'">'+esc(v)+'</span>'):esc(v))
-            +(sub?'<div class="cell-sub" title="'+attr(sub)+'">'+esc(sub)+'</div>':'')+'</td>';
-        }).join('')+'</tr>';
-    }).join('')
+    +'</tr></thead><tbody id="tbl-rows">'
+    +rows.slice(0,upto).map(function(r){return tblRow(r,cols);}).join('')
     +'</tbody></table>'
     +(upto<rows.length?('<div class="dim" style="padding:16px;text-align:center" id="tbl-more">'
       +'showing '+upto+' of '+rows.length+' — scroll for more</div>'):'')
@@ -3955,15 +3945,42 @@ window.tblOpen=function(id){
   var r=rows.filter(function(x){return String(x.id)===String(id);})[0];
   if(r)d.open(r);
 };
+function tblRow(r,cols){
+  return '<tr onclick="tblOpen('+r.id+')">'
+    +cols.map(function(c){
+      var v=cellOf(r,c), t=(v!==''&&c.tone)?c.tone(v,r):'';
+      var cls=[c.kind==='pick'?'nowrap':'',c.num?'num':''].filter(Boolean).join(' ');
+      var sub=c.sub?trim(c.sub(r)):'';
+      return '<td'+(cls?' class="'+cls+'"':'')+(v.length>40?' title="'+attr(v)+'"':'')+'>'
+        +(t?('<span class="tag t-'+t+'">'+esc(v)+'</span>'):esc(v))
+        +(sub?'<div class="cell-sub" title="'+attr(sub)+'">'+esc(sub)+'</div>':'')+'</td>';
+    }).join('')+'</tr>';
+}
+/* Near the bottom, the next rows are added under the ones already drawn.
+   Redrawing the whole table instead, then setting the scroll back, ran
+   through the page's smooth scrolling from the top — so reaching the end
+   of a long list seemed to throw you back to its start. */
+var TBL_ADDING=false;
 window.tblScroll=function(el){
+  if(TBL_ADDING)return;
   if(el.scrollTop+el.clientHeight<el.scrollHeight-400)return;
+  var body=document.getElementById('tbl-rows');
   var rows=filtered();
-  if(TBLN[TBL]>=rows.length)return;
-  TBLN[TBL]+=PAGE_ROWS;
-  var keep=el.scrollTop;
-  rPane();
-  var again=document.getElementById('tbl-body');
-  if(again)again.scrollTop=keep;
+  var from=TBLN[TBL]||PAGE_ROWS;
+  if(from>=rows.length)return;
+  TBL_ADDING=true;
+  try{
+    var upto=Math.min(from+PAGE_ROWS,rows.length);
+    TBLN[TBL]=upto;
+    if(!body){rPane();return;}
+    var cols=shownCols();
+    body.insertAdjacentHTML('beforeend',rows.slice(from,upto).map(function(r){return tblRow(r,cols);}).join(''));
+    var more=document.getElementById('tbl-more');
+    if(more){
+      if(upto>=rows.length)more.parentNode.removeChild(more);
+      else more.textContent='showing '+upto+' of '+rows.length+' — scroll for more';
+    }
+  }finally{TBL_ADDING=false;}
 };
 window.tblCols=function(){
   var d=tdef();
