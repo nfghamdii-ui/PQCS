@@ -1363,6 +1363,21 @@ function planRegister(reg){
     });
   }
   tidy(p.newC23);tidy(p.newPlain);tidy(p.newC01);
+  /* Aconex says whose each pre-qualification is: its title names the
+     company. Where one number sits on several vendors, the one the title
+     names — or the one made from this very document — keeps it, and the
+     others are listed to have it taken off. One number, one company. */
+  p.wrongPq=[];
+  reg.forEach(function(d){
+    if(!/pre-?qualification/.test(K(d.type))&&!/-PRQ-/i.test(d.no))return;
+    var holders=(DB.mfrs||[]).filter(function(v){return K(pqOf(v).ref||'')===K(d.no);});
+    if(holders.length<2)return;
+    var co=coName(companyOf(d.title));
+    var owner=holders.filter(function(v){return K(v.scope||'')===K(d.title);})[0]
+      ||holders.filter(function(v){var n=coName(v.name);return n&&co&&(n===co||co.indexOf(n)===0||n.indexOf(co)===0);})[0]
+      ||pqGuess({list:holders});
+    p.wrongPq.push({d:d,owner:owner,others:holders.filter(function(v){return v!==owner;})});
+  });
   return p;
 }
 
@@ -1480,6 +1495,18 @@ function applyRegister(p,alsoEnded,tag){
   }
   p.moved.forEach(write);
   if(alsoEnded)p.ended.forEach(write);
+  /* a number on a vendor that Aconex says is someone else's comes off it;
+     the vendor is marked as brought by the holder if nothing else is said */
+  (p.wrongPq||[]).forEach(function(w){
+    w.others.forEach(function(v){
+      var k='v|'+((v.kind==='agency')?'appr':'pqd');
+      var before=tag?regState(v,k):null;
+      if(v.steps)delete v.steps[(v.kind==='agency')?'appr':'pqd'];
+      if(!v.by)v.by=w.owner.name;
+      if(tag)regNote(v,tag,k,before);
+      n++;
+    });
+  });
   touch();rList();rPane();
   return n;
 }
@@ -1591,15 +1618,29 @@ function showRegister(){
   body+=regBlock('New · no category named in the title',p.newPlain,newRow,25);
   body+=regBlock('New · category 0 and 1 — this tracker does not follow these',p.newC01,newRow,10);
   body+=regBlock('Shares a cell with other references',p.locked,regRow,15);
+  var wq=p.wrongPq||[];
+  if(wq.length)body+='<div class="sec">One pre-qualification number on several vendors <span class="dim">'+wq.length+'</span></div>'
+    +'<div class="panel"><div class="panel-b">'
+    +'<div class="dim" style="font-size:12.5px;margin-bottom:10px">Aconex names the company each number belongs to. '
+    +'On applying, the number stays with that company and comes off the others, which are marked as brought by it '
+    +'where nothing else is recorded.</div>'
+    +wq.slice(0,60).map(function(w){
+      return '<div class="line"><span class="tag t-ok" style="min-width:118px;text-align:center;flex-shrink:0">keeps it</span>'
+        +'<div class="line-m"><div><b>'+esc(w.owner.name)+'</b> <span class="mono dim">'+esc(w.d.no)+'</span></div>'
+        +'<div class="dim" style="font-size:12.5px;margin-top:2px">comes off: '
+        +esc(w.others.map(function(v){return v.name;}).join(', '))+'</div></div></div>';
+    }).join('')+more(wq.length,60)+'</div></div>';
   if(p.dead.length)body+='<div id="reg-dead"></div>'+regBlock('Terminated in Aconex — all of them, whatever the tracker holds',
     p.dead,deadRow,p.dead.length);
 
   var fresh=p.newC23.length+p.newPlain.length+p.newC01.length;
   body+='<div class="f-act" style="margin-top:22px">'
-   +((p.moved.length||fresh)?('<button class="btn btn-p" onclick="regAll()">Do it all — '
-      +p.moved.length+' updated, '+fresh+' brought in</button>'):'')
-   +(p.moved.length?('<button class="btn" onclick="regApply(false)">Only the '
-      +p.moved.length+' that moved</button>'):'')
+   +((p.moved.length||fresh||wq.length)?('<button class="btn btn-p" onclick="regAll()">Do it all — '
+      +p.moved.length+' updated, '+fresh+' brought in'+(wq.length?(', '+wq.length+' number'+(wq.length===1?'':'s')+' put right'):'')+'</button>'):'')
+   +((p.moved.length||wq.length)?('<button class="btn" onclick="regApply(false)">'
+      +(p.moved.length?('Only the '+p.moved.length+' that moved'):'')
+      +(p.moved.length&&wq.length?' and ':'')
+      +(wq.length?((p.moved.length?'the ':'Only put right the ')+wq.length+' shared number'+(wq.length===1?'':'s')):'')+'</button>'):'')
    +(p.ended.length?('<button class="btn" onclick="regApply(true)">Apply those and mark the '
       +p.ended.length+' terminated</button>'):'')
    +(fresh?('<button class="btn" onclick="regAddAll()">Bring in all '+fresh
@@ -1643,6 +1684,8 @@ window.regAll=function(){
     +(p.ended.length?(', and mark '+p.ended.length+' terminated'):'')+'.'
     +'<br><b>2.</b> Bring in '+fresh+' new record'+(fresh===1?'':'s')+', every one marked '
     +'unreviewed so it can be told from what was already here.'
+    +((p.wrongPq||[]).length?('<br><b>3.</b> Put right '+p.wrongPq.length+' pre-qualification number'
+      +(p.wrongPq.length===1?'':'s')+' that sit on more than one vendor, keeping each on the company Aconex names.'):'')
     +'<br><br>The whole intake can be taken back afterwards from '
     +'<b>More \u2192 Waiting to be reviewed</b>, as long as you have not marked it reviewed. '
     +'Saving '+fresh+' records takes a moment; the percentage beside the project name says '
