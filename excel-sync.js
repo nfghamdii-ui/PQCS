@@ -1779,7 +1779,10 @@ var NEW_AS={
  'material submittal':          {n:'MAT Number',d:'MAT Submittal Date',r:'MAT Revision',s:'MAT Status'},
  'inspection & test plan':      {n:'ITP Number',d:'ITP Submittal Date',r:'ITP Revision',s:'ITP Status'},
  'method statement':            {n:'Method Statement Number',d:null,r:'MES Revision',s:'MES Status'},
- 'material inspection request': {n:'MIR Number',d:'MIR Approval Date',r:null,s:'MIR Status'}
+ 'material inspection request': {n:'MIR Number',d:'MIR Approval Date',r:null,s:'MIR Status'},
+ /* the inspection of work done on site; its number keeps its own column,
+    so the next upload finds it and brings its outcome up to date */
+ 'work inspection request':     {n:'WIR Number',d:'WIR Approval Date',r:null,s:'WIR Status'}
 };
 
 /* The company a pre-qualification is about, dug out of its title.
@@ -1848,6 +1851,7 @@ function docKind(ref,type){
   /* in this project's register as well: material samples, and the forms
      that put the project's own staff up for approval (BIM, HSSE and the
      like) — documents, neither of them a material */
+  if(t==='work inspection request'||t==='wir')return 'WIR';
   if(t==='material sample')return 'MAS';
   if(t==='personnel approval form')return 'PAA';
   var r=String(ref||'').toUpperCase();
@@ -1869,7 +1873,8 @@ function rawFromDoc(d){
   raw['Item Description']=d.title||d.no;
   if(d.cat)raw['Material Category']='Category '+d.cat;
   if(d.disc)raw['Discipline']=plainDisc(d.disc);
-  var w=NEW_AS[K(d.type)];
+  /* by its type, or — where the type is worded otherwise — by the code in its number */
+  var w=NEW_AS[K(d.type)]||({WIR:NEW_AS['work inspection request'],MIR:NEW_AS['material inspection request']}[docKind(d.no,d.type)]);
   if(w){
     raw[w.n]=d.no;
     if(w.d&&d.date)raw[w.d]=d.date;
@@ -3821,7 +3826,7 @@ var TABLES_DEF={
     col('Discipline','disc',function(r){return r.disc;},'pick',150),
     asTag(col('Status','st',function(r){
       var raw=r.raw||{};
-      return raw['MES Status']||raw['ITP Status']||raw['PID Status']||raw['MAT Status']||'';},'pick',170)),
+      return raw['MES Status']||raw['ITP Status']||raw['PID Status']||raw['WIR Status']||raw['MAT Status']||'';},'pick',170)),
     col('Revision','rev',function(r){
       var raw=r.raw||{};
       return raw['MES Revision']||raw['ITP Revision']||raw['PID Revision']||raw['MAT Revision']||'';},'pick',90),
