@@ -2059,7 +2059,7 @@ function liftTabs(){
     if(after&&after.parentNode===tabs){tabs.insertBefore(b,after.nextSibling);after=b;}
     else tabs.appendChild(b);
   });
-  [['tbl','Table'],['rep','Reports']].forEach(function(p){
+  [['avl','AVL'],['tbl','Table'],['rep','Reports']].forEach(function(p){
     var b=document.createElement('button');
     b.className='tab';b.id='tab-'+p[0];b.setAttribute('role','tab');
     b.setAttribute('aria-selected','false');
@@ -2082,7 +2082,7 @@ function paintTabs(){
     var t=document.getElementById('tab-'+k);
     if(t)t.setAttribute('aria-selected',String(TAB==='mat'&&VIEW===k));
   });
-  ['rep','tbl'].forEach(function(k){
+  ['rep','tbl','avl'].forEach(function(k){
     var t=document.getElementById('tab-'+k);
     if(t)t.setAttribute('aria-selected',String(TAB===k));
   });
@@ -2214,7 +2214,7 @@ function install2(){
   window.setTab=function(t){
     RECORD=false;                            /* a tab opens on its list */
     if(t==='mir'||t==='doc'){VIEW=t;if(t!=='doc')DOCKIND='';origSetTab('mat');}
-    else if(t==='rep'||t==='tbl'){
+    else if(t==='rep'||t==='tbl'||t==='avl'){
       VIEW='mat';DOCKIND='';
       origSetTab('home');          /* borrows the shape of a page with no list */
       window.TAB=t;
@@ -2235,7 +2235,7 @@ function install2(){
        undefined. Applying a file while standing on Reports threw there,
        and the throw came before the save, so the work sat in memory
        looking as though it were being written. */
-    if(TAB==='rep'||TAB==='tbl'){paintTabs();return;}
+    if(TAB==='rep'||TAB==='tbl'||TAB==='avl'){paintTabs();return;}
     if(TAB==='mfr'){withVendors(origList);venChips();paintTabs();return;}
     if(TAB!=='mat'){origList();paintTabs();return;}
     withSubset(origList);
@@ -2255,9 +2255,9 @@ function install2(){
       if(el0)el0.innerHTML=tablePane(true);
       return;
     }
-    if(TAB==='rep'||TAB==='tbl'){
+    if(TAB==='rep'||TAB==='tbl'||TAB==='avl'){
       var el=document.getElementById('pane');
-      if(el)el.innerHTML=(TAB==='tbl'?tablePane():reportsPane());
+      if(el)el.innerHTML=(TAB==='tbl'?tablePane():TAB==='avl'?avlPane():reportsPane());
       return;
     }
     if(TAB==='home')return withMaterials(origPane);
@@ -3513,6 +3513,31 @@ var TABLES_DEF={
     col('Brought by','by',function(r){return r.by||'';},'pick',180)],
    show:['name','kind','vcat','pqd','isoall','visit','loc','where']},
 
+ avl:{label:'SEVEN vendor list',rows:function(){return AVL?AVL.rows:[];},
+   open:function(){},                      /* reference: nothing to open */
+   extra:function(){
+     return '<span class="chip flat">'+esc(AVL&&AVL.rev?('Revision '+AVL.rev):(AVL?AVL.file:''))+'</span>'
+       +'<button class="btn btn-s" onclick="avlPick()">Upload a new revision</button>';},
+   cols:[
+    col('Material','mat',function(r){return r.mat;},'text',320),
+    col('Manufacturer','mfr',function(r){return r.mfr;},'text',260),
+    col('Category','cat',function(r){return r.cat;},'pick',90),
+    asTag(col('Status','status',function(r){return r.status;},'pick',130),
+      function(v){return {'Approved':'ok','Re-assessed':'ok','Disapproved':'bad','On hold':'now',
+        'Pending':'wait','Under monitoring':'now'}[v]||'';}),
+    col('Discipline','disc',function(r){return r.disc;},'pick',150),
+    col('Segment','seg',function(r){return r.seg;},'pick',160),
+    col('Country','country',function(r){return r.country;},'pick',140),
+    /* already one of this project's vendors, by name */
+    asTag(col('On project','onp',function(r){return onProject(r.mfr)?'Yes':'';},'pick',100),function(v){return v?'wait':'';}),
+    col('Project','project',function(r){return r.project;},'pick',140),
+    col('Limitations','limit',function(r){return r.limit;},'text',260),
+    col('Supplier','supplier',function(r){return r.supplier;},'text',200),
+    col('Remarks','remarks',function(r){return r.remarks;},'text',220),
+    col('Assessed','date',function(r){return r.date?show(r.date):'';},'text',110),
+    col('Sheet','sh',function(r){return r.sh;},'pick',70)],
+   show:['mat','mfr','cat','status','disc','country','onp','limit']},
+
  insp:{label:'Inspectors',rows:function(){return (DB.people||[]).slice();},
    open:function(r){jump('insp',r.id);},
    cols:[
@@ -3523,6 +3548,222 @@ var TABLES_DEF={
     col('Reference','ref',function(r){return r.ref||'';},'text',240)],
    show:['name','agency','disc','status','ref']}
 };
+
+/* ================================================================
+   SEVEN's vendor list (the AVL). The client's own list of which makers
+   are approved for which material — reference, not the project's own
+   vendors, so it sits in a tab of its own and is searched, not edited.
+   It is uploaded as SEVEN issues it and kept in one settings row, read
+   only when the tab is opened; a new revision replaces the old.
+   ================================================================ */
+var AVL=null, AVL_STATE='idle';               /* idle | loading | none | ready */
+/* The workbook read with the fill of each cell, because sheet A says
+   "re-assessed" and "disapproved" in colour, not in words. */
+async function avlBook(file){
+  var zip=await unzip(await file.arrayBuffer());
+  var wbDoc=parse(await textOf(zip['xl/workbook.xml']));
+  var relDoc=parse(await textOf(zip['xl/_rels/workbook.xml.rels']));
+  var rels={};
+  [].forEach.call(relDoc.getElementsByTagName('Relationship'),function(r){
+    rels[r.getAttribute('Id')]=r.getAttribute('Target').replace(/^\/?xl\//,'').replace(/^\//,'');});
+  var shared=[], ss=await textOf(zip['xl/sharedStrings.xml']);
+  if(ss)[].forEach.call(parse(ss).getElementsByTagName('si'),function(si){
+    var t='';[].forEach.call(si.getElementsByTagName('t'),function(n){t+=n.textContent;});shared.push(t);});
+  var xfFill=[], st=await textOf(zip['xl/styles.xml']);
+  if(st){
+    var sd=parse(st), fills=[];
+    var fe=sd.getElementsByTagName('fills')[0];
+    if(fe)[].forEach.call(fe.getElementsByTagName('fill'),function(f){
+      var pf=f.getElementsByTagName('patternFill')[0], fg=pf&&pf.getElementsByTagName('fgColor')[0];
+      fills.push(pf&&pf.getAttribute('patternType')==='solid'&&fg&&fg.getAttribute('rgb')?fg.getAttribute('rgb').toUpperCase():'');
+    });
+    var cx=sd.getElementsByTagName('cellXfs')[0];
+    if(cx)[].forEach.call(cx.getElementsByTagName('xf'),function(x){xfFill.push(fills[+x.getAttribute('fillId')||0]||'');});
+  }
+  var out=[];
+  [].forEach.call(wbDoc.getElementsByTagName('sheet'),function(s){
+    var id=s.getAttribute('r:id')||s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
+    out.push({name:s.getAttribute('name'),path:'xl/'+(rels[id]||'')});
+  });
+  for(var i=0;i<out.length;i++){
+    var doc=parse(await textOf(zip[out[i].path])), rows=[];
+    [].forEach.call(doc.getElementsByTagName('row'),function(r){
+      var line=[];
+      [].forEach.call(r.getElementsByTagName('c'),function(c){
+        var j=colNum(c.getAttribute('r')), t=c.getAttribute('t'), v='';
+        if(t==='inlineStr'){[].forEach.call(c.getElementsByTagName('t'),function(n){v+=n.textContent;});}
+        else{var vn=c.getElementsByTagName('v')[0];v=vn?vn.textContent:'';if(t==='s')v=shared[+v]||'';}
+        line[j]={v:v,fill:xfFill[+c.getAttribute('s')||0]||''};
+      });
+      rows[(+r.getAttribute('r')||rows.length+1)-1]=line;
+    });
+    out[i].rows=rows;
+  }
+  return out;
+}
+function avlStatus(s){
+  var k=K(s);
+  if(!k)return '';
+  if(/disapprov/.test(k))return 'Disapproved';
+  if(/hold/.test(k))return 'On hold';
+  if(/re-?assess/.test(k))return 'Re-assessed';
+  if(/pending/.test(k))return 'Pending';
+  if(/monitor/.test(k))return 'Under monitoring';
+  if(/approv/.test(k))return 'Approved';
+  if(/closed|award/.test(k))return 'Approved';
+  return trim(s);
+}
+/* Every sheet, read by its own headings. A segment or discipline written
+   once over a block of rows is carried down it. The ICT sheet lists up
+   to five vendors across a row and is read as a row each. */
+function avlRows(sheets){
+  var all=[], rev='';
+  sheets.forEach(function(sh){
+    var R=sh.rows, cell=function(r,j){return trim(((R[r]||[])[j]||{}).v);};
+    var tag=(/\(([A-Z])\)\s*$/.exec(sh.name)||[])[1]||sh.name;
+    for(var r=0;r<Math.min(R.length,8);r++)
+      (R[r]||[]).forEach(function(c,j){if(c&&K(c.v)==='revision date'&&!rev)rev=cell(r,j+2)||cell(r,j+1);});
+    /* the legend: a filled cell with its meaning beside it */
+    var legend={};
+    for(var lr=0;lr<Math.min(R.length,12);lr++){
+      var a=(R[lr]||[])[0];
+      if(a&&a.fill&&cell(lr,1))legend[a.fill]=avlStatus(cell(lr,1));
+    }
+    var head=-1,ict=false;
+    for(var h=0;h<Math.min(R.length,30)&&head<0;h++){
+      (R[h]||[]).forEach(function(c){
+        if(!c)return;
+        if(/^sr ?#?$/.test(K(c.v))&&head<0)head=h;
+        if(K(c.v)==='system name'&&head<0){head=h;ict=true;}
+      });
+    }
+    if(head<0)return;
+    var H={};(R[head]||[]).forEach(function(c,j){if(c&&trim(c.v))H[j]=K(c.v);});
+    function find(test){for(var j in H)if(test(H[j]))return +j;return -1;}
+    if(ict){
+      var sysJ=find(function(x){return x==='system name';});
+      var vJ=Object.keys(H).filter(function(j){return /^vendor \d/.test(H[j]);}).map(Number);
+      var seg='';
+      for(var r2=head+1;r2<R.length;r2++){
+        if(cell(r2,0))seg=cell(r2,0);
+        var sys=cell(r2,sysJ);if(!sys)continue;
+        vJ.forEach(function(j){var m=cell(r2,j);
+          if(m)all.push({sh:tag,seg:seg,disc:'ICT',mat:sys,cat:'',mfr:m,country:'',status:'Approved'});});
+      }
+      return;
+    }
+    var J={mat:find(function(x){return /material description/.test(x);}),
+      seg:find(function(x){return /segment/.test(x);}),
+      disc:find(function(x){return /discipline/.test(x);}),
+      cat:find(function(x){return /inspection category/.test(x);}),
+      mfr:find(function(x){return /^(mfr name|manufacturer name|company name)$/.test(x);}),
+      country:find(function(x){return x==='country';}),
+      status:find(function(x){return /approved/.test(x)&&!/commercial|pc approved/.test(x);}),
+      project:find(function(x){return x==='project';}),
+      limit:find(function(x){return /limitation/.test(x);}),
+      supplier:find(function(x){return /supplier name/.test(x);}),
+      remarks:find(function(x){return /remarks/.test(x);}),
+      date:find(function(x){return /assessment date/.test(x);})};
+    if(J.mfr<0)return;
+    var carry={seg:'',disc:'',mat:'',cat:''};
+    for(var r3=head+1;r3<R.length;r3++){
+      var get=function(k){return J[k]<0?'':cell(r3,J[k]);};
+      ['seg','disc','mat','cat'].forEach(function(k){var v=get(k);if(v)carry[k]=v;});
+      var mfr=get('mfr');if(!mfr)continue;
+      var fill=((R[r3]||[])[J.mfr]||{}).fill;
+      var status=avlStatus(get('status'))||(fill&&legend[fill])||'Approved';
+      var d=get('date');
+      all.push({sh:tag,seg:carry.seg,disc:carry.disc,mat:J.mat<0?carry.seg:carry.mat,cat:normCat(get('cat'))||get('cat'),
+        mfr:mfr,country:get('country'),status:status,project:get('project'),
+        limit:get('limit'),supplier:get('supplier'),remarks:get('remarks'),
+        date:d?(anyDate(isNaN(d)?d:Number(d))||d):''});
+    }
+  });
+  all.forEach(function(x,i){x.id=i+1;});
+  return {rev:rev,rows:all};
+}
+async function avlLoad(){
+  if(AVL_STATE==='loading'||AVL_STATE==='ready')return;
+  AVL_STATE='loading';
+  try{
+    var r=await client().from('settings').select('value').eq('key','avl').maybeSingle();
+    if(r.error)throw r.error;
+    AVL=(r.data&&r.data.value)||null;
+    AVL_STATE=AVL?'ready':'none';
+    if(AVL)AVL.rows.forEach(function(x,i){x.id=i+1;});
+  }catch(e){AVL_STATE='idle';toast('Could not read the vendor list — '+niceError(e));}
+  if(TAB==='avl')rPane();
+}
+window.avlPick=function(){
+  var f=document.getElementById('avl-file');
+  if(!f){f=document.createElement('input');f.type='file';f.id='avl-file';f.accept='.xlsx';
+    f.style.display='none';f.onchange=avlRead;document.body.appendChild(f);}
+  f.value='';f.click();
+};
+var AVL_NEW=null;
+async function avlRead(ev){
+  var file=ev.target.files[0];if(!file)return;
+  busy(true,'Reading the vendor list');
+  try{
+    var got=avlRows(await avlBook(file));
+    busy(false);
+    if(!got.rows.length)throw new Error('No manufacturer rows were found in that file.');
+    AVL_NEW={rev:got.rev,file:file.name,at:new Date().toISOString(),rows:got.rows};
+    var bySh={},bySt={};
+    got.rows.forEach(function(x){bySh[x.sh]=(bySh[x.sh]||0)+1;bySt[x.status]=(bySt[x.status]||0)+1;});
+    sheet('SEVEN vendor list — '+file.name,
+      '<div class="dim" style="font-size:13.5px;margin-bottom:16px">'
+      +got.rows.length+' manufacturer rows read'+(got.rev?(', revision '+esc(got.rev)):'')
+      +'. Nothing is saved yet. Saving replaces the list the project holds now'
+      +(AVL?(' ('+esc(AVL.rev||AVL.file)+')'):'')+'.</div>'
+      +'<div class="grid" style="margin-bottom:18px">'
+      +Object.keys(bySt).map(function(k){return stat(bySt[k],k);}).join('')+'</div>'
+      +'<div class="sec">By sheet</div><div class="panel"><div class="panel-b">'
+      +Object.keys(bySh).map(function(k){return '<div class="line"><span class="tag t-na">'+esc(k)+'</span>'
+        +'<div class="line-m">'+bySh[k]+' rows</div></div>';}).join('')+'</div></div>'
+      +'<div class="f-act" style="margin-top:20px"><button class="btn btn-p" onclick="avlSave()">Save to the project</button>'
+      +'<button class="btn-q" onclick="closeSheet()">Cancel</button></div>');
+  }catch(e){busy(false);sheet('That file could not be read','<div style="font-size:14px;line-height:1.75">'
+    +esc(e.message||String(e))+'<br><br>This reads SEVEN’s vendor list as it is issued '
+    +'(0DMQL00-DLVR-00-SEV-QM-TEM-00007), with its sheets A to G.</div>');}
+}
+window.avlSave=async function(){
+  if(!AVL_NEW)return;
+  busy(true,'Saving the vendor list');
+  var keep=AVL_NEW;
+  var slim={rev:keep.rev,file:keep.file,at:keep.at,rows:keep.rows.map(function(x){
+    var o={};Object.keys(x).forEach(function(k){if(k!=='id'&&x[k]!=='')o[k]=x[k];});return o;})};
+  var r=await client().from('settings').upsert({key:'avl',value:slim},{onConflict:'key'});
+  busy(false);
+  if(r.error)return toast('Could not save the vendor list — '+niceError(r.error));
+  AVL=keep;AVL_STATE='ready';AVL_NEW=null;closeSheet();
+  toast(keep.rows.length+' rows saved'+(keep.rev?(' — revision '+keep.rev):''));
+  rPane();
+};
+/* is a maker on SEVEN's list already one of this project's vendors? By
+   name, loosely: case, punctuation and the usual company words aside */
+var ONP=null, ONP_N=-1;
+function coName(s){return K(s).replace(/\b(co|company|ltd|limited|llc|est|factory|industries|industrial|group|trading|the)\b/g,' ')
+  .replace(/[^a-z0-9]+/g,' ').trim();}
+function onProject(name){
+  var n=(DB.mfrs||[]).length;
+  if(!ONP||ONP_N!==n){ONP={};ONP_N=n;(DB.mfrs||[]).forEach(function(v){var k=coName(v.name);if(k)ONP[k]=1;});}
+  var k=coName(name);return !!(k&&ONP[k]);
+}
+function avlPane(){
+  if(AVL_STATE==='idle'){avlLoad();}
+  if(AVL_STATE!=='ready'){
+    var loading=AVL_STATE!=='none';
+    return '<div class="head"><div class="wrap"><div class="head-t">SEVEN vendor list</div>'
+      +'<div class="head-m">'+(loading?'<span class="chip flat">Loading…</span>'
+        :'<button class="btn btn-s" onclick="avlPick()">Upload the vendor list</button>')+'</div></div></div>'
+      +(loading?'':'<div class="body"><div class="wrap"><div class="empty" style="padding:40px 0;text-align:center">'
+        +'No vendor list yet. Upload SEVEN’s workbook as it is issued — every sheet in it is read, '
+        +'and the colours in sheet A (re-assessed, disapproved) are read as statuses.</div></div></div>');
+  }
+  TBL='avl';
+  return tablePane(true);
+}
 
 function tdef(){return TABLES_DEF[TBL];}
 /* the columns a table offers today: one that says nothing about anything
@@ -3598,8 +3839,9 @@ function tablePane(list){
   var head='<div class="head no-print"><div class="wrap" style="max-width:none">'
     +'<div class="head-t">'+(list?esc(d.label):'Table')+'</div><div class="head-m">'
     /* a list page is already one table; its tab says which */
-    +(list?((canAdd?'<button class="btn btn-s btn-p" data-pop onclick="listAdd(event)">Add a '+canAdd+'</button>':'')):
-      Object.keys(TABLES_DEF).map(function(k){
+    +(list?((canAdd?'<button class="btn btn-s btn-p" data-pop onclick="listAdd(event)">Add a '+canAdd+'</button>':'')
+      +(d.extra?d.extra():'')):
+      Object.keys(TABLES_DEF).filter(function(k){return k!=='avl';}).map(function(k){
       return '<button class="chip'+(TBL===k?' set':'')+'" onclick="setTable(\''+k+'\')">'
         +esc(TABLES_DEF[k].label)+' <span class="meta">'+TABLES_DEF[k].rows().length+'</span></button>';
     }).join(''))
