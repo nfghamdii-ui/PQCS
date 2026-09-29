@@ -2261,7 +2261,10 @@ function paintTabs(){
     else if(waitsForLink(m))n.doc++;
   });
   var ot=document.getElementById('tab-other');
-  if(ot)ot.setAttribute('aria-selected',String(TAB==='mat'&&isOtherView(VIEW)));
+  if(ot)ot.setAttribute('aria-selected',String(TAB==='mat'&&isOtherView(VIEW)&&VIEW!=='paa'));
+  /* the PAA page is the Inspectors tab's second page */
+  var it=document.getElementById('tab-insp');
+  if(it)it.setAttribute('aria-selected',String(TAB==='insp'||(TAB==='mat'&&VIEW==='paa')));
   ['mat','mir','doc','ipi','fat','irn'].forEach(function(k){
     var c=document.getElementById('n-'+k);if(c)c.textContent=n[k];
     var t=document.getElementById('tab-'+k);
@@ -2373,7 +2376,7 @@ function otherMenu(btn){
     var p=OTHER_PAGES.filter(function(x){return x[1]===m.doc;})[0];
     var k=p?p[0]:'odoc';n[k]=(n[k]||0)+1;
   });
-  var items=OTHER_PAGES.map(function(p){return [p[0],p[2]];})
+  var items=OTHER_PAGES.filter(function(p){return p[0]!=='paa';}).map(function(p){return [p[0],p[2]];})
     .concat(n.odoc?[['odoc','Other kinds']]:[]).concat([['alldoc','All documents']]);
   var box=document.createElement('div');
   box.id='other-menu';box.className='other-menu';box.setAttribute('role','menu');
@@ -2666,7 +2669,12 @@ function install2(){
 
   var origInsp=window.inspPane;
   if(typeof origInsp==='function'&&!origInsp.__bar){
-    window.inspPane=function(p){return readingBar(origInsp(p),'insp',p.id);};
+    window.inspPane=function(p){
+      var html=readingBar(origInsp(p),'insp',p.id);
+      var i=html.lastIndexOf('</div></div>');
+      if(i<0)return html+paaPanel(p);
+      return html.slice(0,i)+paaPanel(p)+html.slice(i);
+    };
     window.inspPane.__bar=true;
   }
 
@@ -2770,6 +2778,18 @@ window.renameVen=function(ev,id){
 };
 
 function linkPanel(m){
+  if(m.doc==='PAA'){
+    var who=paaOwners(m);
+    return '<div class="sec">The inspector this PAA approves</div>'
+      +'<div class="panel"><div class="panel-b">'
+      +(who.length?who.map(function(x){
+          return '<div class="line row-a" onclick="jump(\'insp\','+x.id+')">'
+            +'<span class="tag t-na">'+esc(x.status||'Pending')+'</span>'
+            +'<div class="line-m">'+esc(x.name)+'</div></div>';}).join('')
+        :'<span class="dim">Not linked to an inspector yet. Open the inspector and link it '
+         +'from there.</span>')
+      +'</div></div>';
+  }
   if(isDoc(m)){
     var on=servedBy(m);
     return '<div class="sec">The materials this '+esc(m.doc)+' serves</div>'
@@ -2812,6 +2832,84 @@ function refOf(d){
   return out;
 }
 
+/* ---------------------------------------------------------------
+   A PAA approves a person, so it is linked to an inspector — by hand,
+   from the inspector's page, the way a material takes its documents.
+   --------------------------------------------------------------- */
+function paaOwners(d){
+  return (DB.people||[]).filter(function(p){
+    return (p.docs||[]).some(function(id){return String(id)===String(d.id);});});
+}
+function paaPanel(p){
+  var list=(p.docs||[]).map(function(id){return mat(id);}).filter(Boolean);
+  return '<div class="sec">Personnel approval (PAA)</div><div class="panel">'
+    +'<div class="panel-h"><div class="panel-t">From Aconex</div>'
+    +'<button class="btn btn-s no-print" onclick="paaPick('+p.id+')">Link a PAA</button></div>'
+    +'<div class="panel-b">'
+    +(list.length?list.map(function(d){
+        var st=rawEnd(d,'Status');
+        return '<div class="line">'
+          +'<span class="tag t-na" style="min-width:54px;text-align:center">PAA</span>'
+          +'<div class="line-m"><div>'+esc(d.name)+'</div>'
+          +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'
+          +esc(refOf(d))+(st?(' \u00b7 '+esc(st)):'')+'</div></div>'
+          +'<button class="btn-q" onclick="jump(\'mat\','+d.id+')">Open</button>'
+          +'<button class="btn-q" onclick="paaUnlink('+p.id+','+d.id+')">Unlink</button></div>';
+      }).join('')
+      :'<span class="dim">No PAA linked yet. Link the approval Aconex holds for this person.</span>')
+    +'</div></div>';
+}
+window.paaPick=function(pid,q){
+  var p=insp(pid);if(!p)return;
+  var need=K(q||'');
+  var all=(DB.mats||[]).filter(function(d){return d.doc==='PAA';});
+  var rows=all.filter(function(d){
+    if((p.docs||[]).some(function(id){return String(id)===String(d.id);}))return false;
+    if(!need)return !paaOwners(d).length;            /* start with the ones nobody has */
+    return K(d.name+' '+refOf(d)).indexOf(need)>=0;
+  });
+  sheet('Link a PAA to '+p.name,
+     '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'
+    +(need?('Searching all '+all.length+' PAA files.')
+          :('Showing the '+rows.length+' not linked to anyone \u2014 search to see all '+all.length+'.'))
+    +'</div>'
+    +'<div class="f" style="margin-bottom:14px"><label for="lk">Search by number or title</label>'
+    +'<input id="lk" value="'+attr(q||'')+'" autocomplete="off" '
+    +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();paaPick('+pid+',this.value);}">'
+    +'<span class="dim" style="font-size:12px">Press Enter to search</span></div>'
+    +'<div class="panel"><div class="panel-b">'
+    +(rows.length?rows.slice(0,60).map(function(d){
+        var o=paaOwners(d);
+        return '<div class="line row-a" onclick="paaLink('+pid+','+d.id+')">'
+          +'<span class="tag t-na" style="min-width:54px;text-align:center">PAA</span>'
+          +'<div class="line-m"><div>'+esc(d.name)+'</div>'
+          +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'+esc(refOf(d))
+          +(o.length?(' \u00b7 linked to '+esc(o.map(function(x){return x.name;}).join(', '))):'')
+          +'</div></div></div>';}).join('')
+        +(rows.length>60?('<div class="dim" style="font-size:13px;padding-top:10px">and '
+          +(rows.length-60)+' more \u2014 narrow the search</div>'):'')
+      :'<span class="dim">Nothing matches.</span>')
+    +'</div></div>');
+  var f=document.getElementById('lk');
+  if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
+};
+window.paaLink=function(pid,docId){
+  var p=insp(pid);if(!p)return;
+  p.docs=p.docs||[];
+  if(!p.docs.some(function(x){return String(x)===String(docId);}))p.docs.push(docId);
+  touch();closeSheet();rList();rPane();
+  toast('PAA linked to '+p.name);
+};
+window.paaUnlink=function(pid,docId){
+  var p=insp(pid);if(!p)return;
+  p.docs=(p.docs||[]).filter(function(x){return String(x)!==String(docId);});
+  touch();rList();rPane();
+};
+window.showLoosePaa=function(){
+  setTab('paa');
+  TBLQ[TBL]=TBLQ[TBL]||{};TBLQ[TBL].lnk='Not linked';
+  TBLN[TBL]=PAGE_ROWS;rPane();
+};
 window.unlink=function(matId,docId){
   var m=mat(matId);if(!m)return;
   m.docs=(m.docs||[]).filter(function(x){return String(x)!==String(docId);});
@@ -3991,7 +4089,15 @@ var TABLES_DEF={
  mes:docTable('Method Statement',function(m){return m.doc==='MES';},false,true),
  wir:docTable('Work Inspection Request',function(m){return m.doc==='WIR';},false,true),
  mas:docTable('Material Sample',function(m){return m.doc==='MAS';},false,true),
- paa:docTable('Personnel Approval (PAA)',function(m){return m.doc==='PAA';},false,false),
+ paa:(function(d){
+   d.cols=d.cols.concat([
+     asTag(col('Linked','lnk',function(r){return paaOwners(r).length?'Linked':'Not linked';},'pick',120),
+       function(v){return v==='Not linked'?'bad':'ok';}),
+     col('Inspector','who',function(r){return paaOwners(r).map(function(p){return p.name;}).join(', ');},'text',240)]);
+   d.show=d.cols.map(function(c){return c.k;});
+   d.extra=function(){return '<button class="btn btn-s" onclick="setTab(\'insp\')">\u2190 Inspectors</button>';};
+   return d;
+ })(docTable('Personnel Approval (PAA)',function(m){return m.doc==='PAA';},false,false)),
  pqd:docTable('Pre-qualification (PQD)',function(m){return m.doc==='PQD';},false,false),
  fat:visitTable('fat','FAT/Final Inspection'),
  irn:visitTable('irn','Inspection Release Note'),
@@ -4119,14 +4225,21 @@ var TABLES_DEF={
    show:['mat','mfr','cat','status','sh','disc','country','onp','limit']},
 
  insp:{label:'Inspectors',rows:function(){return (DB.people||[]).slice();},
+   extra:function(){
+     var all=(DB.mats||[]).filter(function(m){return m.doc==='PAA';});
+     var loose=all.filter(function(d){return !paaOwners(d).length;}).length;
+     return '<button class="btn btn-s" onclick="setTab(\'paa\')">PAA files '+all.length+'</button>'
+       +(loose?('<button class="btn btn-s" style="border-color:#ffcc3e" onclick="showLoosePaa()">'
+         +loose+' not linked to an inspector</button>'):'');},
    open:function(r){jump('insp',r.id);},
    cols:[
     col('Name','name',function(r){return r.name;},'text',240),
     col('Agency','agency',function(r){return r.agency||'';},'pick',200),
     col('Discipline','disc',function(r){return r.disc||'';},'pick',160),
     asTag(col('Approval','status',function(r){return r.status||'Pending';},'pick',130)),
-    col('Reference','ref',function(r){return r.ref||'';},'text',240)],
-   show:['name','agency','disc','status','ref']}
+    col('Reference','ref',function(r){return r.ref||'';},'text',240),
+    asNum(col('PAA','npaa',function(r){var n=(r.docs||[]).length;return n?String(n):'';},'text',80))],
+   show:['name','agency','disc','status','ref','npaa']}
 };
 
 /* ================================================================
