@@ -500,7 +500,7 @@ if(!(window.supabase&&window.supabase.createClient))window.SB_LIB={state:'failed
     <div class="tabs" role="tablist">
       <button class="tab" id="tab-mat" role="tab" aria-selected="false" onclick="setTab('mat')">Materials <span class="n" id="n-mat">0</span></button>
       <button class="tab" id="tab-mfr" role="tab" aria-selected="false" onclick="setTab('mfr')">Vendors <span class="n" id="n-mfr">0</span></button>
-      <button class="tab" id="tab-insp" role="tab" aria-selected="false" onclick="setTab('insp')">Inspectors <span class="n" id="n-insp">0</span></button>
+      <button class="tab" id="tab-insp" role="tab" aria-selected="false" onclick="setTab('insp')">Personnel Approval <span class="n" id="n-insp">0</span></button>
       <button class="tab" id="tab-cal" role="tab" aria-selected="false" onclick="setTab('cal')">Calendar</button>
     </div>
 
@@ -2540,19 +2540,7 @@ function form(rec,st,d,kind){
       var list=(ty==='status')?STATUS:opts, cur=d[k]||list[0];
       h+='<select id="i-'+k+'">'+list.map(function(o){return '<option'+(o===cur?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select>';
     }else if(ty==='person'){
-      var people=(DB.people||[]).slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
-      /* a native select cannot be searched, but it can be typed into
-         once it has a list beside it */
-      var cur=d[k]||'';
-      var known=people.some(function(p){return key(p.name)===key(cur);});
-      h+='<select id="i-'+k+'" onchange="personPicked(this)">'
-        +'<option value=""'+(cur?'':' selected')+'>\u2014</option>'
-        +people.map(function(p){
-            return '<option value="'+attr(p.name)+'"'+(key(p.name)===key(cur)?' selected':'')+'>'
-              +esc(p.name)+(p.status!=='Approved'?(' \u00b7 '+esc(String(p.status||'pending').toLowerCase())):'')
-              +(p.agency?(' \u00b7 '+esc(p.agency)):'')+'</option>';}).join('')
-        +(cur&&!known?'<option value="'+attr(cur)+'" selected>'+esc(cur)+' \u00b7 not on your list</option>':'')
-        +'<option value="__new">Add someone new\u2026</option></select>';
+      h+=personInput('i-'+k,d[k]||'');
     }else h+='<input id="i-'+k+'" value="'+attr(folded?'':(d[k]||''))+'" autocomplete="off">';
     h+='<span class="err" id="e-'+k+'"></span></div>';
   });
@@ -2560,6 +2548,41 @@ function form(rec,st,d,kind){
     +'<button class="btn-q" onclick="openStep(null)">Cancel</button></div>';
   return h+'</div>'+dataList();
 }
+/* An inspector is found by typing: the name, or the start of it, and the
+   people on the Personnel Approval list come up to pick from. A name not
+   on that list is kept as typed, with a way to add it there as pending. */
+function personInput(id,cur){
+  var people=(DB.people||[]).slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
+  return '<input id="'+id+'" list="'+id+'-list" value="'+attr(cur||'')+'" autocomplete="off" '
+    +'placeholder="type a name to search" oninput="personCheck(this)" onchange="personCheck(this)">'
+    +'<datalist id="'+id+'-list">'+people.map(function(p){
+      var note=[(p.status||'Pending')!=='Approved'?String(p.status||'pending').toLowerCase():'',p.agency||'']
+        .filter(Boolean).join(' \u00b7 ');
+      return '<option value="'+attr(p.name)+'"'+(note?(' label="'+attr(note)+'"'):'')+'>';}).join('')
+    +'</datalist><span class="dim" id="'+id+'-hint" style="font-size:12px">'+personHint(id,cur)+'</span>';
+}
+function personHint(id,v){
+  v=String(v||'').trim();
+  if(!v)return '';
+  var p=(DB.people||[]).find(function(x){return key(x.name)===key(v);});
+  if(p)return (p.status||'Pending')==='Approved'?'':('On your list as '+esc(String(p.status||'pending').toLowerCase()));
+  return 'Not on your list \u2014 <button type="button" class="btn-q" style="padding:0 4px" '
+    +'onclick="personAdd(\''+id+'\')">add as pending</button>';
+}
+window.personCheck=function(el){
+  var h=document.getElementById(el.id+'-hint');if(h)h.innerHTML=personHint(el.id,el.value);
+};
+window.personAdd=function(id){
+  var el=document.getElementById(id);if(!el)return;
+  var n=String(el.value||'').trim();if(!n)return;
+  if(!(DB.people||[]).some(function(x){return key(x.name)===key(n);})){
+    DB.people.push({id:uid(),name:n,agency:'',disc:'',status:'Pending',ref:'',added:today()});touch();
+    var dl=document.getElementById(id+'-list');
+    if(dl){var o=document.createElement('option');o.value=n;o.label='pending';dl.appendChild(o);}
+    toast('Added to Personnel Approval as pending');
+  }
+  personCheck(el);
+};
 function dataList(){
   var names={};
   /* the inspectors first — the list was built only from names already

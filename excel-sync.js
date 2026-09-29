@@ -2133,8 +2133,16 @@ function linkedIds(){
 }
 function isLinked(d){return !!linkedIds()[String(d.id)];}
 function waitsForLink(m){
-  return isDoc(m)&&m.doc!=='MIR'&&!NOT_FOR_MAT[m.doc]&&!isLinked(m);
+  return isDoc(m)&&m.doc!=='MIR'&&!NOT_FOR_MAT[m.doc]&&!m.site&&!isLinked(m);
 }
+/* the user's own word that a document is work on site, for no material:
+   it leaves Documents for its kind's page, and can be taken back */
+window.markSite=function(id,on){
+  var d=mat(id);if(!d)return;
+  if(on)d.site=true;else delete d.site;
+  touch();rList();rPane();
+  toast(on?('Marked as site work \u2014 it is on the '+d.doc+' page now'):'Back in Documents');
+};
 function viewHas(v,m){
   if(v==='mat'||v==='ipi'||v==='fat'||v==='irn')return !isDoc(m);
   if(v==='mir')return m.doc==='MIR';
@@ -2261,7 +2269,10 @@ function paintTabs(){
     else if(waitsForLink(m))n.doc++;
   });
   var ot=document.getElementById('tab-other');
-  if(ot)ot.setAttribute('aria-selected',String(TAB==='mat'&&isOtherView(VIEW)&&VIEW!=='paa'));
+  if(ot)ot.setAttribute('aria-selected',String(TAB==='mat'&&isOtherView(VIEW)&&VIEW!=='paa'&&VIEW!=='pqd'));
+  /* the PQD page is the Vendors tab's second page */
+  var vt=document.getElementById('tab-mfr');
+  if(vt)vt.setAttribute('aria-selected',String(TAB==='mfr'||(TAB==='mat'&&VIEW==='pqd')));
   /* the PAA page is the Inspectors tab's second page */
   var it=document.getElementById('tab-insp');
   if(it)it.setAttribute('aria-selected',String(TAB==='insp'||(TAB==='mat'&&VIEW==='paa')));
@@ -2376,7 +2387,7 @@ function otherMenu(btn){
     var p=OTHER_PAGES.filter(function(x){return x[1]===m.doc;})[0];
     var k=p?p[0]:'odoc';n[k]=(n[k]||0)+1;
   });
-  var items=OTHER_PAGES.filter(function(p){return p[0]!=='paa';}).map(function(p){return [p[0],p[2]];})
+  var items=OTHER_PAGES.filter(function(p){return p[0]!=='paa'&&p[0]!=='pqd';}).map(function(p){return [p[0],p[2]];})
     .concat(n.odoc?[['odoc','Other kinds']]:[]).concat([['alldoc','All documents']]);
   var box=document.createElement('div');
   box.id='other-menu';box.className='other-menu';box.setAttribute('role','menu');
@@ -2778,6 +2789,16 @@ window.renameVen=function(ev,id){
 };
 
 function linkPanel(m){
+  if(m.doc==='PQD'){
+    var ven=vendorByPq(refOf(m));
+    return '<div class="sec">The vendor this PQD qualifies</div>'
+      +'<div class="panel"><div class="panel-b">'
+      +(ven?('<div class="line row-a" onclick="jump(\'mfr\','+ven.id+')">'
+          +'<span class="tag t-na">'+esc(pqStatus(ven)||'—')+'</span>'
+          +'<div class="line-m">'+esc(ven.name)+'</div></div>')
+        :'<span class="dim">No vendor carries this PQD number yet.</span>')
+      +'</div></div>';
+  }
   if(m.doc==='PAA'){
     var who=paaOwners(m);
     return '<div class="sec">The inspector this PAA approves</div>'
@@ -2798,8 +2819,18 @@ function linkPanel(m){
           return '<div class="line row-a" onclick="jump(\'mat\','+x.id+')">'
             +'<span class="tag t-na">'+esc(x.cat||'—')+'</span>'
             +'<div class="line-m">'+esc(x.name)+'</div></div>';}).join('')
-        :'<span class="dim">Not linked to any material yet. Open the material and link it '
-         +'from there — the material is where a link is made and unmade.</span>')
+        :(m.site
+          ?'<span class="dim">Marked as site work \u2014 it serves no material.</span>'
+          :'<span class="dim">Not linked to any material yet. Open the material and link it '
+           +'from there — the material is where a link is made and unmade.</span>'))
+      +(on.length||NOT_FOR_MAT[m.doc]?''
+        :('<div class="no-print" style="margin-top:12px">'
+          +(m.site
+            ?'<button class="btn btn-s" onclick="markSite('+m.id+',false)">Not site work \u2014 back to Documents</button>'
+            :'<button class="btn btn-s" onclick="markSite('+m.id+',true)">Site work, no material</button>'
+             +'<span class="dim" style="font-size:12.5px;margin-left:10px">It leaves Documents and stays on the '
+             +esc(m.doc)+' page.</span>')
+          +'</div>'))
       +'</div></div>';
   }
   var list=docsOf(m);
@@ -4075,7 +4106,7 @@ function docTable(label,keep,withKind,withLink){
     col('Revision','rev',function(r){return rawEnd(r,'Revision');},'pick',90));
   if(withLink)cols.push(
     asTag(col('Linked','lnk',function(r){
-        return NOT_FOR_MAT[r.doc]?'':(isLinked(r)?'Linked':'Not linked');},'pick',120),
+        return NOT_FOR_MAT[r.doc]?'':isLinked(r)?'Linked':r.site?'Site work':'Not linked';},'pick',120),
       function(v){return v==='Not linked'?'bad':v==='Linked'?'ok':'';}),
     col('Materials served','n',function(r){var n=NOT_FOR_MAT[r.doc]?0:servedBy(r).length;return n?String(n):'';},'text',130));
   return {label:label,
@@ -4095,10 +4126,19 @@ var TABLES_DEF={
        function(v){return v==='Not linked'?'bad':'ok';}),
      col('Inspector','who',function(r){return paaOwners(r).map(function(p){return p.name;}).join(', ');},'text',240)]);
    d.show=d.cols.map(function(c){return c.k;});
-   d.extra=function(){return '<button class="btn btn-s" onclick="setTab(\'insp\')">\u2190 Inspectors</button>';};
+   d.extra=function(){return '<button class="btn btn-s" onclick="setTab(\'insp\')">\u2190 Personnel Approval</button>';};
    return d;
- })(docTable('Personnel Approval (PAA)',function(m){return m.doc==='PAA';},false,false)),
- pqd:docTable('Pre-qualification (PQD)',function(m){return m.doc==='PQD';},false,false),
+ })(docTable('PAA files',function(m){return m.doc==='PAA';},false,false)),
+ /* a PQD finds its vendor by its number, which Aconex gives each company alone */
+ pqd:(function(d){
+   d.cols=d.cols.concat([
+     asTag(col('Vendor found','lnk',function(r){return vendorByPq(refOf(r))?'Found':'Not found';},'pick',130),
+       function(v){return v==='Not found'?'bad':'ok';}),
+     col('Vendor','who',function(r){var v=vendorByPq(refOf(r));return v?v.name:'';},'text',280)]);
+   d.show=d.cols.map(function(c){return c.k;});
+   d.extra=function(){return '<button class="btn btn-s" onclick="setTab(\'mfr\')">\u2190 Vendors</button>';};
+   return d;
+ })(docTable('Pre-qualification (PQD)',function(m){return m.doc==='PQD';},false,false)),
  fat:visitTable('fat','FAT/Final Inspection'),
  irn:visitTable('irn','Inspection Release Note'),
  mat:{label:'Materials',rows:function(){return (DB.mats||[]).filter(function(m){return !isDoc(m);});},
@@ -4165,7 +4205,9 @@ var TABLES_DEF={
       row's vendor again). The shared-number button shows only while some
       pre-qualification number sits on more than one vendor. */
    extra:function(){var n=pqGroups().length;
-     return '<button class="btn btn-s" onclick="venOut()">Edit in Excel</button>'
+     var nq=(DB.mats||[]).filter(function(m){return m.doc==='PQD';}).length;
+     return '<button class="btn btn-s" onclick="setTab(\'pqd\')">PQD files '+nq+'</button>'
+       +'<button class="btn btn-s" onclick="venOut()">Edit in Excel</button>'
        +'<button class="btn btn-s" onclick="repPick(\'ven\')">Upload edited</button>'
        +(n?'<button class="btn btn-s" style="border-color:#ffcc3e" onclick="pqShared()">'+n
        +' shared PQD number'+(n===1?'':'s')+'</button>':'');},
@@ -4224,7 +4266,7 @@ var TABLES_DEF={
     col('Assessed','date',function(r){return r.date?show(r.date):'';},'text',110)],
    show:['mat','mfr','cat','status','sh','disc','country','onp','limit']},
 
- insp:{label:'Inspectors',rows:function(){return (DB.people||[]).slice();},
+ insp:{label:'Personnel Approval',rows:function(){return (DB.people||[]).slice();},
    extra:function(){
      var all=(DB.mats||[]).filter(function(m){return m.doc==='PAA';});
      var loose=all.filter(function(d){return !paaOwners(d).length;}).length;
@@ -4891,22 +4933,13 @@ window.editVisit=function(matId,k,id){
   var m=mat(matId);if(!m)return;
   var w=VISIT_TEXT[k];
   var v=(m.visits||[]).filter(function(x){return String(x.id)===String(id);})[0]||{};
-  var people=(DB.people||[]).slice().sort(function(a,b){
-    return String(a.name).localeCompare(String(b.name));});
   sheet((id?w.edit:w.add)+' — '+VISIT_STEPS[k],
      '<div class="form" style="margin:0;padding:0;border:none">'
     +'<div class="f"><label for="v-date">'+w.date+'</label>'
     +'<input id="v-date" class="mono" value="'+attr(show(v.date||today()))+'" '
     +'placeholder="dd/mm/yyyy" autocomplete="off"><span class="err" id="e-v-date"></span></div>'
-    +'<div class="f"'+(w.by?'':' hidden')+'><label for="v-by">Inspector</label><select id="v-by">'
-    +'<option value=""'+(v.by?'':' selected')+'>—</option>'
-    +people.map(function(p){
-        return '<option value="'+attr(p.name)+'"'+(K(p.name)===K(v.by||'')?' selected':'')+'>'
-          +esc(p.name)+((p.status||'Pending')!=='Approved'
-            ?(' · '+esc(String(p.status||'pending').toLowerCase())):'')+'</option>';}).join('')
-    +(v.by&&!people.some(function(p){return K(p.name)===K(v.by);})
-      ?('<option value="'+attr(v.by)+'" selected>'+esc(v.by)+' · not on your list</option>'):'')
-    +'</select></div>'
+    +'<div class="f"'+(w.by?'':' hidden')+'><label for="v-by">Inspector</label>'
+    +personInput('v-by',v.by||'')+'</div>'
     +'<div class="f wide"><label for="v-ref">'+w.ref+'</label>'
     +'<input id="v-ref" class="mono" value="'+attr(v.ref||'')+'" autocomplete="off"></div>'
     +'<div class="f"><label for="v-res">'+w.res+'</label><select id="v-res">'
@@ -4928,7 +4961,7 @@ window.saveVisit=function(matId,k,id){
   var d=parseDate(document.getElementById('v-date').value);
   if(d===null||!d){document.getElementById('e-v-date').textContent='Use dd/mm/yyyy';return;}
   var o={id:id||idMaker()(),step:k,date:d,
-    by:document.getElementById('v-by').value,
+    by:trim(document.getElementById('v-by').value),
     ref:trim(document.getElementById('v-ref').value),
     result:document.getElementById('v-res').value,
     note:trim(document.getElementById('v-note').value)};
