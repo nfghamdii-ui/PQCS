@@ -1382,7 +1382,7 @@ function planRegister(reg){
      others are listed to have it taken off. One number, one company. */
   p.wrongPq=[];
   reg.forEach(function(d){
-    if(!/pre-?qualification/.test(K(d.type))&&!/-PRQ-/i.test(d.no))return;
+    if(K(d.type)!=='pre-qualification')return;          /* by Type only */
     var holders=(DB.mfrs||[]).filter(function(v){return K(pqOf(v).ref||'')===K(d.no);});
     if(holders.length<2)return;
     var co=coName(companyOf(d.title));
@@ -1841,6 +1841,21 @@ function kindOfTitle(t){
    a Type column, but a record can also arrive from the Main Log where
    there is no such column — and the three letters in the middle of an
    Aconex number say it either way. */
+/* What a register row is, by its Type column and nothing else — not the
+   code in its number, not its title. A material submittal is a material,
+   a pre-qualification a vendor, and every other type a document of that
+   kind; a type not known here is kept as a document under its own name,
+   so nothing can arrive as a material by mistake. */
+var TYPE_KIND={'material submittal':'','pre-qualification':'PQD','method statement':'MES',
+  'inspection & test plan':'ITP','material inspection request':'MIR','work inspection request':'WIR',
+  'material sample':'MAS','personnel approval form':'PAA'};
+function kindOfType(type){
+  var t=K(type);
+  if(!t)return 'Other';
+  return (t in TYPE_KIND)?TYPE_KIND[t]:trim(type);
+}
+/* the old guess from a number's code — only for records made before
+   the register's Type was read (see labelDocuments) */
 function docKind(ref,type){
   var t=K(type);
   if(t==='material submittal')return '';
@@ -1851,7 +1866,7 @@ function docKind(ref,type){
   /* in this project's register as well: material samples, and the forms
      that put the project's own staff up for approval (BIM, HSSE and the
      like) — documents, neither of them a material */
-  if(t==='work inspection request'||t==='wir')return 'WIR';
+  if(t==='work inspection request')return 'WIR';
   if(t==='material sample')return 'MAS';
   if(t==='personnel approval form')return 'PAA';
   var r=String(ref||'').toUpperCase();
@@ -1873,8 +1888,7 @@ function rawFromDoc(d){
   raw['Item Description']=d.title||d.no;
   if(d.cat)raw['Material Category']='Category '+d.cat;
   if(d.disc)raw['Discipline']=plainDisc(d.disc);
-  /* by its type, or — where the type is worded otherwise — by the code in its number */
-  var w=NEW_AS[K(d.type)]||({WIR:NEW_AS['work inspection request'],MIR:NEW_AS['material inspection request']}[docKind(d.no,d.type)]);
+  var w=NEW_AS[K(d.type)];                    /* by its Type column only */
   if(w){
     raw[w.n]=d.no;
     if(w.d&&d.date)raw[w.d]=d.date;
@@ -1930,11 +1944,11 @@ function createFromRegister(p,tag,opts){
       steps:{},dels:[],ncrs:[],added:today()};
     applyRaw(m,rawFromDoc(d),made);
     m.reg=tag;if(!opts.fresh)m.review=1;
-    var kind=docKind(d.no,d.type);
-    /* A record is placed by its document type alone: a material submittal
-       is a material, and nothing in its title links it to a vendor —
-       which vendor supplies it is set by hand. */
-    if(kind)m.doc=kind;          /* a document, not a material of its own */
+    /* A record is placed by its Type alone: a material submittal is a
+       material, and nothing in its title links it to a vendor — which
+       vendor supplies it is set by hand. m.doc is always written, '' for
+       a material, so nothing later re-guesses it from its number. */
+    m.doc=kindOfType(d.type);
     DB.mats.push(m);mats++;
   });
   touch();rList();rPane();
