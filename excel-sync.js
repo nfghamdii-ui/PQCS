@@ -2059,7 +2059,9 @@ function liftTabs(){
     if(after&&after.parentNode===tabs){tabs.insertBefore(b,after.nextSibling);after=b;}
     else tabs.appendChild(b);
   });
-  [['avl','AVL'],['tbl','Table'],['rep','Reports']].forEach(function(p){
+  /* No Table tab: each list page is its own table now — vendors on
+     Vendors, materials on Materials — so a second copy of them is gone. */
+  [['avl','AVL'],['rep','Reports']].forEach(function(p){
     var b=document.createElement('button');
     b.className='tab';b.id='tab-'+p[0];b.setAttribute('role','tab');
     b.setAttribute('aria-selected','false');
@@ -3525,6 +3527,8 @@ var TABLES_DEF={
     asTag(col('Status','status',function(r){return r.status;},'pick',130),
       function(v){return {'Approved':'ok','Re-assessed':'ok','Disapproved':'bad','On hold':'now',
         'Pending':'wait','Under monitoring':'now'}[v]||'';}),
+    /* which of SEVEN's lists the row came from: its letter and its title */
+    col('List','sh',function(r){return avlListName(r.sh);},'pick',230),
     col('Discipline','disc',function(r){return r.disc;},'pick',150),
     col('Segment','seg',function(r){return r.seg;},'pick',160),
     col('Country','country',function(r){return r.country;},'pick',140),
@@ -3534,9 +3538,8 @@ var TABLES_DEF={
     col('Limitations','limit',function(r){return r.limit;},'text',260),
     col('Supplier','supplier',function(r){return r.supplier;},'text',200),
     col('Remarks','remarks',function(r){return r.remarks;},'text',220),
-    col('Assessed','date',function(r){return r.date?show(r.date):'';},'text',110),
-    col('Sheet','sh',function(r){return r.sh;},'pick',70)],
-   show:['mat','mfr','cat','status','disc','country','onp','limit']},
+    col('Assessed','date',function(r){return r.date?show(r.date):'';},'text',110)],
+   show:['mat','mfr','cat','status','sh','disc','country','onp','limit']},
 
  insp:{label:'Inspectors',rows:function(){return (DB.people||[]).slice();},
    open:function(r){jump('insp',r.id);},
@@ -3616,11 +3619,32 @@ function avlStatus(s){
 /* Every sheet, read by its own headings. A segment or discipline written
    once over a block of rows is carried down it. The ICT sheet lists up
    to five vendors across a row and is read as a row each. */
+/* Which of SEVEN's lists a row came from, by the letter its sheet ends
+   in. The file's own title for each list is read when it is uploaded;
+   these stand in for a list saved before titles were kept. */
+var AVL_LISTS={A:'General materials',B:'Bulk, framework agreements',C:'Special materials and finishes',
+  D:'ICT',E:'Cinema bulk materials',F:'Controlled materials',G:'CxA and third parties'};
+function avlListName(tag){
+  var t=(AVL&&AVL.lists&&AVL.lists[tag])||AVL_LISTS[tag]||'';
+  return t?(tag+' · '+t):tag;
+}
+/* "SEVEN APPROVED VENDOR LIST FOR SPECIAL MATERIALS" -> "Special materials" */
+function avlTitle(s){
+  var t=trim(s).replace(/^.*?\bLIST\s+FOR\s+/i,'').replace(/^.*?\bAPPROVED\s+/i,'').replace(/\s+/g,' ')
+    .replace(/\s*-?\s*list\s*\([a-z]\)\s*$/i,'').trim();   /* "... - LIST (A)": the letter is shown already */
+  if(!t||t.length>60)return '';
+  t=t.toLowerCase().replace(/\bcxa\b/,'CxA').replace(/\bict\b/,'ICT');
+  return t.charAt(0).toUpperCase()+t.slice(1);
+}
 function avlRows(sheets){
-  var all=[], rev='';
+  var all=[], rev='', lists={};
   sheets.forEach(function(sh){
     var R=sh.rows, cell=function(r,j){return trim(((R[r]||[])[j]||{}).v);};
     var tag=(/\(([A-Z])\)\s*$/.exec(sh.name)||[])[1]||sh.name;
+    /* the list's title sits above its table, below the document block */
+    for(var tr=4;tr<Math.min(R.length,14);tr++)
+      (R[tr]||[]).forEach(function(c){
+        if(c&&!lists[tag]&&/SEVEN\b.*\b(LIST|APPROVED)\b/i.test(c.v)){var t=avlTitle(c.v);if(t)lists[tag]=t;}});
     for(var r=0;r<Math.min(R.length,8);r++)
       (R[r]||[]).forEach(function(c,j){if(c&&K(c.v)==='revision date'&&!rev)rev=cell(r,j+2)||cell(r,j+1);});
     /* the legend: a filled cell with its meaning beside it */
@@ -3680,7 +3704,7 @@ function avlRows(sheets){
     }
   });
   all.forEach(function(x,i){x.id=i+1;});
-  return {rev:rev,rows:all};
+  return {rev:rev,rows:all,lists:lists};
 }
 async function avlLoad(){
   if(AVL_STATE==='loading'||AVL_STATE==='ready')return;
@@ -3708,7 +3732,7 @@ async function avlRead(ev){
     var got=avlRows(await avlBook(file));
     busy(false);
     if(!got.rows.length)throw new Error('No manufacturer rows were found in that file.');
-    AVL_NEW={rev:got.rev,file:file.name,at:new Date().toISOString(),rows:got.rows};
+    AVL_NEW={rev:got.rev,file:file.name,at:new Date().toISOString(),rows:got.rows,lists:got.lists};
     var bySh={},bySt={};
     got.rows.forEach(function(x){bySh[x.sh]=(bySh[x.sh]||0)+1;bySt[x.status]=(bySt[x.status]||0)+1;});
     sheet('SEVEN vendor list — '+file.name,
@@ -3720,7 +3744,7 @@ async function avlRead(ev){
       +Object.keys(bySt).map(function(k){return stat(bySt[k],k);}).join('')+'</div>'
       +'<div class="sec">By sheet</div><div class="panel"><div class="panel-b">'
       +Object.keys(bySh).map(function(k){return '<div class="line"><span class="tag t-na">'+esc(k)+'</span>'
-        +'<div class="line-m">'+bySh[k]+' rows</div></div>';}).join('')+'</div></div>'
+        +'<div class="line-m">'+esc(got.lists[k]||AVL_LISTS[k]||'')+' <span class="dim">· '+bySh[k]+' rows</span></div></div>';}).join('')+'</div></div>'
       +'<div class="f-act" style="margin-top:20px"><button class="btn btn-p" onclick="avlSave()">Save to the project</button>'
       +'<button class="btn-q" onclick="closeSheet()">Cancel</button></div>');
   }catch(e){busy(false);sheet('That file could not be read','<div style="font-size:14px;line-height:1.75">'
@@ -3731,7 +3755,7 @@ window.avlSave=async function(){
   if(!AVL_NEW)return;
   busy(true,'Saving the vendor list');
   var keep=AVL_NEW;
-  var slim={rev:keep.rev,file:keep.file,at:keep.at,rows:keep.rows.map(function(x){
+  var slim={rev:keep.rev,file:keep.file,at:keep.at,lists:keep.lists||{},rows:keep.rows.map(function(x){
     var o={};Object.keys(x).forEach(function(k){if(k!=='id'&&x[k]!=='')o[k]=x[k];});return o;})};
   var r=await client().from('settings').upsert({key:'avl',value:slim},{onConflict:'key'});
   busy(false);

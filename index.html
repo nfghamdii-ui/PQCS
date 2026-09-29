@@ -321,6 +321,13 @@ svg{display:block}
 .ev-bad{border-color:var(--bad);color:var(--bad-t);background:var(--bad-b)}
 .ev-na{border-color:var(--line-2);color:var(--ink-2);background:var(--sunk)}
 .cell-more{font-size:10px;color:var(--ink-4);padding-left:2px}
+/* the day number with how many things fall on it, and today in the project purple */
+.cell-n{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.cell-c{font-size:10px;font-weight:500;color:var(--ink-3);background:var(--sunk);border-radius:8px;padding:0 6px;line-height:16px}
+.cell.today{border-color:#963cbd;box-shadow:0 0 0 2px rgba(150,60,189,.18)}
+.cell.today .cell-n{color:#963cbd}
+.cal-kinds{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 16px}
+.sec.cal-today{color:#963cbd}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-3);margin-top:14px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:6px;border:1px solid}
 
@@ -1975,33 +1982,45 @@ function calItems(from,to){
   function put(date,title,tone,go,extra){
     if(date&&date>=from&&date<=to)out.push(Object.assign({d:date,t:title,k:tone,go:go,own:false},extra||{}));
   }
+  /* each item also says which kind it is (c), so the month can be
+     narrowed to the kinds wanted */
   (DB.mfrs||[]).forEach(function(v){
-    var st=v.steps||{};
-    if(st.pa&&st.pa.date&&st.pa.status==='Scheduled')put(st.pa.date,'Survey · '+v.name,'wait',"jump('mfr',"+v.id+")");
-    if(st.iso&&st.iso.date)put(st.iso.date,'ISO expires · '+v.name,'bad',"jump('mfr',"+v.id+")");
-    if(st.scope&&st.scope.date)put(st.scope.date,'Accreditation expires · '+v.name,'bad',"jump('mfr',"+v.id+")");
+    var st=v.steps||{}, go="jump('mfr',"+v.id+")";
+    if(st.pa&&st.pa.date&&st.pa.status==='Scheduled')put(st.pa.date,'Survey · '+v.name,'wait',go,{c:'visit'});
+    if(st.iso&&st.iso.date)put(st.iso.date,'ISO expires · '+v.name,'bad',go,{c:'exp'});
+    if(st.scope&&st.scope.date)put(st.scope.date,'Accreditation expires · '+v.name,'bad',go,{c:'exp'});
   });
   (DB.mats||[]).forEach(function(m){
     var st=m.steps||{}, go="jump('mat',"+m.id+")";
-    if(st.pfm&&st.pfm.date&&st.pfm.status!=='Approved')put(st.pfm.date,'Pre-fab meeting · '+m.name,'na',go);
-    if(st.fat&&st.fat.date)put(st.fat.date,(st.fat.status==='Scheduled'?'FAT · ':'FAT held · ')+m.name,'wait',go);
-    if(st.ipi&&st.ipi.date)put(st.ipi.date,'In-process visit · '+m.name,'wait',go);
+    if(st.pfm&&st.pfm.date&&st.pfm.status!=='Approved')put(st.pfm.date,'Pre-fab meeting · '+m.name,'na',go,{c:'visit'});
+    if(st.fat&&st.fat.date)put(st.fat.date,(st.fat.status==='Scheduled'?'FAT · ':'FAT held · ')+m.name,'wait',go,{c:'visit'});
+    if(st.ipi&&st.ipi.date)put(st.ipi.date,'In-process visit · '+m.name,'wait',go,{c:'visit'});
     matRoad(m).steps.forEach(function(x){
       var due=x.s.due?x.s.due(m,x.data):null;
-      if(due&&!due.soft)put(due.on,x.s.n+' due · '+m.name,daysTo(due.on)<0?'bad':'now',go);
+      if(due&&!due.soft)put(due.on,x.s.n+' due · '+m.name,daysTo(due.on)<0?'bad':'now',go,{c:'due'});
     });
     (m.dels||[]).forEach(function(d){
       if(d.date)put(d.date,(d.status==='Pending'?'Inspect delivery · ':'Delivered · ')+m.name,
-        d.status==='Pending'?'now':'ok',go);
+        d.status==='Pending'?'now':'ok',go,{c:'del'});
     });
+  });
+  /* the reminders you set on a step land on their day */
+  Object.keys(typeof SNOOZE==='object'&&SNOOZE?SNOOZE:{}).forEach(function(k){
+    var p=k.split('|');if(p[0]!=='step')return;
+    var on=SNOOZE[k];if(!/^\d{4}-\d{2}-\d{2}$/.test(on))return;
+    var rec=((p[1]==='mfr'?DB.mfrs:DB.mats)||[]).filter(function(r){return String(r.id)===p[2];})[0];
+    if(!rec)return;
+    var road=p[1]==='mfr'?mfrRoad(rec):matRoad(rec).steps;
+    var x=road.filter(function(y){return y.s.k===p[3];})[0];
+    if(!x||x.state==='done')return;
+    put(on,'Reminder · '+x.s.n+' · '+rec.name,'now',"jump('"+p[1]+"',"+rec.id+")",{c:'rem'});
   });
   (DB.events||[]).forEach(function(e){
     if(!e.date)return;
     var days=occurs(e,from,to);
     var last=e.end||e.date;
     days.forEach(function(d){
-      var isStart=(days.length>1&&d===days[0])||d===e.date;
-      out.push({d:d,t:e.title,k:evKind(e.type).t,own:true,id:e.id,
+      out.push({d:d,t:e.title,k:evKind(e.type).t,own:true,id:e.id,c:'mine',
         rep:!!e.rep, ends:last,
         pos:(!e.end||e.end===e.date)?'':(d===e.date?'start':(d===last?'end':'mid')),
         link:e.link||''});
@@ -2009,6 +2028,13 @@ function calItems(from,to){
   });
   return out;
 }
+/* what the month shows: every kind, unless some are switched off; and
+   whether it is drawn as a month or as a list of days */
+var CAL_KINDS=[['due','Deadlines'],['visit','Visits, FAT and meetings'],['del','Deliveries'],
+  ['exp','Expiries'],['rem','Your reminders'],['mine','Your events']];
+var CALOFF={}, CALV='month';
+window.calKind=function(k){CALOFF[k]=!CALOFF[k];rPane();};
+window.calView=function(v){CALV=v;rPane();};
 function calPane(){
   var y=CAL.getFullYear(), mo=CAL.getMonth();
   var names=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -2018,46 +2044,75 @@ function calPane(){
   for(var d=1;d<=dim;d++)cells.push({n:d,other:0,o:new Date(y,mo,d)});
   while(cells.length%7){var nx=cells.length-(start+dim)+1;cells.push({n:nx,other:1,o:new Date(y,mo+1,nx)});}
   var from=ymd(cells[0].o), to=ymd(cells[cells.length-1].o);
-  var items=calItems(from,to), byDay={};
+  var all=calItems(from,to), byDay={}, count={};
+  var mk=y+'-'+('0'+(mo+1)).slice(-2);
+  all.forEach(function(x){if(x.d.slice(0,7)===mk)count[x.c]=(count[x.c]||0)+1;});
+  var items=all.filter(function(x){return !CALOFF[x.c];});
   items.forEach(function(x){(byDay[x.d]=byDay[x.d]||[]).push(x);});
-  var mine=(DB.events||[]).length;
-
-  var head='<div class="head"><div class="wrap"><div class="head-t">Calendar</div>'
-    +'<div class="head-m"><span class="chip flat">'+items.length+' this month</span>'
-    +'<span class="chip flat">'+mine+' of your own</span>'
-    +'<span style="flex:1"></span>'
-    +'<button class="btn-q no-print" onclick="window.print()">Print</button></div></div></div>';
-
   var t0=today();
-  var grid=cells.map(function(c){
-    var ds=ymd(c.o), ev=(byDay[ds]||[]), wk=(c.o.getDay()===5||c.o.getDay()===6);
-    return '<button class="cell'+(c.other?' other':'')+(ds===t0?' today':'')+(wk&&!c.other?' weekend':'')
-      +(ev.length?'':' bare')+'" '
-      +'onclick="daySheet(\''+ds+'\')">'
-      +'<div class="cell-n">'+c.n+'</div>'
-      +ev.slice(0,3).map(function(x){
-          return '<div class="ev ev-'+x.k+(x.pos?' '+x.pos:'')+'" title="'+attr(x.t)+'">'
-            +(x.rep&&x.d===ds?'\u21bb ':'')+esc(x.t)+'</div>';}).join('')
-      +(ev.length>3?'<div class="cell-more">+'+(ev.length-3)+' more</div>':'')
-      +'</button>';
-  }).join('');
 
-  var body='<div class="cal-top">'
-    +'<button class="btn btn-s" onclick="calNav(-1)">Previous</button>'
-    +'<div class="cal-m">'+names[mo]+' '+y+'</div>'
-    +'<button class="btn btn-s" onclick="calNav(1)">Next</button>'
+  /* the month is the page's title; moving through it, the view, and
+     adding an event sit in the band's one row */
+  var head='<div class="head"><div class="wrap"><div class="head-t">'+names[mo]+' '+y+'</div>'
+    +'<div class="head-m">'
+    +'<button class="btn btn-s" onclick="calNav(-1)" aria-label="Previous month">\u2039 Previous</button>'
     +'<button class="btn btn-s" onclick="calToday()">Today</button>'
+    +'<button class="btn btn-s" onclick="calNav(1)" aria-label="Next month">Next \u203a</button>'
+    +'<span class="chip'+(CALV==='month'?' set':' flat')+'" style="margin-left:10px" onclick="calView(\'month\')">Month</span>'
+    +'<span class="chip'+(CALV==='list'?' set':' flat')+'" onclick="calView(\'list\')">List</span>'
     +'<span style="flex:1"></span>'
     +'<button class="btn btn-p btn-s no-print" onclick="editEvent(null,\''+t0+'\')">Add an event</button>'
-    +'</div>'
-    +'<div class="cal-dow">'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(d2){return '<div>'+d2+'</div>';}).join('')+'</div>'
-    +'<div class="cal-grid">'+grid+'</div>'
-    +'<div class="legend">'
-    +[['ev-wait','Fabrication, surveys and inspections'],['ev-now','Deadlines and things waiting on you'],
-      ['ev-bad','Expiries and anything late'],['ev-ok','Deliveries and shipping'],['ev-na','Meetings and your own notes']]
-      .map(function(l){return '<span><i class="'+l[0]+'"></i>'+l[1]+'</span>';}).join('')
-    +'</div>';
-  return head+'<div class="body"><div class="wrap" style="max-width:1320px;width:100%">'+body+'</div></div>';
+    +'<button class="btn-q no-print" onclick="window.print()">Print</button></div></div></div>';
+
+  /* the kinds, each switched on or off, with how many fall this month */
+  var kinds='<div class="cal-kinds no-print">'
+    +CAL_KINDS.map(function(k){
+      var off=!!CALOFF[k[0]];
+      return '<button class="chip'+(off?'':' set')+'" aria-pressed="'+(!off)+'" onclick="calKind(\''+k[0]+'\')">'
+        +esc(k[1])+' <span class="meta">'+(count[k[0]]||0)+'</span></button>';
+    }).join('')+'</div>';
+
+  function row(x){
+    var go=x.own?('editEvent('+x.id+')'):(x.go||'');
+    return '<div class="row'+(go?' row-a':'')+'"'+(go?' onclick="'+go+'"':'')+'>'
+      +'<span class="tag t-'+x.k+'" style="min-width:96px;text-align:center;flex-shrink:0">'
+      +esc((CAL_KINDS.filter(function(k){return k[0]===x.c;})[0]||['',''])[1].split(',')[0])+'</span>'
+      +'<div style="flex:1;min-width:0">'+(x.rep?'\u21bb ':'')+esc(x.t)+'</div></div>';
+  }
+
+  var view;
+  if(CALV==='list'){
+    /* only the days of this month that have something on them */
+    var days=Object.keys(byDay).filter(function(d){return d.slice(0,7)===mk;}).sort();
+    view=days.length?days.map(function(ds){
+      var dt=new Date(ds);
+      return '<div class="sec'+(ds===t0?' cal-today':'')+'">'
+        +esc(dt.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}))
+        +(ds===t0?' \u00b7 today':'')+' <span class="dim">'+byDay[ds].length+'</span></div>'
+        +'<div class="panel"><div class="panel-b">'+byDay[ds].map(row).join('')+'</div></div>';
+    }).join(''):'<div class="dim" style="padding:30px 0;text-align:center">Nothing this month in what is shown.</div>';
+  }else{
+    var grid=cells.map(function(c){
+      var ds=ymd(c.o), ev=(byDay[ds]||[]), wk=(c.o.getDay()===5||c.o.getDay()===6);
+      return '<button class="cell'+(c.other?' other':'')+(ds===t0?' today':'')+(wk&&!c.other?' weekend':'')
+        +(ev.length?'':' bare')+'" '
+        +'onclick="daySheet(\''+ds+'\')">'
+        +'<div class="cell-n">'+c.n+(ev.length>1?'<span class="cell-c">'+ev.length+'</span>':'')+'</div>'
+        +ev.slice(0,4).map(function(x){
+            return '<div class="ev ev-'+x.k+(x.pos?' '+x.pos:'')+'" title="'+attr(x.t)+'">'
+              +(x.rep&&x.d===ds?'\u21bb ':'')+esc(x.t)+'</div>';}).join('')
+        +(ev.length>4?'<div class="cell-more">+'+(ev.length-4)+' more</div>':'')
+        +'</button>';
+    }).join('');
+    view='<div class="cal-dow">'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(d2){return '<div>'+d2+'</div>';}).join('')+'</div>'
+      +'<div class="cal-grid">'+grid+'</div>'
+      +'<div class="legend">'
+      +[['ev-wait','Fabrication, surveys and inspections'],['ev-now','Deadlines, reminders and things waiting on you'],
+        ['ev-bad','Expiries and anything late'],['ev-ok','Deliveries and shipping'],['ev-na','Meetings and your own notes']]
+        .map(function(l){return '<span><i class="'+l[0]+'"></i>'+l[1]+'</span>';}).join('')
+      +'</div>';
+  }
+  return head+'<div class="body"><div class="wrap" style="max-width:1320px;width:100%">'+kinds+view+'</div></div>';
 }
 window.calNav=function(n){CAL.setMonth(CAL.getMonth()+n);rPane();};
 window.calToday=function(){CAL=new Date();CAL.setDate(1);rPane();};
