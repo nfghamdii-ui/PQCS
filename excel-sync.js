@@ -4239,6 +4239,9 @@ function tableCSS(){
   +'#tbl-body{padding:0 18px 40px 0;overflow:auto}'
   /* every page is the tab row and the page; the rail is put away */
   +'.side{display:none}'
+  /* and every page uses the whole width, its words starting on the left
+     as the list pages' do, rather than a centred column on some pages */
+  +'.head .wrap,.head-note .wrap,.body .wrap{max-width:none!important;margin:0!important}'
   +'.topbar-tools{margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 4px 6px;flex-shrink:0}'
   /* the tab row in the project navy, with light words on it */
   +'.topbar{background:#00163a;border-bottom-color:#00163a}'
