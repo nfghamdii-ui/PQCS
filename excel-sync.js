@@ -2366,9 +2366,25 @@ function install2(){
   /* One band, one height, on every page: its title and one row. Any
      further line a page puts in it — a clause note, a row count — is
      moved to a plain strip just beneath, where it is read, not framed. */
+  /* The band's row, in two: what the record is (chips, free to wrap) on
+     the left, and what can be done to it on the right, kept together — a
+     lone "Delete" used to fall to a line of its own. */
+  function splitRow(head){
+    var hm=head.querySelector('.head-m');
+    if(!hm||hm.querySelector('.head-acts'))return;
+    var kids=[].slice.call(hm.childNodes);
+    var at=kids.findIndex(function(n){return n.nodeType===1&&n.tagName==='SPAN'&&/flex:\s*1/.test(n.getAttribute('style')||'');});
+    if(at<0)return;
+    var chips=document.createElement('div');chips.className='head-chips';
+    var acts=document.createElement('div');acts.className='head-acts';
+    kids.forEach(function(n,i){if(i<at)chips.appendChild(n);else if(i>at)acts.appendChild(n);else hm.removeChild(n);});
+    hm.appendChild(chips);hm.appendChild(acts);
+    hm.classList.add('split');
+  }
   function tidyHead(){
     var el=document.getElementById('pane');if(!el)return;
     var head=el.querySelector('.head');if(!head)return;
+    splitRow(head);
     var wrap=head.querySelector('.wrap')||head;
     var extra=[].slice.call(wrap.children).filter(function(c){
       return !c.classList.contains('head-t')&&!c.classList.contains('head-m');});
@@ -4249,6 +4265,16 @@ function tableCSS(){
   +'.head :focus-visible{outline-color:#fff}'
   +'@media print{.head{background:none;color:inherit;border-bottom-color:var(--line)}'
   +'.head .head-t,.head .swhy,.head .dim{color:inherit}}'
+  /* the band's row split: chips wrap on the left, actions stay together on the right */
+  +'.head-m.split{flex-wrap:nowrap;align-items:flex-start}'
+  +'.head-chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:1;min-width:0}'
+  +'.head-acts{display:flex;gap:6px;align-items:center;flex-shrink:0;margin-left:14px}'
+  /* every action on the band looks the same: a light outlined button */
+  +'.head .head-acts .btn-q{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);'
+  +'color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;min-height:32px}'
+  +'.head .head-acts .btn-q:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.55)}'
+  +'.head .head-acts [onclick^="remove"]:hover{background:#c62828;border-color:#c62828}'
+  +'@media(max-width:760px){.head-m.split{flex-wrap:wrap}.head-acts{margin-left:0}}'
   /* the way back sits in the band's row, first */
   +'.head .backbtn{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.35);color:#fff;box-shadow:none}'
   +'.head .backbtn:hover{background:rgba(255,255,255,.24);border-color:rgba(255,255,255,.55)}'
