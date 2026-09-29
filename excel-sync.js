@@ -3031,8 +3031,21 @@ function pqGuess(g){
    and purchase order. A row finds its material by ID, then by MAT
    number. A sheet cannot add a material: they come from Aconex.
    --------------------------------------------------------------- */
-var MAT_COLS=['ID','MAT Number','Item Description','Category','Discipline','Vendor','Sub-contractor',
+var MAT_COLS=['ID','MAT Number','Item Description','Category','Discipline','Vendor','Vendor PQD','Sub-contractor',
   'Quantity','Unit','PO Number','MAT Status'];
+/* the vendor that holds a pre-qualification number — the whole number,
+   or its tail ("PRQ-00024", "00024") when only one vendor's ends so */
+function vendorByPq(x){
+  var k=K(x);if(!k)return null;
+  var refs=function(v){return [pqOf(v).ref].concat((v.pq2||[]).map(function(p){return p.ref;})).filter(Boolean).map(K);};
+  var exact=(DB.mfrs||[]).filter(function(v){return refs(v).indexOf(k)>=0;});
+  if(exact.length)return exact[0];
+  var tail=k.replace(/^0+/,'');
+  if(tail.length<2)return null;
+  var ends=(DB.mfrs||[]).filter(function(v){return refs(v).some(function(r){
+    return r.slice(-k.length)===k||r.replace(/.*-/,'').replace(/^0+/,'')===tail;});});
+  return ends.length===1?ends[0]:null;
+}
 function matNo(m){return trim(m.ref||(m.raw||{})['MAT Number']||'');}
 function vendorByName(name){
   var k=K(name), c=coName(name);
@@ -3050,6 +3063,10 @@ var MAT_FIELDS=[
   {c:'Discipline',get:function(m){return m.disc;},set:function(m,x){m.disc=x;}},
   {c:'Vendor',get:function(m){var v=m.mfr?mfr(m.mfr):null;return v?v.name:'';},
     set:function(m,x){if(!x){m.mfr='';return;}var v=vendorByName(x);if(v)m.mfr=String(v.id);}},
+  /* the vendor by its pre-qualification number: exact where the name is
+     not, and applied after the name, so it wins where the two disagree */
+  {c:'Vendor PQD',get:function(m){var v=m.mfr?mfr(m.mfr):null;return v?(pqOf(v).ref||''):'';},
+    set:function(m,x){if(!x){m.mfr='';return;}var v=vendorByPq(x);if(v)m.mfr=String(v.id);}},
   {c:'Sub-contractor',get:function(m){return m.sub;},set:function(m,x){m.sub=x;}},
   {c:'Quantity',get:function(m){return m.qty;},set:function(m,x){m.qty=x;}},
   {c:'Unit',get:function(m){return m.unit;},set:function(m,x){m.unit=x;}},
@@ -3066,7 +3083,7 @@ function materialRows(list){
   var rows=[MAT_COLS.slice()];
   list.forEach(function(m){
     var v=m.mfr?mfr(m.mfr):null;
-    rows.push([String(m.id),matNo(m),m.name||'',m.cat||'',m.disc||'',v?v.name:'',m.sub||'',
+    rows.push([String(m.id),matNo(m),m.name||'',m.cat||'',m.disc||'',v?v.name:'',v?(pqOf(v).ref||''):'',m.sub||'',
       m.qty||'',m.unit||'',(m.raw||{})['PO Number']||'',stepOf(m,'mts','status')||(m.raw||{})['MAT Status']||'']);
   });
   return rows;
@@ -3103,6 +3120,7 @@ function planMaterials(rows){
       if(want===null){if(now!=='')diff.push(fd.c+' cleared');return;}
       if(want===''||K(now)===K(want))return;
       if(fd.c==='Vendor'&&!vendorByName(want)){p.noVendor.push({m:m,name:want});return;}
+      if(fd.c==='Vendor PQD'&&!vendorByPq(want)){p.noVendor.push({m:m,name:want,pq:true});return;}
       diff.push(fd.c);
     });
     if(diff.length)p.change.push({m:m,r:r,diff:diff});else p.same++;
@@ -3125,8 +3143,8 @@ function showMaterials(){
     +(p.noVendor.length?('<div class="sec">Vendor not found — left as it is</div><div class="panel"><div class="panel-b">'
       +p.noVendor.slice(0,40).map(function(x){
         return '<div class="line"><span class="tag t-now">no match</span><div class="line-m"><div>'+esc(x.m.name)
-          +'</div><div class="dim" style="font-size:12.5px;margin-top:2px">"'+esc(x.name)+'" is not a vendor here — '
-          +'write it as it appears on the Vendors page</div></div></div>';}).join('')
+          +'</div><div class="dim" style="font-size:12.5px;margin-top:2px">"'+esc(x.name)+'" '
+          +(x.pq?'is no vendor’s PQD number here':'is not a vendor here — write it as it appears on the Vendors page')+'</div></div></div>';}).join('')
       +more(p.noVendor.length,40)+'</div></div>'):'')
     +(p.lost.length?('<div class="sec">No such material — ignored</div><div class="panel"><div class="panel-b">'
       +'<div class="dim" style="font-size:12.5px;margin-bottom:8px">Materials come from Aconex; a row that matches none is not added.</div>'
@@ -3144,6 +3162,7 @@ window.matApply=function(){
       var want=matWant(c.r,fd);
       if(want==='')return;
       if(fd.c==='Vendor'&&want!==null&&!vendorByName(want))return;
+      if(fd.c==='Vendor PQD'&&want!==null&&!vendorByPq(want))return;
       fd.set(c.m,want===null?'':want);
     });
   });

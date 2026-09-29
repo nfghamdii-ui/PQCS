@@ -2840,7 +2840,7 @@ window.pickMfr=function(q){
      '<div class="dim" style="font-size:13.5px;margin-bottom:14px">Qualification is recorded once on the vendor and read by every material it supplies. '
       +'Naming one that is not yet qualified is allowed — the material simply will not clear that step.</div>'
     +'<div class="f" style="margin-bottom:14px"><label for="pk-v">Search '
-      +all.length+' companies — name, country, reference</label>'
+      +all.length+' companies — PQD number, name or country</label>'
       +'<input id="pk-v" value="'+attr(q||'')+'" autocomplete="off" '
       +'oninput="pickMfrLater(this.value)"></div>'
     +(need?('<div class="dim" style="font-size:13px;margin-bottom:10px">'
@@ -2853,6 +2853,8 @@ window.pickMfr=function(q){
             +' <span class="dim">· '+esc(KINDS[kindOf(v)].l.toLowerCase())+'</span>'
             +(v.cat?' <span class="dim">· '+esc(v.cat)+'</span>':'')+'</div>'
           +'<div class="dim" style="font-size:12.5px;margin-top:2px">'
+            /* its pre-qualification number, the surest way to tell two alike apart */
+            +(((v.steps||{}).pqd||(v.steps||{}).appr||{}).ref?('<span class="mono">'+esc(((v.steps||{}).pqd||(v.steps||{}).appr).ref)+'</span> \u00b7 '):'')
             +(ms.ok?((needsQual(v)?'qualified':'C0 \u2014 no qualification needed')+(v.country?' · '+esc(v.country):''))
                    :esc(ms.short.slice(0,2).join(' · ')+(ms.short.length>2?(' · +'+(ms.short.length-2)+' more'):'')))
           +'</div></div>'
