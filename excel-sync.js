@@ -2190,8 +2190,8 @@ function paintTabs(){
   (DB.mats||[]).forEach(function(m){
     if(!isDoc(m)){
       n.mat++;
-      /* each inspection page counts the materials that carry that step */
-      ['ipi','fat','irn'].forEach(function(k){if(stepApplies(m,k))n[k]++;});
+      /* each inspection page counts the reports recorded on it */
+      (m.visits||[]).forEach(function(v){if(n[v.step]!=null&&stepApplies(m,v.step))n[v.step]++;});
     }
     else if(m.doc==='MIR')n.mir++;
     else n.doc++;
@@ -3806,28 +3806,53 @@ function rawOf(r,c){return ((r.raw||{})[c])||'';}
 
 /* An inspection page: every material whose road has that step, and where
    the step stands on it — read from the material itself, as recorded. */
-function stepTable(k,label,refLabel,withBy){
+/* A release note is issued, not visited: no inspector, its own words */
+var VISIT_TEXT={
+  ipi:{one:'Report',date:'Visit date',by:true,ref:'Report reference',res:'Result',none:'No report yet',
+       add:'Record a visit',edit:'Edit the visit',what:'visit'},
+  fat:{one:'Report',date:'Inspection date',by:true,ref:'Report reference',res:'Result',none:'No report yet',
+       add:'Record a visit',edit:'Edit the visit',what:'visit'},
+  irn:{one:'Note',date:'Issued',by:false,ref:'Release note number',res:'Employer copy',none:'No note yet',
+       add:'Add a release note',edit:'Edit the release note',what:'release note'}
+};
+/* A page of reports rather than materials: one row for each visit
+   recorded on a material's step — an in-process inspection is repeated
+   while the thing is being made, and every report counts. A material
+   with none yet has one row saying so, so what is still owed shows. */
+function visitTable(k,label){
+  var w=VISIT_TEXT[k];
+  var num=function(r){return r.v?(r.n+' of '+r.of):'';};
   var cols=[
-    (function(c){c.sub=function(r){var v=r.mfr?mfr(r.mfr):null;return v?v.name:'';};return c;})(
-      col('Material','name',function(r){return r.name;},'text',380)),
-    col('Category','cat',function(r){return r.cat;},'pick',90),
-    asTag(col('Status','st',function(r){return trim(stepOf(r,k,'status'))||'Not started';},'pick',150),
-      function(v){return statusTone(v)||(v==='Not started'?'now':v==='Scheduled'||v==='Sent'?'wait':'');}),
-    col('Date','dt',function(r){return show(stepOf(r,k,'date'));},'text',110)];
-  if(withBy)cols.push(col('Inspector','by',function(r){return stepOf(r,k,'by');},'pick',180));
-  cols.push(col(refLabel,'ref',function(r){return stepOf(r,k,'ref');},'text',280));
-  if(withBy)cols.push(asNum(col('Visits','nv',function(r){
-    var n=(r.visits||[]).filter(function(x){return x.step===k;}).length;return n?String(n):'';},'text',80)));
-  cols.push(col('Discipline','disc',function(r){return r.disc;},'pick',150));
+    (function(c){c.sub=function(r){var v=r.m.mfr?mfr(r.m.mfr):null;return v?v.name:'';};return c;})(
+      col('Material','name',function(r){return r.m.name;},'text',380)),
+    col('Category','cat',function(r){return r.m.cat;},'pick',90),
+    col(w.one,'n',num,'text',80),
+    col(w.date,'dt',function(r){return r.v?show(r.v.date):'';},'text',110)];
+  if(w.by)cols.push(col('Inspector','by',function(r){return r.v?r.v.by:'';},'pick',180));
+  cols.push(
+    col(w.ref,'ref',function(r){return r.v?r.v.ref:'';},'text',280),
+    asTag(col(w.res,'st',function(r){return r.v?(trim(r.v.result)||'Pending'):w.none;},'pick',160),
+      function(v){return statusTone(v)||(v===w.none?'now':v==='Scheduled'||v==='Sent'?'wait':'');}),
+    col('Discipline','disc',function(r){return r.m.disc;},'pick',150));
   return {label:label,
-    rows:function(){return (DB.mats||[]).filter(function(m){return !isDoc(m)&&stepApplies(m,k);});},
-    open:function(r){jump('mat',r.id);},
+    rows:function(){
+      var out=[];
+      (DB.mats||[]).forEach(function(m){
+        if(isDoc(m)||!stepApplies(m,k))return;
+        var list=visitsOf(m,k);
+        if(!list.length){out.push({id:-Number(m.id),m:m,v:null});return;}
+        /* numbered oldest first, so report 1 is the first visit */
+        list.slice().reverse().forEach(function(v,i){out.push({id:Number(v.id),m:m,v:v,n:i+1,of:list.length});});
+      });
+      return out;
+    },
+    open:function(r){jump('mat',r.m.id);},
     cols:cols,show:cols.map(function(c){return c.k;})};
 }
 var TABLES_DEF={
- ipi:stepTable('ipi','In-Process Inspection','Report reference',true),
- fat:stepTable('fat','FAT/Final Inspection','Report reference',true),
- irn:stepTable('irn','Inspection Release Note','Release note number',false),
+ ipi:visitTable('ipi','In-Process Inspection'),
+ fat:visitTable('fat','FAT/Final Inspection'),
+ irn:visitTable('irn','Inspection Release Note'),
  mat:{label:'Materials',rows:function(){return (DB.mats||[]).filter(function(m){return !isDoc(m);});},
    open:function(r){jump('mat',r.id);},
    /* the materials the filters leave, out to Excel to be edited, and back */
@@ -4557,10 +4582,11 @@ function tableCSS(){
    dates, and the newest is the one that column should carry.
    ================================================================ */
 
-var VISIT_STEPS={ipi:'In-process inspection',fat:'Final inspection or FAT'};
+var VISIT_STEPS={ipi:'In-process inspection',fat:'Final inspection or FAT',irn:'Inspection release note'};
 var VISIT_RESULTS={
   ipi:['Pending','Passed','Passed with comments','Failed'],
-  fat:['Pending','Scheduled','Passed','Passed with comments','Failed']
+  fat:['Pending','Scheduled','Passed','Passed with comments','Failed'],
+  irn:['Pending','Sent']
 };
 
 function visitsOf(m,k){
@@ -4577,7 +4603,7 @@ function restep(m,k){
 }
 
 function visitPanel(m,k){
-  var list=visitsOf(m,k);
+  var list=visitsOf(m,k),w=VISIT_TEXT[k];
   return '<div class="cl" style="margin-top:14px"><div class="cl-body" style="padding:4px 15px 6px">'
     +(list.length?list.map(function(v){
         var t=/Passed/.test(v.result)?'ok':/Failed/.test(v.result)?'bad'
@@ -4594,26 +4620,27 @@ function visitPanel(m,k){
           +'<button class="btn-q no-print" onclick="editVisit('+m.id+',\''+k+'\','+v.id+')">Edit</button>'
           +'</div>';
       }).join('')
-      :'<div class="dim" style="padding:10px 0;font-size:13.5px">No visit recorded yet. '
-       +'This step happens more than once — each visit is kept, and the newest one is what '
+      :'<div class="dim" style="padding:10px 0;font-size:13.5px">No '+w.what+' recorded yet. '
+       +'This step happens more than once — each '+w.what+' is kept, and the newest one is what '
        +'the road and the log read.</div>')
     +'<div class="cl-foot"><button class="btn btn-s" onclick="editVisit('+m.id+',\''+k+'\')">'
-    +'Record a visit</button>'
-    +(list.length>1?('<span class="dim" style="font-size:12.5px">'+list.length+' visits</span>'):'')
+    +w.add+'</button>'
+    +(list.length>1?('<span class="dim" style="font-size:12.5px">'+list.length+' '+w.what+'s</span>'):'')
     +'</div></div></div>';
 }
 
 window.editVisit=function(matId,k,id){
   var m=mat(matId);if(!m)return;
+  var w=VISIT_TEXT[k];
   var v=(m.visits||[]).filter(function(x){return String(x.id)===String(id);})[0]||{};
   var people=(DB.people||[]).slice().sort(function(a,b){
     return String(a.name).localeCompare(String(b.name));});
-  sheet((id?'Edit the visit':'Record a visit')+' — '+VISIT_STEPS[k],
+  sheet((id?w.edit:w.add)+' — '+VISIT_STEPS[k],
      '<div class="form" style="margin:0;padding:0;border:none">'
-    +'<div class="f"><label for="v-date">Date</label>'
+    +'<div class="f"><label for="v-date">'+w.date+'</label>'
     +'<input id="v-date" class="mono" value="'+attr(show(v.date||today()))+'" '
     +'placeholder="dd/mm/yyyy" autocomplete="off"><span class="err" id="e-v-date"></span></div>'
-    +'<div class="f"><label for="v-by">Inspector</label><select id="v-by">'
+    +'<div class="f"'+(w.by?'':' hidden')+'><label for="v-by">Inspector</label><select id="v-by">'
     +'<option value=""'+(v.by?'':' selected')+'>—</option>'
     +people.map(function(p){
         return '<option value="'+attr(p.name)+'"'+(K(p.name)===K(v.by||'')?' selected':'')+'>'
@@ -4622,9 +4649,9 @@ window.editVisit=function(matId,k,id){
     +(v.by&&!people.some(function(p){return K(p.name)===K(v.by);})
       ?('<option value="'+attr(v.by)+'" selected>'+esc(v.by)+' · not on your list</option>'):'')
     +'</select></div>'
-    +'<div class="f wide"><label for="v-ref">Report reference</label>'
+    +'<div class="f wide"><label for="v-ref">'+w.ref+'</label>'
     +'<input id="v-ref" class="mono" value="'+attr(v.ref||'')+'" autocomplete="off"></div>'
-    +'<div class="f"><label for="v-res">Result</label><select id="v-res">'
+    +'<div class="f"><label for="v-res">'+w.res+'</label><select id="v-res">'
     +VISIT_RESULTS[k].map(function(o){
         return '<option'+((v.result||'Pending')===o?' selected':'')+'>'+esc(o)+'</option>';}).join('')
     +'</select></div>'
@@ -4655,7 +4682,7 @@ window.saveVisit=function(matId,k,id){
 };
 window.dropVisit=function(ev,matId,k,id){
   var m=mat(matId);if(!m)return;
-  popConfirm(ev.currentTarget,'Delete this visit?',
+  popConfirm(ev.currentTarget,'Delete this '+VISIT_TEXT[k].what+'?',
     'The others stay. If this was the newest, the step goes back to the one before it.',
     'Delete',function(){
       m.visits=(m.visits||[]).filter(function(x){return String(x.id)!==String(id);});
