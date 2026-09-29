@@ -1924,7 +1924,14 @@ function docKind(ref,type){
   if(t==='method statement')return 'MES';
   if(t==='inspection & test plan')return 'ITP';
   if(t==='material inspection request')return 'MIR';
+  /* in this project's register as well: material samples, and the forms
+     that put the project's own staff up for approval (BIM, HSSE and the
+     like) — documents, neither of them a material */
+  if(t==='material sample')return 'MAS';
+  if(t==='personnel approval form')return 'PAA';
   var r=String(ref||'').toUpperCase();
+  if(/-MAS-/.test(r))return 'MAS';
+  if(/-PAA-/.test(r))return 'PAA';
   if(/-MES-/.test(r))return 'MES';
   if(/-ITP-/.test(r))return 'ITP';
   if(/-MIR-/.test(r))return 'MIR';
@@ -2154,7 +2161,7 @@ window.regUndoYes=function(tag){
    own, and the remaining kinds are sorted out inside Documents. */
 var VIEW='mat';                            /* mat | mir | doc */
 var DOCKIND='';                            /* which kind, inside Documents */
-var DOC_KINDS=['MES','ITP','PID','PQD','Report','Procedure','WIR'];
+var DOC_KINDS=['MES','ITP','MAS','PAA','PID','PQD','Report','Procedure','WIR'];
 
 function isDoc(m){return !!(m&&m.doc);}
 function inView(m){
