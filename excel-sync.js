@@ -3023,6 +3023,141 @@ function pqGuess(g){
   if(subs.length===1)return subs[0];
   return titled[0]||subs[0]||g.list[0];
 }
+/* ---------------------------------------------------------------
+   The materials sheet that goes out to be edited and comes back. Aconex
+   owns a material's number and its outcome, so those travel for reading
+   only; what can be changed is what Aconex does not carry — the name as
+   you want it, category, discipline, vendor, subcontractor, quantity
+   and purchase order. A row finds its material by ID, then by MAT
+   number. A sheet cannot add a material: they come from Aconex.
+   --------------------------------------------------------------- */
+var MAT_COLS=['ID','MAT Number','Item Description','Category','Discipline','Vendor','Sub-contractor',
+  'Quantity','Unit','PO Number','MAT Status'];
+function matNo(m){return trim(m.ref||(m.raw||{})['MAT Number']||'');}
+function vendorByName(name){
+  var k=K(name), c=coName(name);
+  var hits=(DB.mfrs||[]).filter(function(v){return K(v.name)===k;});
+  if(!hits.length)hits=(DB.mfrs||[]).filter(function(v){return c&&coName(v.name)===c;});
+  /* two records of one company (two pre-qualifications): the live one first */
+  hits.sort(function(a,b){return (pqOf(a).status==='Terminated')-(pqOf(b).status==='Terminated');});
+  return hits[0]||null;
+}
+var MAT_FIELDS=[
+  {c:'Item Description',get:function(m){return m.name;},set:function(m,x){if(x){m.name=x;m.raw=m.raw||{};m.raw['Item Description']=x;}}},
+  {c:'Category',get:function(m){return m.cat;},
+    read:function(x){return normCat(x)||(/^[0-3]$/.test(trim(x))?'C'+trim(x):'');},
+    set:function(m,x){m.cat=x;m.catSure=true;m.catFrom=x?'set in Excel':'';}},
+  {c:'Discipline',get:function(m){return m.disc;},set:function(m,x){m.disc=x;}},
+  {c:'Vendor',get:function(m){var v=m.mfr?mfr(m.mfr):null;return v?v.name:'';},
+    set:function(m,x){if(!x){m.mfr='';return;}var v=vendorByName(x);if(v)m.mfr=String(v.id);}},
+  {c:'Sub-contractor',get:function(m){return m.sub;},set:function(m,x){m.sub=x;}},
+  {c:'Quantity',get:function(m){return m.qty;},set:function(m,x){m.qty=x;}},
+  {c:'Unit',get:function(m){return m.unit;},set:function(m,x){m.unit=x;}},
+  {c:'PO Number',get:function(m){return (m.raw||{})['PO Number'];},
+    set:function(m,x){m.raw=m.raw||{};if(x)m.raw['PO Number']=x;else delete m.raw['PO Number'];}}
+];
+function matWant(r,fd){
+  var raw=trim(r[fd.c]);
+  if(raw==='')return '';
+  if(raw==='-')return null;
+  return fd.read?fd.read(raw):raw;
+}
+function materialRows(list){
+  var rows=[MAT_COLS.slice()];
+  list.forEach(function(m){
+    var v=m.mfr?mfr(m.mfr):null;
+    rows.push([String(m.id),matNo(m),m.name||'',m.cat||'',m.disc||'',v?v.name:'',m.sub||'',
+      m.qty||'',m.unit||'',(m.raw||{})['PO Number']||'',stepOf(m,'mts','status')||(m.raw||{})['MAT Status']||'']);
+  });
+  return rows;
+}
+async function readMaterialSheet(file){
+  var book=await openBook(file);
+  for(var i=0;i<book.sheets.length;i++){
+    var rows=await book.rows(book.sheets[i]);
+    for(var h=0;h<Math.min(rows.length,10);h++){
+      var head=(rows[h]||[]).map(function(x){return K(x);});
+      if(head.indexOf('item description')>=0&&(head.indexOf('id')>=0||head.indexOf('mat number')>=0)){
+        var col={};head.forEach(function(n,j){if(n)col[n]=j;});
+        var out=[];
+        rows.slice(h+1).forEach(function(line){
+          var o={};MAT_COLS.forEach(function(c){var j=col[K(c)];o[c]=(j==null)?'':line[j];});
+          if(trim(o['ID'])||trim(o['MAT Number']))out.push(o);
+        });
+        if(out.length)return {rows:out};
+      }
+    }
+  }
+  throw new Error('No sheet in that file has the materials columns. Download it with Edit in Excel first.');
+}
+function planMaterials(rows){
+  var byId={},byNo={};
+  (DB.mats||[]).forEach(function(m){if(isDoc(m))return;byId[String(m.id)]=m;var n=K(matNo(m));if(n&&!byNo[n])byNo[n]=m;});
+  var p={change:[],same:0,lost:[],noVendor:[]};
+  rows.forEach(function(r){
+    var m=byId[trim(r['ID'])]||byNo[K(trim(r['MAT Number']))];
+    if(!m){p.lost.push(r);return;}
+    var diff=[];
+    MAT_FIELDS.forEach(function(fd){
+      var want=matWant(r,fd), now=trim(fd.get(m));
+      if(want===null){if(now!=='')diff.push(fd.c+' cleared');return;}
+      if(want===''||K(now)===K(want))return;
+      if(fd.c==='Vendor'&&!vendorByName(want)){p.noVendor.push({m:m,name:want});return;}
+      diff.push(fd.c);
+    });
+    if(diff.length)p.change.push({m:m,r:r,diff:diff});else p.same++;
+  });
+  return p;
+}
+var MATP=null;
+function showMaterials(){
+  var p=MATP;
+  sheet('From '+p.file,
+    '<div class="dim" style="font-size:13.5px;margin-bottom:16px">'+p.count+' rows read. MAT numbers and '
+    +'statuses come from Aconex and are not changed from here. Nothing has been changed yet.</div>'
+    +'<div class="grid" style="margin-bottom:18px">'+stat(p.change.length,'Changed')+stat(p.same,'Unchanged')
+    +stat(p.noVendor.length,'Vendor not found')+stat(p.lost.length,'No such material')+'</div>'
+    +(p.change.length?('<div class="sec">Changed</div><div class="panel"><div class="panel-b">'
+      +p.change.slice(0,60).map(function(c){
+        return '<div class="line"><span class="tag t-wait">'+c.diff.length+'</span><div class="line-m"><div>'+esc(c.m.name)
+          +'</div><div class="dim" style="font-size:12.5px;margin-top:2px">'+esc(c.diff.join(', '))+'</div></div></div>';}).join('')
+      +more(p.change.length,60)+'</div></div>'):'')
+    +(p.noVendor.length?('<div class="sec">Vendor not found — left as it is</div><div class="panel"><div class="panel-b">'
+      +p.noVendor.slice(0,40).map(function(x){
+        return '<div class="line"><span class="tag t-now">no match</span><div class="line-m"><div>'+esc(x.m.name)
+          +'</div><div class="dim" style="font-size:12.5px;margin-top:2px">"'+esc(x.name)+'" is not a vendor here — '
+          +'write it as it appears on the Vendors page</div></div></div>';}).join('')
+      +more(p.noVendor.length,40)+'</div></div>'):'')
+    +(p.lost.length?('<div class="sec">No such material — ignored</div><div class="panel"><div class="panel-b">'
+      +'<div class="dim" style="font-size:12.5px;margin-bottom:8px">Materials come from Aconex; a row that matches none is not added.</div>'
+      +p.lost.slice(0,20).map(function(r){return '<div class="line"><span class="tag t-na">'+esc(trim(r['MAT Number'])||'no number')
+        +'</span><div class="line-m">'+esc(trim(r['Item Description']))+'</div></div>';}).join('')
+      +more(p.lost.length,20)+'</div></div>'):'')
+    +'<div class="f-act" style="margin-top:22px">'
+    +(p.change.length?('<button class="btn btn-p" onclick="matApply()">Apply — '+p.change.length+'</button>'):'')
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button></div>');
+}
+window.matApply=function(){
+  if(!MATP)return;
+  MATP.change.forEach(function(c){
+    MAT_FIELDS.forEach(function(fd){
+      var want=matWant(c.r,fd);
+      if(want==='')return;
+      if(fd.c==='Vendor'&&want!==null&&!vendorByName(want))return;
+      fd.set(c.m,want===null?'':want);
+    });
+  });
+  var n=MATP.change.length;MATP=null;
+  closeSheet();touch();rList();rPane();
+  toast(n+' material'+(n===1?'':'s')+' updated');
+};
+window.matOut=function(){
+  var prev=TBL;TBL='mat';
+  var list=filtered();TBL=prev;
+  download(workbook([{name:'Materials',rows:materialRows(list)}]),
+    (DB.project||'Materials')+' — materials to edit '+today()+'.xlsx');
+  toast(list.length+' materials written — edit, keep the ID column, then Upload edited');
+};
 window.venOut=function(){
   var prev=TBL;TBL='mfr';
   var list=filtered();TBL=prev;
@@ -3398,6 +3533,19 @@ window.repRead=async function(ev){
   var f=ev.target.files[0];ev.target.value='';
   if(!f)return;
   if(REP_WANT==='log')return window.excelRead({target:{files:[f],value:''}});
+  if(REP_WANT==='mat'){
+    if(typeof busy==='function')busy(true,'Reading the materials sheet');
+    try{
+      var gm=await readMaterialSheet(f);
+      MATP=planMaterials(gm.rows);MATP.file=f.name;MATP.count=gm.rows.length;
+      if(typeof busy==='function')busy(false);
+      showMaterials();
+    }catch(e){
+      if(typeof busy==='function')busy(false);
+      sheet('That sheet could not be read','<div style="font-size:14px;line-height:1.75">'+esc(e.message||String(e))+'</div>');
+    }
+    return;
+  }
   if(REP_WANT==='insp'){
     if(typeof busy==='function')busy(true,'Reading the inspector sheet');
     try{
@@ -3602,6 +3750,9 @@ function rawOf(r,c){return ((r.raw||{})[c])||'';}
 var TABLES_DEF={
  mat:{label:'Materials',rows:function(){return (DB.mats||[]).filter(function(m){return !isDoc(m);});},
    open:function(r){jump('mat',r.id);},
+   /* the materials the filters leave, out to Excel to be edited, and back */
+   extra:function(){return '<button class="btn btn-s" onclick="matOut()">Edit in Excel</button>'
+     +'<button class="btn btn-s" onclick="repPick(\'mat\')">Upload edited</button>';},
    cols:[
     col('Item Description','name',function(r){return r.name;},'text',420),
     col('Category','cat',function(r){return r.cat;},'pick',90),
