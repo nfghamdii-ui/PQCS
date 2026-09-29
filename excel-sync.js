@@ -2109,6 +2109,9 @@ function isDoc(m){return !!(m&&m.doc);}
    an inspector, so neither ever waits there. Every kind has its own page
    under Other, linked or not, to look things up in. */
 var NOT_FOR_MAT={PQD:1,PAA:1};
+/* work on site by default: a WIR that belongs to a material is linked
+   from the material, and the rest never wait in Documents */
+var SITE_KIND={WIR:1};
 var OTHER_PAGES=[
   ['itp','ITP','Inspection & Test Plan'],
   ['mes','MES','Method Statement'],
@@ -2122,18 +2125,26 @@ function isOtherView(v){return !!OTHER_KIND[v]||v==='odoc'||v==='alldoc'||v==='a
 function oddKind(m){
   return isDoc(m)&&m.doc!=='MIR'&&!OTHER_PAGES.some(function(p){return p[1]===m.doc;});
 }
-/* the ids some material links to, worked out once and not per row */
-function linkedIds(){
-  var c=tc();
-  if(!c.linked){
-    c.linked={};
-    (DB.mats||[]).forEach(function(m){(m.docs||[]).forEach(function(id){c.linked[String(id)]=1;});});
-  }
-  return c.linked;
+/* Which materials link each document, worked out once for the whole
+   record set and again only after an edit. With twenty thousand
+   documents, asking every material about every row was the slow part
+   of a page. While a page draws from a narrowed set, the full one is
+   still what is read. */
+var MATS_ALL=null, LINKIDX=null;
+function linkIndex(){
+  var all=MATS_ALL||DB.mats||[];
+  var key=(typeof EDITS!=='undefined'?EDITS:0)+'|'+all.length;
+  if(LINKIDX&&LINKIDX.arr===all&&LINKIDX.key===key)return LINKIDX;
+  var by={};
+  all.forEach(function(m){
+    (m.docs||[]).forEach(function(id){var k=String(id);(by[k]=by[k]||[]).push(m);});
+  });
+  LINKIDX={arr:all,key:key,by:by};
+  return LINKIDX;
 }
-function isLinked(d){return !!linkedIds()[String(d.id)];}
+function isLinked(d){return !!linkIndex().by[String(d.id)];}
 function waitsForLink(m){
-  return isDoc(m)&&m.doc!=='MIR'&&!NOT_FOR_MAT[m.doc]&&!m.site&&!isLinked(m);
+  return isDoc(m)&&m.doc!=='MIR'&&!NOT_FOR_MAT[m.doc]&&!SITE_KIND[m.doc]&&!m.site&&!isLinked(m);
 }
 /* the user's own word that a document is work on site, for no material:
    it leaves Documents for its kind's page, and can be taken back */
@@ -2174,11 +2185,7 @@ function looseMir(){
   return (DB.mats||[]).filter(function(m){return m.doc==='MIR'&&!isLinked(m);});
 }
 window.showLooseMir=function(){setTab('mir');};
-function servedBy(doc){
-  return (DB.mats||[]).filter(function(m){
-    return (m.docs||[]).some(function(id){return String(id)===String(doc.id);});
-  });
-}
+function servedBy(doc){return (linkIndex().by[String(doc.id)]||[]).slice();}
 
 /* ---------------------------------------------------------------
    The tab bar moves out of the rail and across the top, because four
@@ -2294,9 +2301,9 @@ function paintTabs(){
    own code over a filtered set rather than reimplemented here.
    --------------------------------------------------------------- */
 function withSubset(fn){
-  var all=DB.mats;
-  DB.mats=all.filter(inView);
-  try{return fn();}finally{DB.mats=all;}
+  var all=DB.mats,was=MATS_ALL;
+  MATS_ALL=all;DB.mats=all.filter(inView);
+  try{return fn();}finally{DB.mats=all;MATS_ALL=was;}
 }
 
 /* The board asks what to do today, and the answer is about materials.
@@ -2304,9 +2311,9 @@ function withSubset(fn){
    requests each sitting at "step 1 of 2, waiting on you" turned a real
    number into four and a half thousand, which is no number at all. */
 function withMaterials(fn){
-  var all=DB.mats;
-  DB.mats=all.filter(function(m){return !isDoc(m);});
-  try{return fn();}finally{DB.mats=all;}
+  var all=DB.mats,was=MATS_ALL;
+  MATS_ALL=all;DB.mats=all.filter(function(m){return !isDoc(m);});
+  try{return fn();}finally{DB.mats=all;MATS_ALL=was;}
 }
 
 /* Which pre-qualification a vendor is actually at — the chips already
@@ -2819,11 +2826,12 @@ function linkPanel(m){
           return '<div class="line row-a" onclick="jump(\'mat\','+x.id+')">'
             +'<span class="tag t-na">'+esc(x.cat||'—')+'</span>'
             +'<div class="line-m">'+esc(x.name)+'</div></div>';}).join('')
-        :(m.site
-          ?'<span class="dim">Marked as site work \u2014 it serves no material.</span>'
+        :(m.site||SITE_KIND[m.doc]
+          ?(m.site?'<span class="dim">Marked as site work \u2014 it serves no material.</span>'
+            :'<span class="dim">Site work \u2014 no material links it. If it belongs to one, link it from the material.</span>')
           :'<span class="dim">Not linked to any material yet. Open the material and link it '
            +'from there — the material is where a link is made and unmade.</span>'))
-      +(on.length||NOT_FOR_MAT[m.doc]?''
+      +(on.length||NOT_FOR_MAT[m.doc]||SITE_KIND[m.doc]?''
         :('<div class="no-print" style="margin-top:12px">'
           +(m.site
             ?'<button class="btn btn-s" onclick="markSite('+m.id+',false)">Not site work \u2014 back to Documents</button>'
@@ -3238,7 +3246,7 @@ function generalRows(){
    than quietly dropped */
 function looseRows(){
   var loose=(DB.mats||[]).filter(function(m){
-    return isDoc(m)&&servedBy(m).length===0;
+    return waitsForLink(m)||(m.doc==='MIR'&&!isLinked(m));
   });
   var rows=[['Kind','Reference','Title','Discipline','Revision','Outcome','Note']];
   loose.forEach(function(d){
@@ -3918,7 +3926,7 @@ function reportsPane(){
   (DB.mats||[]).forEach(function(m){
     if(!isDoc(m)){n.mat++;return;}
     if(m.doc==='MIR')n.mir++;else n.doc++;
-    if(servedBy(m).length===0)n.loose++;
+    if(waitsForLink(m)||(m.doc==='MIR'&&!isLinked(m)))n.loose++;
   });
   return '<div class="head"><div class="wrap"><div class="head-t">Reports</div>'
     +'<div class="head-m">'
@@ -4106,7 +4114,7 @@ function docTable(label,keep,withKind,withLink){
     col('Revision','rev',function(r){return rawEnd(r,'Revision');},'pick',90));
   if(withLink)cols.push(
     asTag(col('Linked','lnk',function(r){
-        return NOT_FOR_MAT[r.doc]?'':isLinked(r)?'Linked':r.site?'Site work':'Not linked';},'pick',120),
+        return NOT_FOR_MAT[r.doc]?'':isLinked(r)?'Linked':(r.site||SITE_KIND[r.doc])?'Site work':'Not linked';},'pick',120),
       function(v){return v==='Not linked'?'bad':v==='Linked'?'ok':'';}),
     col('Materials served','n',function(r){var n=NOT_FOR_MAT[r.doc]?0:servedBy(r).length;return n?String(n):'';},'text',130));
   return {label:label,
