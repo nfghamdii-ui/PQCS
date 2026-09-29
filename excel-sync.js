@@ -1715,7 +1715,9 @@ window.regAllYes=function(){
   var n=applyRegister(p,true,tag);
   var made=createFromRegister(p,tag);
   closeSheet();
-  toast(n+' updated, '+made.mats+' materials and '+made.vendors+' vendors brought in');
+  var nl=looseMir().length;
+  toast(n+' updated, '+made.mats+' materials and '+made.vendors+' vendors brought in'
+    +(nl?(' · '+nl+' MIR not linked to a material'):''));
   REG=null;
   setTimeout(regReview,600);
 };
@@ -2114,6 +2116,15 @@ function docsOf(m){
     return (DB.mats||[]).filter(function(x){return String(x.id)===String(id);})[0];
   }).filter(Boolean);
 }
+/* inspection requests that no material has linked yet */
+function looseMir(){
+  return (DB.mats||[]).filter(function(m){return m.doc==='MIR'&&servedBy(m).length===0;});
+}
+window.showLooseMir=function(){
+  setTab('mir');
+  TBLQ[TBL]=TBLQ[TBL]||{};TBLQ[TBL].lnk='Not linked';
+  TBLN[TBL]=PAGE_ROWS;rPane();
+};
 function servedBy(doc){
   return (DB.mats||[]).filter(function(m){
     return (m.docs||[]).some(function(id){return String(id)===String(doc.id);});
@@ -3888,6 +3899,10 @@ var TABLES_DEF={
 
  mir:{label:'Inspection requests',rows:function(){return (DB.mats||[]).filter(function(m){return m.doc==='MIR';});},
    open:function(r){jump('mat',r.id);},
+   /* the requests still waiting for a material, in one press */
+   extra:function(){var n=looseMir().length;
+     return n?('<button class="btn btn-s" style="border-color:#ffcc3e" onclick="showLooseMir()">'
+       +n+' not linked to a material</button>'):'';},
    cols:[
     col('Title','name',function(r){return r.name;},'text',460),
     col('Number','no',function(r){return refOf(r);},'text',300),
@@ -3895,8 +3910,10 @@ var TABLES_DEF={
     col('Discipline','disc',function(r){return r.disc;},'pick',150),
     asTag(col('Status','st',function(r){return rawOf(r,'MIR Status')||rawOf(r,'MAT Status');},'pick',170)),
     col('Date','dt',function(r){return show(rawOf(r,'MIR Approval Date')||rawOf(r,'MAT Submittal Date'));},'text',110),
+    asTag(col('Linked','lnk',function(r){return servedBy(r).length?'Linked':'Not linked';},'pick',120),
+      function(v){return v==='Not linked'?'bad':'ok';}),
     col('Linked to','on',function(r){var s=servedBy(r);return s.length?s[0].name:'';},'text',360)],
-   show:['name','no','cat','disc','st','dt','on']},
+   show:['name','no','cat','disc','st','dt','lnk','on']},
 
  doc:{label:'Documents',rows:function(){return (DB.mats||[]).filter(function(m){return isDoc(m)&&m.doc!=='MIR';});},
    open:function(r){jump('mat',r.id);},
