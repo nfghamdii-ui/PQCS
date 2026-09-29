@@ -3023,6 +3023,13 @@ function pqGuess(g){
   if(subs.length===1)return subs[0];
   return titled[0]||subs[0]||g.list[0];
 }
+window.venOut=function(){
+  var prev=TBL;TBL='mfr';
+  var list=filtered();TBL=prev;
+  download(workbook([{name:'Vendors',rows:vendorRows(list)}]),
+    (DB.project||'Vendors')+' — vendors to edit '+today()+'.xlsx');
+  toast(list.length+' vendors written — edit, keep the ID column, then Upload edited');
+};
 window.pqShared=function(){
   var gs=pqGroups();
   if(!gs.length){closeSheet();return toast('Every pre-qualification number belongs to one vendor');}
@@ -3078,9 +3085,9 @@ function localityOf(x){
   if(/^(f|foreign|import|imported|international|overseas|outside)$/.test(k))return 'Foreign';
   return '';
 }
-function vendorRows(){
+function vendorRows(list){
   var rows=[VEN_COLS.slice()];
-  (DB.mfrs||[]).forEach(function(v){
+  (list||DB.mfrs||[]).forEach(function(v){
     var st=v.steps||{}, pq=pqOf(v), iso=st.iso||{};
     var pa=st.pa||{};
     /* The ID goes out as text. It has sixteen digits and Excel keeps
@@ -3653,10 +3660,15 @@ var TABLES_DEF={
 
  mfr:{label:'Vendors',rows:function(){return (DB.mfrs||[]).slice();},
    open:function(r){jump('mfr',r.id);},
-   /* shown only while some pre-qualification number sits on more than one vendor */
+   /* The sheet that goes out to be edited and comes back: the vendors the
+      filters leave, in the vendor report's shape (its ID column finds each
+      row's vendor again). The shared-number button shows only while some
+      pre-qualification number sits on more than one vendor. */
    extra:function(){var n=pqGroups().length;
-     return n?'<button class="btn btn-s" style="border-color:#ffcc3e" onclick="pqShared()">'+n
-       +' shared PQD number'+(n===1?'':'s')+'</button>':'';},
+     return '<button class="btn btn-s" onclick="venOut()">Edit in Excel</button>'
+       +'<button class="btn btn-s" onclick="repPick(\'ven\')">Upload edited</button>'
+       +(n?'<button class="btn btn-s" style="border-color:#ffcc3e" onclick="pqShared()">'+n
+       +' shared PQD number'+(n===1?'':'s')+'</button>':'');},
    cols:[
     /* the name, with what the company does written small beneath it */
     (function(c){c.sub=function(r){return r.scope||'';};return c;})(
