@@ -2103,7 +2103,8 @@ var DOC_KINDS=['MES','ITP','MAS','PAA','PID','PQD','Report','Procedure','WIR'];
 
 function isDoc(m){return !!(m&&m.doc);}
 function inView(m){
-  if(VIEW==='mat')return !isDoc(m);
+  /* the three inspection pages are views of the materials */
+  if(VIEW==='mat'||VIEW==='ipi'||VIEW==='fat'||VIEW==='irn')return !isDoc(m);
   if(VIEW==='mir')return m.doc==='MIR';
   return isDoc(m)&&m.doc!=='MIR'&&(!DOCKIND||m.doc===DOCKIND);
 }
@@ -2153,7 +2154,8 @@ function liftTabs(){
 
   /* Inspections and Documents sit beside Materials, not inside it */
   var after=document.getElementById('tab-mat');
-  [['mir','Inspections'],['doc','Documents']].forEach(function(pair){
+  [['mir','Material Inspection Request'],['doc','Documents'],
+   ['ipi','In-Process Inspection'],['fat','FAT/Final Inspection'],['irn','Inspection Release Note']].forEach(function(pair){
     var b=document.createElement('button');
     b.className='tab';b.id='tab-'+pair[0];b.setAttribute('role','tab');
     b.setAttribute('aria-selected','false');
@@ -2178,14 +2180,23 @@ function liftTabs(){
   tableCSS();barCSS();
 }
 
+/* does a material's road include this step (by its category)? */
+function stepApplies(m,k){
+  var s=MAT_ROAD.filter(function(x){return x.k===k;})[0];
+  return !!(s&&applies(s,m.cat));
+}
 function paintTabs(){
-  var n={mat:0,mir:0,doc:0};
+  var n={mat:0,mir:0,doc:0,ipi:0,fat:0,irn:0};
   (DB.mats||[]).forEach(function(m){
-    if(!isDoc(m))n.mat++;
+    if(!isDoc(m)){
+      n.mat++;
+      /* each inspection page counts the materials that carry that step */
+      ['ipi','fat','irn'].forEach(function(k){if(stepApplies(m,k))n[k]++;});
+    }
     else if(m.doc==='MIR')n.mir++;
     else n.doc++;
   });
-  ['mat','mir','doc'].forEach(function(k){
+  ['mat','mir','doc','ipi','fat','irn'].forEach(function(k){
     var c=document.getElementById('n-'+k);if(c)c.textContent=n[k];
     var t=document.getElementById('tab-'+k);
     if(t)t.setAttribute('aria-selected',String(TAB==='mat'&&VIEW===k));
@@ -2316,12 +2327,19 @@ function install2(){
       +'<button class="btn btn-s" onclick="showDue()">What is due</button>'
       +'<button class="btn-q" onclick="showMenu()">More</button>';
     bar.appendChild(tools);
+    /* The order of the row: Today, then the work in the order it happens —
+       materials, vendors, the inspections at the factory, the inspection
+       on arrival, the release note — and the rest after. */
+    ['tab-today','tab-mat','tab-mfr','tab-ipi','tab-fat','tab-mir','tab-irn',
+     'tab-doc','tab-insp','tab-cal','tab-avl','tab-rep'].forEach(function(id){
+      var b=document.getElementById(id);if(b)bar.insertBefore(b,tools);
+    });
   }
 
   var origSetTab=window.setTab;
   window.setTab=function(t){
     RECORD=false;                            /* a tab opens on its list */
-    if(t==='mir'||t==='doc'){VIEW=t;if(t!=='doc')DOCKIND='';origSetTab('mat');}
+    if(t==='mir'||t==='doc'||t==='ipi'||t==='fat'||t==='irn'){VIEW=t;if(t!=='doc')DOCKIND='';origSetTab('mat');}
     else if(t==='rep'||t==='tbl'||t==='avl'){
       VIEW='mat';DOCKIND='';
       origSetTab('home');          /* borrows the shape of a page with no list */
@@ -2379,7 +2397,8 @@ function install2(){
     /* first in the band's one row, so a record's band is no taller than any other */
     var h=el.querySelector('.head .head-m')||el.querySelector('.head .wrap')||el;
     h.insertAdjacentHTML('afterbegin','<button class="btn btn-s backbtn no-print" onclick="listBack()">← All '
-      +esc(TABLES_DEF[lk].label.toLowerCase())+'</button>');
+      +esc(/^[a-z][a-z ]*$/i.test(TABLES_DEF[lk].label)&&!/ [A-Z]/.test(TABLES_DEF[lk].label)
+        ?TABLES_DEF[lk].label.toLowerCase():TABLES_DEF[lk].label)+'</button>');
   }
   window.listBack=function(){RECORD=false;rPane();};
   /* One band, one height, on every page: its title and one row. Any
@@ -3785,7 +3804,30 @@ var MS_TONE={ok:'ok',wait:'wait',bad:'bad',now:'now'};
 function stepOf(r,k,f){var d=((r.steps||{})[k])||{};return d[f]||'';}
 function rawOf(r,c){return ((r.raw||{})[c])||'';}
 
+/* An inspection page: every material whose road has that step, and where
+   the step stands on it — read from the material itself, as recorded. */
+function stepTable(k,label,refLabel,withBy){
+  var cols=[
+    (function(c){c.sub=function(r){var v=r.mfr?mfr(r.mfr):null;return v?v.name:'';};return c;})(
+      col('Material','name',function(r){return r.name;},'text',380)),
+    col('Category','cat',function(r){return r.cat;},'pick',90),
+    asTag(col('Status','st',function(r){return trim(stepOf(r,k,'status'))||'Not started';},'pick',150),
+      function(v){return statusTone(v)||(v==='Not started'?'now':v==='Scheduled'||v==='Sent'?'wait':'');}),
+    col('Date','dt',function(r){return show(stepOf(r,k,'date'));},'text',110)];
+  if(withBy)cols.push(col('Inspector','by',function(r){return stepOf(r,k,'by');},'pick',180));
+  cols.push(col(refLabel,'ref',function(r){return stepOf(r,k,'ref');},'text',280));
+  if(withBy)cols.push(asNum(col('Visits','nv',function(r){
+    var n=(r.visits||[]).filter(function(x){return x.step===k;}).length;return n?String(n):'';},'text',80)));
+  cols.push(col('Discipline','disc',function(r){return r.disc;},'pick',150));
+  return {label:label,
+    rows:function(){return (DB.mats||[]).filter(function(m){return !isDoc(m)&&stepApplies(m,k);});},
+    open:function(r){jump('mat',r.id);},
+    cols:cols,show:cols.map(function(c){return c.k;})};
+}
 var TABLES_DEF={
+ ipi:stepTable('ipi','In-Process Inspection','Report reference',true),
+ fat:stepTable('fat','FAT/Final Inspection','Report reference',true),
+ irn:stepTable('irn','Inspection Release Note','Release note number',false),
  mat:{label:'Materials',rows:function(){return (DB.mats||[]).filter(function(m){return !isDoc(m);});},
    open:function(r){jump('mat',r.id);},
    /* the materials the filters leave, out to Excel to be edited, and back */
@@ -4455,6 +4497,12 @@ function tableCSS(){
   +'.topbar-tools .btn-q{color:rgba(255,255,255,.75)}'
   +'.topbar-tools .btn-q:hover{background:rgba(255,255,255,.08);color:#fff}'
   +'.topbar :focus-visible{outline-color:#9cc3ff}'
+  /* Today in a full yellow block, the colour of the rule under the band,
+     from the top of the bar to its foot */
+  +'#tab-today{background:#ffcc3e;color:#00163a;font-weight:650;border-radius:0;'
+  +'margin:-8px 10px 0 -14px;padding:18px 22px 12px;border-bottom:2px solid transparent}'
+  +'#tab-today:hover{background:#ffd866;color:#00163a}'
+  +'.topbar #tab-today[aria-selected=true]{color:#00163a;border-bottom-color:#00163a}'
   /* each page's heading band in the project purple, white words on it;
      the quiet grey chips turn to a light glass, the coloured ones keep
      their colour so a warning still reads as one */

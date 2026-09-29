@@ -1408,7 +1408,7 @@ var MAT_ROAD=[
      ['status','Result','sel',['Pending','Scheduled','Passed','Passed with comments','Failed']]],
   due:function(m,s){return (s.date&&['Passed','Passed with comments','Failed'].indexOf(s.status)>=0)?{on:addDays(s.date,7),t:'report due by'}:null;}},
 
- {k:'irn',n:'Material release note',cats:'23',clause:'2.2.20',
+ {k:'irn',n:'Inspection release note',cats:'23',clause:'2.2.20',
   why:'Issued at final inspection with every exception and punch item listed. It travels with the goods, and the employer copy is due within forty-eight hours.',
   f:[['ref','Release note number','text'],['date','Issued','date'],
      ['status','Employer copy','sel',['Pending','Sent']]],
