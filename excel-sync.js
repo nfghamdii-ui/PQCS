@@ -555,6 +555,13 @@ function subOf(name,made){
   return have.name;
 }
 
+/* the vendor, other than this one, that already holds a pre-qualification
+   number as its own */
+function pqHolder(ref,not){
+  var k=K(ref);
+  return (DB.mfrs||[]).filter(function(v){
+    return v!==not&&K(pqOf(v).ref||'')===k;})[0]||null;
+}
 function vendorFor(raw,made){
   var subName=trim(raw['Sub-contractor Name']);
   var name=trim(raw['Manufacturer']);
@@ -570,8 +577,17 @@ function vendorFor(raw,made){
     DB.mfrs.push(found);made.vendors.push(found.name);
   }
   if(subName&&!found.by&&K(subName)!==K(found.name))found.by=subOf(subName,made);
-  /* the pre-qualification lives on the vendor, so it is written there */
+  /* the pre-qualification lives on the vendor, so it is written there —
+     unless the number already belongs to another company. The log puts
+     the subcontractor's pre-qualification on every row of the makers it
+     brought; copying it onto each maker gave one number to four vendors.
+     The maker is marked as brought by the holder instead. */
   var pq=trim(raw['PQD Number']), st=normStatus(raw['PQD Status']);
+  var holder=pq&&pq!=='-'?pqHolder(pq,found):null;
+  if(holder){
+    if(!found.by&&K(holder.name)!==K(found.name))found.by=holder.name;
+    pq='';st='';
+  }
   if(pq||st){
     found.steps=found.steps||{};
     var have=found.steps.pqd||{};
@@ -2897,6 +2913,70 @@ function visitWordIn(s){
 var VEN_KINDS={'manufacturer':'maker','maker':'maker','subcontractor':'sub','sub':'sub',
   'supplier':'supplier','inspection agency':'agency','agency':'agency'};
 
+/* ---------------------------------------------------------------
+   One pre-qualification number, one company. Where several vendors hold
+   the same number, one of them is its real holder and the rest were
+   brought in under it. The holder is guessed — the vendor whose scope
+   carries the pre-qualification's own title (it came from the register),
+   then a subcontractor — and can be changed before anything is written.
+   --------------------------------------------------------------- */
+function pqGroups(){
+  var by={};
+  (DB.mfrs||[]).forEach(function(v){
+    var ref=trim(pqOf(v).ref||'');if(!ref||ref==='-')return;
+    (by[K(ref)]=by[K(ref)]||{ref:ref,list:[]}).list.push(v);
+  });
+  return Object.keys(by).map(function(k){return by[k];}).filter(function(g){return g.list.length>1;})
+    .sort(function(a,b){return b.list.length-a.list.length||String(a.ref).localeCompare(String(b.ref));});
+}
+function pqGuess(g){
+  var titled=g.list.filter(function(v){return /\b(PRQ|pre-?qualification)\b/i.test(v.scope||'')||v.reg;});
+  if(titled.length===1)return titled[0];
+  var subs=g.list.filter(function(v){return v.kind==='sub';});
+  if(subs.length===1)return subs[0];
+  return titled[0]||subs[0]||g.list[0];
+}
+window.pqShared=function(){
+  var gs=pqGroups();
+  if(!gs.length){closeSheet();return toast('Every pre-qualification number belongs to one vendor');}
+  sheet('Shared pre-qualification numbers — '+gs.length,
+    '<div class="dim" style="font-size:13.5px;line-height:1.7;margin-bottom:16px">Each of these numbers is held by '
+    +'more than one vendor. A pre-qualification belongs to one company; the others usually came onto the '
+    +'project through it. Pick the holder of each — the likely one is already picked. Applying keeps the '
+    +'number on the holder only, and marks each of the others as <b>brought by</b> the holder where nothing '
+    +'else is recorded. Nothing changes until you apply.</div>'
+    +gs.map(function(g,i){
+      var guess=pqGuess(g);
+      return '<div class="sec"><span class="mono">'+esc(g.ref)+'</span> <span class="dim">'+g.list.length+' vendors</span></div>'
+        +'<div class="panel"><div class="panel-b">'
+        +g.list.map(function(v){
+          return '<label class="line" style="cursor:pointer"><input type="radio" name="pqh'+i+'" value="'+v.id+'"'
+            +(v===guess?' checked':'')+' style="margin-right:10px">'
+            +'<div class="line-m"><div>'+esc(v.name)+' <span class="dim">· '+esc(KINDS[kindOf(v)].l)+'</span></div>'
+            +(v.scope?'<div class="dim" style="font-size:12.5px;margin-top:2px">'+esc(v.scope)+'</div>':'')+'</div>'
+            +'<span class="meta">'+esc(pqOf(v).status||'')+'</span></label>';
+        }).join('')+'</div></div>';
+    }).join('')
+    +'<div class="f-act" style="margin-top:20px"><button class="btn btn-p" onclick="pqSharedApply()">Apply to all '+gs.length+'</button>'
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button></div>');
+};
+window.pqSharedApply=function(){
+  var gs=pqGroups(), moved=0;
+  gs.forEach(function(g,i){
+    var pick=document.querySelector('input[name="pqh'+i+'"]:checked');
+    var holder=pick?g.list.filter(function(v){return String(v.id)===pick.value;})[0]:pqGuess(g);
+    if(!holder)return;
+    g.list.forEach(function(v){
+      if(v===holder)return;
+      var slot=(v.kind==='agency')?'appr':'pqd';
+      if(v.steps&&v.steps[slot])delete v.steps[slot];
+      if(!v.by)v.by=holder.name;
+      moved++;
+    });
+  });
+  closeSheet();touch();rList();rPane();
+  toast(moved+' vendor'+(moved===1?'':'s')+' no longer carry a number that is not theirs');
+};
 function pqOf(v){
   var st=v.steps||{};
   return ((v.kind==='agency')?st.appr:st.pqd)||{};
@@ -3486,6 +3566,10 @@ var TABLES_DEF={
 
  mfr:{label:'Vendors',rows:function(){return (DB.mfrs||[]).slice();},
    open:function(r){jump('mfr',r.id);},
+   /* shown only while some pre-qualification number sits on more than one vendor */
+   extra:function(){var n=pqGroups().length;
+     return n?'<button class="btn btn-s" style="border-color:#ffcc3e" onclick="pqShared()">'+n
+       +' shared PQD number'+(n===1?'':'s')+'</button>':'';},
    cols:[
     /* the name, with what the company does written small beneath it */
     (function(c){c.sub=function(r){return r.scope||'';};return c;})(
