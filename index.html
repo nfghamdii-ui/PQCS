@@ -2004,6 +2004,8 @@ function calItems(from,to){
         d.status==='Pending'?'now':'ok',go,{c:'del'});
     });
   });
+  /* what the Aconex register brought in, on the day it went in */
+  if(typeof window.acxCal==='function')window.acxCal(put);
   /* the reminders you set on a step land on their day */
   Object.keys(typeof SNOOZE==='object'&&SNOOZE?SNOOZE:{}).forEach(function(k){
     var p=k.split('|');if(p[0]!=='step')return;
@@ -2031,7 +2033,8 @@ function calItems(from,to){
 /* what the month shows: every kind, unless some are switched off; and
    whether it is drawn as a month or as a list of days */
 var CAL_KINDS=[['due','Deadlines'],['visit','Visits, FAT and meetings'],['del','Deliveries'],
-  ['exp','Expiries'],['rem','Your reminders'],['mine','Your events']];
+  ['exp','Expiries'],['rem','Your reminders'],['mine','Your events'],
+  ['amat','Aconex MAT'],['amir','Aconex MIR'],['adoc','Aconex ITP, MES and others'],['apqd','Aconex PQD']];
 var CALOFF={}, CALV='month';
 window.calKind=function(k){CALOFF[k]=!CALOFF[k];rPane();};
 window.calView=function(v){CALV=v;rPane();};

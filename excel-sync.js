@@ -1468,6 +1468,7 @@ function regUnchange(tag){
   return {back:back,kept:kept};
 }
 function applyRegister(p,alsoEnded,tag){
+  if(p.rows)stampDates(p.rows);
   var n=0;
   function write(it){
     var owner=it.h.v||it.h.m, k;
@@ -1546,6 +1547,7 @@ window.regRead=async function(ev){
   try{
     var reg=await readRegister(f);
     REG=planRegister(reg.rows);
+    REG.rows=reg.rows;
     REG.file=f.name;REG.about=reg.about;REG.count=reg.rows.length;REG.sheet=reg.sheet;
     if(typeof busy==='function')busy(false);
     showRegister();
@@ -1959,11 +1961,55 @@ function createFromRegister(p,tag,opts){
        vendor supplies it is set by hand. m.doc is always written, '' for
        a material, so nothing later re-guesses it from its number. */
     m.doc=kindOfType(d.type);
+    if(d.date)m.acxDate=d.date;
     DB.mats.push(m);mats++;
   });
   touch();rList();rPane();
   return {mats:mats,vendors:vends};
 }
+/* Each record keeps the date Aconex gives its latest revision, so the
+   calendar can put everything from the register on its day — method
+   statements included, which have no date column of their own. A
+   material's row also holds the numbers of documents folded into it;
+   only its own number dates it. */
+function stampDates(rows){
+  var idx=refIndex(),n=0;
+  rows.forEach(function(d){
+    if(!d.date)return;
+    (idx[K(d.no)]||[]).forEach(function(h){
+      if(!h.m||h.del||h.ncr)return;
+      if(!isDoc(h.m)&&h.col!=='MAT Number')return;
+      if(h.m.acxDate!==d.date){h.m.acxDate=d.date;n++;}
+    });
+  });
+  return n;
+}
+/* the date a record went in to Aconex: stamped by the register, or the
+   kind's own date column for a record made before the stamp */
+function acxDateOf(m){
+  if(m.acxDate)return m.acxDate;
+  var raw=m.raw||{};
+  var v=raw[{MIR:'MIR Approval Date',ITP:'ITP Submittal Date'}[m.doc]||'MAT Submittal Date'];
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?String(v):'';
+}
+/* everything the register brought in, on the calendar */
+window.acxCal=function(put){
+  (DB.mats||[]).forEach(function(m){
+    var on=acxDateOf(m);if(!on)return;
+    var mat=!isDoc(m);
+    var st=mat?(stepOf(m,'mts','status')||(m.raw||{})['MAT Status']||''):rawEnd(m,'Status');
+    /* the number from its kind code on (MAT-00010), which says the kind too */
+    var no=refOf(m).replace(/^.*?-(?=[A-Z]{3}-)/,'');
+    put(on,(no||(mat?'MAT':m.doc))+' \u00b7 '+m.name
+      +(st?(' \u00b7 '+st):''),statusTone(st)||'na',"jump('mat',"+m.id+")",
+      {c:mat?'amat':m.doc==='MIR'?'amir':'adoc'});
+  });
+  (DB.mfrs||[]).forEach(function(v){
+    var pq=pqOf(v);if(!pq.date)return;
+    put(pq.date,'PQD \u00b7 '+v.name+(pq.status?(' \u00b7 '+pq.status):''),statusTone(pq.status)||'na',
+      "jump('mfr',"+v.id+")",{c:'apqd'});
+  });
+};
 
 /* Records brought in before this existed carry no label, so one is
    worked out from the reference they hold. Run once, it costs nothing
