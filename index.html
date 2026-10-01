@@ -2212,7 +2212,12 @@ function matPane(m){
         +'title="'+attr(v?(ms.ok?'qualified':ms.short.join(' · ')):'none named')+'">'
         +(v?esc(v.name):'no vendor')
         +(v&&!ms.ok?' · '+esc(ms.word):'')+'</button>';})()
-    +'<button class="chip" data-pop onclick="editText(event,\'ref\',\'Aconex reference\')">'+(m.ref?('<span class="mono">'+esc(m.ref)+'</span>'):'no reference')+'</button>'
+    +(function(){
+      /* a document's number sits in its own kind's column (MIR Number,
+         ITP Number…), not in the material's, so it is read from there */
+      var r=m.ref||(typeof window.docRef==='function'?window.docRef(m):'');
+      return '<button class="chip" data-pop onclick="editText(event,\'ref\',\'Aconex reference\')">'
+        +(r?('<span class="mono">'+esc(r)+'</span>'):'no reference')+'</button>';})()
     +'<button class="chip" data-pop onclick="editQty(event)">'+(ord?(got+' of '+ord+' '+esc(m.unit||'')+' received'):'set the quantity')+'</button>'
     +'<span class="chip flat">'+(r.at<0?'all steps cleared':(r.done+' of '+r.steps.length+' done'))+'</span>'
     +'<span style="flex:1"></span>'

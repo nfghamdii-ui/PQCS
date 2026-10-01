@@ -5649,5 +5649,6 @@ window.__tbl={label:function(){return tdef().label;},count:function(){return tde
   choices:function(k){var c=tdef().cols.filter(function(x){return x.k===k;})[0];
     return c?choices(c,tdef().rows()):[];}};
 window.__v={lift:liftVisits,list:visitsOf};
+window.docRef=refOf;
 window.EXCEL={cols:COLS,inspectorRows:inspectorRows,readInspectorSheet:readInspectorSheet,planInspectors:planInspectors,applyInspectors:applyInspectors,vendorRows:vendorRows,readVendorSheet:readVendorSheet,planVendors:planVendors,applyVendors:applyVendors,generalRows:generalRows,looseRows:looseRows,vendorRows:vendorRows,isDoc:isDoc,docsOf:docsOf,servedBy:servedBy,labelDocuments:labelDocuments,createFromRegister:createFromRegister,pending:pending,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:generalRows,summary:summaryRows,book:workbook};
 })();
