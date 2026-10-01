@@ -2532,7 +2532,8 @@ function install2(){
        used to sit on the rail — the save state, What is due, More. */
     var tools=document.createElement('div');
     tools.className='topbar-tools';
-    tools.innerHTML='<span id="saved2"></span>'
+    tools.innerHTML='<button class="btn-q" onclick="navBack()" title="Back to where you were (Alt+\u2190)">\u2190 Back</button>'
+      +'<span id="saved2"></span>'
       +'<button class="btn btn-s" onclick="showDue()">What is due</button>'
       +'<button class="btn-q" onclick="showMenu()">More</button>';
     bar.appendChild(tools);
@@ -5628,9 +5629,96 @@ function sortOut(){
     else paintTabs();
   }catch(e){}
 }
+/* ================================================================
+   GOING BACK TO WHERE YOU WERE
+   ----------------------------------------------------------------
+   Every move between pages — a tab, a record, back to a list — is a
+   step in the browser's history, carrying the page, the record, the
+   view and how far down it was scrolled. Back (the button, the
+   browser's, the mouse's) returns to the same list, the same filters
+   and the same row. The filters and the sort already stay with each
+   table; the scroll and the page are what this keeps.
+   ================================================================ */
+var NAVING=false, NAVDEPTH=0, LISTPOS={};
+/* what actually scrolls: the page's body on a wide screen, the whole
+   document on a narrow one */
+function navScroller(){
+  var b=document.querySelector('#pane .body');
+  if(b&&b.scrollHeight>b.clientHeight+2)return b;
+  return document.scrollingElement||document.documentElement;
+}
+function navScrollTo(y){
+  if(!y)return;
+  /* twice: once the page is drawn, and again once its rows are laid out */
+  [0,60].forEach(function(t){setTimeout(function(){
+    var b=navScroller();
+    var was=b.style.scrollBehavior;b.style.scrollBehavior='auto';b.scrollTop=y;b.style.scrollBehavior=was;
+  },t);});
+}
+function navScroll(){
+  var l=document.querySelector('.side-l');
+  return {b:navScroller().scrollTop,l:l?l.scrollTop:0};
+}
+function navSnap(){
+  return {nav:1,tab:TAB,view:VIEW,record:!!RECORD,dockind:DOCKIND,
+    sel:{mat:SEL.mat,mfr:SEL.mfr,insp:SEL.insp},
+    tbl:listKey()||'',tbln:listKey()?(TBLN[listKey()]||0):0,scroll:navScroll()};
+}
+function navKey(x){
+  return [x.tab,x.view,x.record,x.record?x.sel[x.tab]:'',x.dockind].join('|');
+}
+function navRestore(x){
+  NAVING=true;
+  try{
+    closeSheet();
+    DOCKIND=x.dockind||'';
+    if(x.tbl&&x.tbln)TBLN[x.tbl]=Math.max(TBLN[x.tbl]||0,x.tbln);
+    if(x.record&&x.sel[x.tab]){VIEW=x.view;window.jump(x.tab,x.sel[x.tab]);}
+    else window.setTab(x.tab==='mat'?x.view:x.tab);
+    DOCKIND=x.dockind||'';
+  }finally{NAVING=false;}
+  /* after the page is drawn: the same distance down, without the
+     smooth scroll the page otherwise uses */
+  navScrollTo(x.scroll&&x.scroll.b);
+  setTimeout(function(){
+    var l=document.querySelector('.side-l');
+    if(l&&x.scroll&&x.scroll.l)l.scrollTop=x.scroll.l;
+  },0);
+}
+function installNav(){
+  if(window.__nav)return;window.__nav=true;
+  ['setTab','jump','listBack'].forEach(function(fn){
+    var orig=window[fn];if(typeof orig!=='function')return;
+    window[fn]=function(){
+      if(NAVING||NAVDEPTH||!DB)return orig.apply(this,arguments);
+      var before=navSnap();
+      if(!before.record&&before.tbl)LISTPOS[before.tbl]=before.scroll.b;
+      try{window.history.replaceState(before,'');}catch(e){}
+      NAVDEPTH++;
+      try{return orig.apply(this,arguments);}
+      finally{
+        NAVDEPTH--;
+        var after=navSnap();
+        if(navKey(after)!==navKey(before)){try{window.history.pushState(after,'');}catch(e){}}
+        /* a list comes back where it was left, however it is reached */
+        if(!after.record&&after.tbl&&LISTPOS[after.tbl])navScrollTo(LISTPOS[after.tbl]);
+      }
+    };
+  });
+  window.addEventListener('popstate',function(e){
+    if(e.state&&e.state.nav&&DB)navRestore(e.state);
+  });
+  /* Alt+Left, as in a browser, for when the hand is on the keyboard */
+  document.addEventListener('keydown',function(e){
+    if(e.altKey&&e.key==='ArrowLeft'){e.preventDefault();window.history.back();}
+  });
+}
+window.navBack=function(){window.history.back();};
+
 function start(){
   install();
   install2();
+  installNav();
   ['enter','refresh','loadAll'].forEach(function(fn){
     var orig=window[fn];
     if(typeof orig!=='function'||orig.__sorted)return;
