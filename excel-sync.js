@@ -848,6 +848,12 @@ function rawOut(m){
     if(pq.rev)set('PQD Revision',pq.rev);
     if(pq.status)set('PQD Status',pq.status);
     if(pq.date)set('PQD Submittal Date',pq.date);
+    /* the factory survey, from the vendor's own step */
+    var pa=(v.steps||{}).pa||{};
+    if(pa.status==='Scheduled'){if(pa.date&&!raw['PA Tentative Date'])set('PA Tentative Date',pa.date);}
+    else if(pa.date)set('PA Date',pa.date);
+    if(pa.ref)set('PA Document Number',pa.ref);
+    if(pa.status&&pa.status!=='Pending'&&pa.status!=='Scheduled')set('Assessment Result',pa.status);
   }
   step('mts','MAT Number','MAT Submittal Date','MAT Status');
   step('itp','ITP Number','ITP Submittal Date','ITP Status');
@@ -2774,9 +2780,10 @@ function install2(){
   var origMat=window.matPane;
   window.matPane=function(m){
     var html=readingBar(nameable(origMat(m),'mat',m.id),'mat',m.id);
+    var add=linkPanel(m)+(isDoc(m)?'':logPanel(m));
     var i=html.lastIndexOf('</div></div>');
-    if(i<0)return html+linkPanel(m);
-    return html.slice(0,i)+linkPanel(m)+html.slice(i);
+    if(i<0)return html+add;
+    return html.slice(0,i)+add+html.slice(i);
   };
 }
 
@@ -2904,6 +2911,121 @@ function refOf(d){
   return out;
 }
 
+/* ---------------------------------------------------------------
+   The Main Log's columns that nothing else on the page fills — the
+   package, samples and mock-ups, purchasing, fabrication, delivery and
+   installation. They are kept on the material under the log's own
+   headings, so what is typed here is what the log writes out.
+   --------------------------------------------------------------- */
+var YN=['Yes','No'];
+var LOG_FORM=[
+  ['Package and supply',[
+    ['Common Package (Yes/No)','sel',YN],
+    ['Finishing (Internal/External)','sel',['Internal','External']],
+    ['Package (Lump Sum / Provisional Sum / Prime Cost)','sel',['Lump Sum','Provisional Sum','Prime Cost']],
+    ['Supply & Install / Supply / Install Only','sel',['Supply & Install','Supply','Install Only']]]],
+  ['Sample and mock-up',[
+    ['Sample','text'],
+    ['Mock-up Delivered Date','date'],
+    ['Mock-up First in Place','text'],
+    ['Mock-up Approved by PMC','text'],
+    ['Mock-up per Client DLA','text']]],
+  ['Purchasing',[
+    ['Purchase Order Issued (Yes/No)','sel',YN],
+    ['PO Number','text'],
+    ['PO Date','date']]],
+  ['Assessment',[
+    ['PA Tentative Date','date'],
+    ['3rd Party Assessment Done','sel',YN],
+    ['Client Assessment Done','sel',YN],
+    ['PMC/LDC Assessment Done','sel',YN],
+    ['Contractor Assessment Done','sel',YN]]],
+  ['Fabrication',[
+    ['MES Incl. ITP (Yes/No)','sel',YN],
+    ['3rd Party Assigned (Yes/No)','sel',YN],
+    ['3rd Party Service Provider Name','text'],
+    ['Design Verification/Calculation Status','text'],
+    ['Fabrication Planned Date','date'],
+    ['Fabrication 1st Batch Started Date','date'],
+    ['Fabrication Percentage Completion (%)','text'],
+    ['FAT Location / City','text']]],
+  ['Delivery and installation',[
+    ['1st Batch Delivery To Site Planned Date','date'],
+    ['1st Batch Delivery To Site Actual Date','date'],
+    ['Storage (Site/Offsite)','sel',['Site','Offsite']],
+    ['Installation Planned Date','date'],
+    ['Installation Actual Date','date'],
+    ['Installer Name','text']]]
+];
+function logShow(f,v){
+  if(v==null||v==='')return '';
+  return f[1]==='date'?(show(v)||String(v)):String(v);
+}
+function logPanel(m){
+  var raw=m.raw||{},filled=0,total=0;
+  var body=LOG_FORM.map(function(g){
+    var lines=g[1].map(function(f){
+      total++;
+      var v=logShow(f,raw[f[0]]);if(!v)return '';
+      filled++;
+      return '<div style="display:flex;gap:12px;padding:3px 0;font-size:13.5px">'
+        +'<span class="dim" style="flex:0 0 46%">'+esc(f[0])+'</span><span>'+esc(v)+'</span></div>';
+    }).join('');
+    return lines?('<div style="margin:8px 0 4px;font-weight:600;font-size:13px">'+esc(g[0])+'</div>'+lines):'';
+  }).join('');
+  return '<div class="sec">Main Log details</div><div class="panel">'
+    +'<div class="panel-h"><div class="panel-t">'+filled+' of '+total+' filled</div>'
+    +'<button class="btn btn-s no-print" onclick="editLog('+m.id+')">Edit</button></div>'
+    +'<div class="panel-b">'
+    +(body||'<span class="dim">Nothing yet. The package, samples, purchasing, fabrication, delivery '
+      +'and installation columns of the Main Log are filled here.</span>')
+    +'</div></div>';
+}
+window.editLog=function(id){
+  var m=mat(id);if(!m)return;
+  var raw=m.raw||{},n=0;
+  sheet('Main Log details \u2014 '+m.name,
+     '<div class="form" style="margin:0;padding:0;border:none">'
+    +LOG_FORM.map(function(g){
+      return '<div class="f wide" style="grid-column:1/-1;margin:14px 0 0;font-weight:650;color:var(--ink)">'+esc(g[0])+'</div>'
+        +g[1].map(function(f){
+          var fid='lg-'+(n++), v=raw[f[0]];
+          var h='<div class="f'+(f[1]==='text'?' wide':'')+'"><label for="'+fid+'">'+esc(f[0])+'</label>';
+          if(f[1]==='sel'){
+            var opts=f[2].slice();
+            if(v&&opts.indexOf(v)<0)opts.push(v);       /* a value typed some other way is kept */
+            h+='<select id="'+fid+'"><option value="">\u2014</option>'
+              +opts.map(function(o){return '<option'+(o===v?' selected':'')+'>'+esc(o)+'</option>';}).join('')
+              +'</select>';
+          }else if(f[1]==='date'){
+            h+='<input id="'+fid+'" class="mono" value="'+attr(logShow(f,v))+'" placeholder="dd/mm/yyyy" autocomplete="off">'
+              +'<span class="err" id="e-'+fid+'"></span>';
+          }else h+='<input id="'+fid+'" value="'+attr(v==null?'':String(v))+'" autocomplete="off">';
+          return h+'</div>';
+        }).join('');
+    }).join('')
+    +'<div class="f-act"><button class="btn btn-p" onclick="saveLog('+id+')">Save</button>'
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button></div></div>');
+};
+window.saveLog=function(id){
+  var m=mat(id);if(!m)return;
+  var out={},bad=false,n=0;
+  LOG_FORM.forEach(function(g){g[1].forEach(function(f){
+    var fid='lg-'+(n++), el=document.getElementById(fid);if(!el)return;
+    var v=trim(el.value);
+    if(f[1]==='date'&&v){
+      var iso=parseDate(v);
+      if(!iso){bad=true;var e=document.getElementById('e-'+fid);if(e)e.textContent='Use dd/mm/yyyy';return;}
+      v=iso;
+    }
+    out[f[0]]=v;
+  });});
+  if(bad)return;
+  m.raw=m.raw||{};
+  Object.keys(out).forEach(function(c){if(out[c])m.raw[c]=out[c];else delete m.raw[c];});
+  touch();closeSheet();rPane();
+  toast('Saved \u2014 the Main Log carries it');
+};
 /* ---------------------------------------------------------------
    A PAA approves a person, so it is linked to an inspector — by hand,
    from the inspector's page, the way a material takes its documents.
@@ -3253,8 +3375,16 @@ function companyOfMat(m){
   return v;
 }
 var LOG_EXTRA=[
-  {t:'Local / Foreign',w:14,read:function(m){var v=companyOfMat(m);return v?(v.locality||''):'';}}
+  {t:'Local / Foreign',w:14,read:function(m){var v=companyOfMat(m);return v?(v.locality||''):'';}},
+  /* every report, oldest first, one to a line: reference, date, result */
+  {t:'In-Process Inspection Reports',w:40,read:function(m){return visitLines(m,'ipi');}},
+  {t:'Inspection Release Notes',w:34,read:function(m){return visitLines(m,'irn');}}
 ];
+function visitLines(m,k){
+  return visitsOf(m,k).slice().reverse().map(function(v){
+    return [v.ref||'(no reference)',v.date?showDate(v.date):'',v.result||''].filter(Boolean).join(' \u00b7 ');
+  }).join('\n');
+}
 function generalRows(){
   var mats=(DB.mats||[]).filter(function(m){return !isDoc(m);});
   mats.sort(function(a,b){
