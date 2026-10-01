@@ -405,6 +405,10 @@ function cellXml(ref,val,head){
   }
   if(typeof val==='number'&&isFinite(val))return '<c r="'+ref+'"><v>'+val+'</v></c>';
   var t=String(val);
+  /* a terminated document is shaded red, so it is seen in a column of
+     approvals without reading every cell */
+  if(/terminat/i.test(t))
+    return '<c r="'+ref+'" t="inlineStr" s="3"><is><t xml:space="preserve">'+xml(t)+'</t></is></c>';
   if(/^-?\d+(\.\d+)?$/.test(t)&&t.length<15&&!/^0\d/.test(t))
     return '<c r="'+ref+'"><v>'+t+'</v></c>';
   return '<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+xml(t)+'</t></is></c>';
@@ -454,16 +458,19 @@ function workbook(sheets){
     {name:'xl/styles.xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
       +'<numFmts count="1"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/></numFmts>'
-      +'<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>'
-      +'<font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
-      +'<fills count="2"><fill><patternFill patternType="none"/></fill>'
-      +'<fill><patternFill patternType="gray125"/></fill></fills>'
+      +'<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font>'
+      +'<font><b/><sz val="11"/><name val="Calibri"/></font>'
+      +'<font><sz val="11"/><color rgb="FF9C0006"/><name val="Calibri"/></font></fonts>'
+      +'<fills count="3"><fill><patternFill patternType="none"/></fill>'
+      +'<fill><patternFill patternType="gray125"/></fill>'
+      +'<fill><patternFill patternType="solid"><fgColor rgb="FFFFC7CE"/><bgColor indexed="64"/></patternFill></fill></fills>'
       +'<borders count="1"><border/></borders>'
       +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-      +'<cellXfs count="3">'
+      +'<cellXfs count="4">'
       +'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
       +'<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
       +'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+      +'<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
       +'</cellXfs>'
       +'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
       +'</styleSheet>'}
