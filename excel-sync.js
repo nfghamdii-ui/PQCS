@@ -3001,7 +3001,13 @@ var LOG_FORM=[
     ['Storage (Site/Offsite)','sel',['Site','Offsite']],
     ['Installation Planned Date','date'],
     ['Installation Actual Date','date'],
-    ['Installer Name','text']]]
+    ['Installer Name','text']]],
+  /* work inspection requests are not brought in from Aconex; their
+     three columns are typed here */
+  ['Work inspection (WIR)',[
+    ['WIR Number','text'],
+    ['WIR Approval Date','date'],
+    ['WIR Status','sel',['Approved','Approved as Noted','Under Review','Revise and Resubmit','Rejected','Terminated']]]]
 ];
 function logShow(f,v){
   if(v==null||v==='')return '';
