@@ -394,29 +394,34 @@ function colName(i){
   return s;
 }
 /* a cell knows what it is: a date, a number, or words */
-function cellXml(ref,val,head){
-  if(val==null||val==='')return '';
+/* red: the row holds something terminated, so every cell of it, empty
+   ones too, is shaded — style 3 for text and numbers, 4 for dates */
+function cellXml(ref,val,head,red){
+  var st=red?' s="3"':'';
+  if(val==null||val==='')return red?'<c r="'+ref+'" s="3"/>':'';
   if(head)return '<c r="'+ref+'" t="inlineStr" s="2"><is><t xml:space="preserve">'+xml(val)+'</t></is></c>';
   if(typeof val==='object'&&val.date!=null){
     var s=isoToSerial(val.date);
-    if(s!=null)return '<c r="'+ref+'" s="1"><v>'+s+'</v></c>';
+    if(s!=null)return '<c r="'+ref+'" s="'+(red?4:1)+'"><v>'+s+'</v></c>';
     val=showDate(val.date)||'';
-    if(!val)return '';
+    if(!val)return red?'<c r="'+ref+'" s="3"/>':'';
   }
-  if(typeof val==='number'&&isFinite(val))return '<c r="'+ref+'"><v>'+val+'</v></c>';
+  if(typeof val==='number'&&isFinite(val))return '<c r="'+ref+'"'+st+'><v>'+val+'</v></c>';
   var t=String(val);
-  /* a terminated document is shaded red, so it is seen in a column of
-     approvals without reading every cell */
-  if(/terminat/i.test(t))
-    return '<c r="'+ref+'" t="inlineStr" s="3"><is><t xml:space="preserve">'+xml(t)+'</t></is></c>';
   if(/^-?\d+(\.\d+)?$/.test(t)&&t.length<15&&!/^0\d/.test(t))
-    return '<c r="'+ref+'"><v>'+t+'</v></c>';
-  return '<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+xml(t)+'</t></is></c>';
+    return '<c r="'+ref+'"'+st+'><v>'+t+'</v></c>';
+  return '<c r="'+ref+'" t="inlineStr"'+st+'><is><t xml:space="preserve">'+xml(t)+'</t></is></c>';
 }
+function isTerminated(v){return typeof v==='string'&&/terminat/i.test(v);}
 function sheetXml(rows,widths){
+  var wide=rows.reduce(function(a,r){return Math.max(a,r.length);},0);
   var body=rows.map(function(row,r){
-    var cells=row.map(function(v,c){
-      return cellXml(colName(c)+(r+1),v,r===0||(row.head&&c===0));
+    /* a terminated submittal is shaded red across its whole row, so it is
+       seen in a column of approvals without reading every cell */
+    var red=r>0&&row.some(isTerminated);
+    var line=red?row.concat(new Array(Math.max(0,wide-row.length)).fill('')):row;
+    var cells=line.map(function(v,c){
+      return cellXml(colName(c)+(r+1),v,r===0||(row.head&&c===0),red);
     }).join('');
     return cells?('<row r="'+(r+1)+'">'+cells+'</row>'):'';
   }).join('');
@@ -466,11 +471,12 @@ function workbook(sheets){
       +'<fill><patternFill patternType="solid"><fgColor rgb="FFFFC7CE"/><bgColor indexed="64"/></patternFill></fill></fills>'
       +'<borders count="1"><border/></borders>'
       +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-      +'<cellXfs count="4">'
+      +'<cellXfs count="5">'
       +'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
       +'<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
       +'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
       +'<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
+      +'<xf numFmtId="164" fontId="2" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/>'
       +'</cellXfs>'
       +'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
       +'</styleSheet>'}
