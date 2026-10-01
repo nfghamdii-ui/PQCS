@@ -865,7 +865,7 @@ function rawOut(m){
     if(s.fat.date)set('FAT Planned Date',s.fat.date);
     if(s.fat.status&&s.fat.status!=='Pending')
       setStatus('FAT Package Status',/Passed/.test(s.fat.status)?'Approved':s.fat.status);
-    if(s.fat.by)set('3rd Party Service Provider Name',s.fat.by);
+    if(s.fat.by&&!raw['3rd Party Service Provider Name'])set('3rd Party Service Provider Name',s.fat.by);
   }
   /* deliveries: the newest one fills the inspection-request columns,
      and the running total fills the quantities */
