@@ -817,53 +817,36 @@ function rawOut(m){
   var raw={};
   COLS.forEach(function(c){var v=(m.raw||{})[c];if(v!=null&&v!=='')raw[c]=v;});
   var v=m.mfr?mfr(m.mfr):null, s=m.steps||{};
-  /* A record born in this page has no row behind it, so every column
-     it can fill, it fills. A record that came from the sheet is a
-     guest in someone else's document: the page writes back the columns
-     it owns outright, and for the ones it merely infers — the vendor's
-     qualification, which the sheet keeps per row and the page keeps
-     once per vendor — it only refreshes cells that already had
-     something in them. Filling ninety blanks with the same reference
-     would look like ninety edits nobody made. */
-  var fresh=!m.raw||!Object.keys(m.raw).length;
-  function fill(c,val){
-    if(!fresh&&(raw[c]==null||raw[c]===''))return;
-    if(K(raw[c])===K(val))return;      /* a stray double space is not an edit */
-    set(c,val);
-  }
   set('Item Description',m.name);
   set('Material Category',m.cat?('Category '+m.cat):'');
   set('Discipline',m.disc||'');
   set('Sub-contractor Name',m.sub||'');
+  /* The log is written out only now, and the vendor linked on the
+     material is the truth about it: its name, country and
+     pre-qualification fill the row whether or not the row had them.
+     A record from the register carries none of these columns, so the
+     old rule (refresh only what was already there) left them blank. */
   if(v){
     if(v.kind==='sub'){if(!raw['Sub-contractor Name'])set('Sub-contractor Name',v.name);}
-    else fill('Manufacturer',v.name);
-    if(v.country)fill('Country of Origin of Manufacture',v.country);
-    /* The sheet records a pre-qualification on every row; this page
-       records it once on the vendor. Where the two rows of one vendor
-       disagree — and in the log two do — the row is left alone rather
-       than quietly made to agree with its neighbour. The import screen
-       names the disagreement instead, which is a thing a person can
-       settle and a program cannot. */
-    var pq=(v.steps||{}).pqd||{};
-    var agrees=!raw['PQD Number']||K(raw['PQD Number'])===K(pq.ref);
-    if(fresh&&pq.ref)set('PQD Number',pq.ref);
-    if(agrees){
-      if(pq.status&&pq.status!=='Pending'&&normStatus(raw['PQD Status'])!==pq.status)fill('PQD Status',pq.status);
-      if(pq.date)fill('PQD Submittal Date',pq.date);
-    }
+    else set('Manufacturer',v.name);
+    if(v.country)set('Country of Origin of Manufacture',v.country);
+    var pq=pqOf(v);
+    if(pq.ref)set('PQD Number',pq.ref);
+    if(pq.rev)set('PQD Revision',pq.rev);
+    if(pq.status)set('PQD Status',pq.status);
+    if(pq.date)set('PQD Submittal Date',pq.date);
   }
   step('mts','MAT Number','MAT Submittal Date','MAT Status');
   step('itp','ITP Number','ITP Submittal Date','ITP Status');
   step('pid','PID Number','PID Submittal Date','PID Status');
   if(s.pfm&&s.pfm.date)set('Pre-Fabrication Meeting Date',s.pfm.date);
   if(s.fat){
-    if(s.fat.ref)fill(raw['FAT/TPI Results']!=null&&raw['FAT/TPI Results']!==''
+    if(s.fat.ref)set(raw['FAT/TPI Results']!=null&&raw['FAT/TPI Results']!==''
       ?'FAT/TPI Results':'FAT Package/Procedure Number/ITP',s.fat.ref);
     if(s.fat.date)set('FAT Planned Date',s.fat.date);
     if(s.fat.status&&s.fat.status!=='Pending')
       setStatus('FAT Package Status',/Passed/.test(s.fat.status)?'Approved':s.fat.status);
-    if(s.fat.by)fill('3rd Party Service Provider Name',s.fat.by);
+    if(s.fat.by)set('3rd Party Service Provider Name',s.fat.by);
   }
   /* deliveries: the newest one fills the inspection-request columns,
      and the running total fills the quantities */
@@ -909,7 +892,8 @@ function rawOut(m){
 
 /* the same figures the dashboard sheet carried, recomputed */
 function summaryRows(){
-  var mats=(DB.mats||[]);
+  /* the materials only, as the Main Log sheet beside it has them */
+  var mats=(DB.mats||[]).filter(function(m){return !isDoc(m);});
   function n(f){return mats.filter(f).length;}
   function ok(m,k){var d=(m.steps||{})[k]||{};return /^Approved/.test(d.status||'');}
   var rows=[
