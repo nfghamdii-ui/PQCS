@@ -3968,6 +3968,34 @@ var MAT_FIELDS=[
    a blank cell leaves a value alone, "-" clears it, a date is read in any
    of the ways a sheet writes one, and a choice is matched to its list
    whatever its capitals. PO Number is already among the twelve. */
+/* Documents linked by number from the sheet. A cell may hold several,
+   written any way — on lines of their own, with commas, or run together
+   with no space at all: each document of that kind whose full number is
+   found inside the cell is linked. Nothing is unlinked except by "-". */
+function docsInText(t,kind){
+  var flat=String(t||'').toUpperCase().replace(/[\s,;\/|]+/g,'');
+  if(!flat)return [];
+  return (MATS_ALL||DB.mats||[]).filter(function(d){
+    if(d.doc!==kind)return false;
+    var no=String(refOf(d)||'').toUpperCase().replace(/\s+/g,'');
+    return no.length>6&&flat.indexOf(no)>=0;
+  });
+}
+[['ITP Number','ITP'],['MES Number','MES']].forEach(function(p){
+  MAT_COLS.push(p[0]);
+  MAT_FIELDS.push({c:p[0],docKind:p[1],
+    get:function(m){return linkedVals(m,p[1],'no');},
+    set:function(m,x){
+      m.docs=m.docs||[];
+      if(!x){                                      /* "-" : unlink them all */
+        var gone={};docsOf(m).forEach(function(d){if(d.doc===p[1])gone[String(d.id)]=1;});
+        m.docs=m.docs.filter(function(id){return !gone[String(id)];});
+      }else docsInText(x,p[1]).forEach(function(d){
+        if(!m.docs.some(function(id){return String(id)===String(d.id);}))m.docs.push(d.id);
+      });
+      syncDocSteps(m);
+    }});
+});
 LOG_FORM.forEach(function(g){g[1].forEach(function(f){
   if(MAT_COLS.indexOf(f[0])>=0)return;
   MAT_COLS.push(f[0]);
@@ -3992,8 +4020,9 @@ function materialRows(list){
     var v=m.mfr?mfr(m.mfr):null;
     rows.push([String(m.id),matNo(m),m.name||'',m.cat||'',m.disc||'',v?v.name:'',v?(pqOf(v).ref||''):'',m.sub||'',
       m.qty||'',m.unit||'',(m.raw||{})['PO Number']||'',stepOf(m,'mts','status')||(m.raw||{})['MAT Status']||'']
-      .concat(MAT_FIELDS.filter(function(fd){return fd.log;}).map(function(fd){
+      .concat(MAT_FIELDS.filter(function(fd){return fd.log||fd.docKind;}).map(function(fd){
         var x=fd.get(m);
+        if(fd.docKind)return x;
         return (fd.log[1]==='date'&&/^\d{4}-\d{2}-\d{2}$/.test(String(x)))?{date:String(x)}:x;
       })));
   });
@@ -4021,7 +4050,7 @@ async function readMaterialSheet(file){
 function planMaterials(rows){
   var byId={},byNo={};
   (DB.mats||[]).forEach(function(m){if(isDoc(m))return;byId[String(m.id)]=m;var n=K(matNo(m));if(n&&!byNo[n])byNo[n]=m;});
-  var p={change:[],same:0,lost:[],noVendor:[]};
+  var p={change:[],same:0,lost:[],noVendor:[],noDoc:[]};
   rows.forEach(function(r){
     var m=byId[trim(r['ID'])]||byNo[K(trim(r['MAT Number']))];
     if(!m){p.lost.push(r);return;}
@@ -4032,6 +4061,14 @@ function planMaterials(rows){
       if(want===''||K(now)===K(want))return;
       if(fd.c==='Vendor'&&!vendorByName(want)){p.noVendor.push({m:m,name:want});return;}
       if(fd.c==='Vendor PQD'&&!vendorByPq(want)){p.noVendor.push({m:m,name:want,pq:true});return;}
+      if(fd.docKind){
+        var found=docsInText(want,fd.docKind);
+        if(!found.length){p.noDoc.push({m:m,name:want,kind:fd.docKind});return;}
+        var have={};docsOf(m).forEach(function(d){have[String(d.id)]=1;});
+        var fresh=found.filter(function(d){return !have[String(d.id)];});
+        if(fresh.length)diff.push(fd.docKind+' +'+fresh.length);
+        return;
+      }
       diff.push(fd.c);
     });
     if(diff.length)p.change.push({m:m,r:r,diff:diff});else p.same++;
@@ -4057,6 +4094,12 @@ function showMaterials(){
           +'</div><div class="dim" style="font-size:12.5px;margin-top:2px">"'+esc(x.name)+'" '
           +(x.pq?'is no vendor’s PQD number here':'is not a vendor here — write it as it appears on the Vendors page')+'</div></div></div>';}).join('')
       +more(p.noVendor.length,40)+'</div></div>'):'')
+    +(p.noDoc.length?('<div class="sec">Document number not found — left as it is</div><div class="panel"><div class="panel-b">'
+      +p.noDoc.slice(0,40).map(function(x){
+        return '<div class="line"><span class="tag t-now">'+esc(x.kind)+'</span><div class="line-m"><div>'+esc(x.m.name)
+          +'</div><div class="dim" style="font-size:12.5px;margin-top:2px">"'+esc(x.name)+'" matches no '+esc(x.kind)
+          +' in the tracker \u2014 write the full number as in Aconex</div></div></div>';}).join('')
+      +more(p.noDoc.length,40)+'</div></div>'):'')
     +(p.lost.length?('<div class="sec">No such material — ignored</div><div class="panel"><div class="panel-b">'
       +'<div class="dim" style="font-size:12.5px;margin-bottom:8px">Materials come from Aconex; a row that matches none is not added.</div>'
       +p.lost.slice(0,20).map(function(r){return '<div class="line"><span class="tag t-na">'+esc(trim(r['MAT Number'])||'no number')
@@ -4084,6 +4127,8 @@ window.matApply=function(){
 /* the edit sheet's columns by group, coloured like the Main Log's */
 function matBands(head){
   var b=[{t:'Material',from:0,to:11}];
+  var di=head.indexOf('ITP Number'), dm=head.indexOf('MES Number');
+  if(di>=0&&dm>=0)b.push({t:'ITP / MES',from:Math.min(di,dm),to:Math.max(di,dm)});
   LOG_FORM.forEach(function(g){
     var cols=g[1].map(function(f){return head.indexOf(f[0]);}).filter(function(i){return i>11;});
     if(cols.length)b.push({t:g[0],from:Math.min.apply(null,cols),to:Math.max.apply(null,cols)});
@@ -4827,17 +4872,19 @@ var TABLES_DEF={
     col('MAT Number','matno',function(r){return rawOf(r,'MAT Number')||r.ref;},'text',300),
     asTag(col('MAT Status','matst',function(r){return stepOf(r,'mts','status')||rawOf(r,'MAT Status');},'pick',150)),
     col('MAT Date','matdt',function(r){return show(stepOf(r,'mts','date')||rawOf(r,'MAT Submittal Date'));},'text',110),
-    col('ITP Number','itpno',function(r){return rawOf(r,'ITP Number');},'text',300),
+    /* read from the documents linked to the material, as the Main Log
+       is, and only failing those from what the material once carried */
+    col('ITP Number','itpno',function(r){return linkedVals(r,'ITP','no')||rawOf(r,'ITP Number');},'text',300),
     asTag(col('ITP Status','itpst',function(r){return stepOf(r,'itp','status')||rawOf(r,'ITP Status');},'pick',150)),
-    col('MES Number','mesno',function(r){return rawOf(r,'Method Statement Number');},'text',300),
-    asTag(col('MES Status','messt',function(r){return rawOf(r,'MES Status');},'pick',150)),
+    col('MES Number','mesno',function(r){return linkedVals(r,'MES','no')||rawOf(r,'Method Statement Number');},'text',300),
+    asTag(col('MES Status','messt',function(r){return linkedVals(r,'MES','st')||rawOf(r,'MES Status');},'pick',150)),
     col('PO Number','pono',function(r){return rawOf(r,'PO Number');},'text',150),
     col('Package','pkg',function(r){return rawOf(r,'Package (Lump Sum / Provisional Sum / Prime Cost)');},'pick',150),
     col('Quantity','qty',function(r){return r.qty?(r.qty+' '+(r.unit||'')):'';},'text',110),
     asNum(col('Delivered','got',function(r){return (r.dels||[]).length?String(received(r)):'';},'text',100)),
     asNum(col('Documents','ndoc',function(r){return String((r.docs||[]).length||'');},'text',100)),
     asNum(col('Consignments','ndel',function(r){return String((r.dels||[]).length||'');},'text',110))],
-   show:['name','cat','disc','ven','vst','stage','who','prog','logp','matst','itpst']},
+   show:['name','cat','disc','ven','vst','stage','who','prog','logp','matst','itpst','mesno','messt']},
 
  /* The MIR tab is the work still to do, as Documents is: a request
     leaves it once a material links it, and every request, linked or
@@ -5337,6 +5384,13 @@ window.tblOpen=function(id){
 /* A terminated record is shaded red across its row, as in the exported
    sheets: a material by its MAT status, a vendor by its pre-qualification,
    a document by its own status. */
+/* the numbers or outcomes of a material's linked documents of one kind,
+   one to a line */
+function linkedVals(m,kind,what){
+  return docsOf(m).filter(function(d){return d.doc===kind;}).map(function(d){
+    return what==='no'?refOf(d):(normStatus(rawEnd(d,'Status'))||rawEnd(d,'Status'));
+  }).filter(Boolean).join('\n');
+}
 function rowDead(r){
   if(!r||r.m)return false;                         /* a row of a visit page */
   var st;
