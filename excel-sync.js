@@ -4466,7 +4466,126 @@ function applyInspectors(p){
   return {changed:p.change.length,added:p.add.length};
 }
 
+/* ================================================================
+   SEVEN'S LIVE TRACKING SHEET
+   ----------------------------------------------------------------
+   The client's own sheet, written from the tracker: its styles, widths,
+   merged headings and the colour of each column are SEVEN's template
+   (seven-tpl.js); every material is a row under the six heading rows.
+   Its 76 columns are filled from the same row the Main Log writes, with
+   the few the template has and the log does not — a running number, the
+   factory's city, the sample's outcome, whether everything has arrived.
+   ================================================================ */
+function sevenRow(m,i){
+  var r=appRow(m), v=m.mfr?mfr(m.mfr):null;
+  var g=function(c){var x=r[c];return x==null?'':x;};
+  var unit=function(q,u){q=g(q);return q===''?'':(q+(g(u)?' '+g(u):''));};
+  var city=v?(v.site||v.country||''):'';
+  var tot=parseFloat(g('Total Quantity')), rem=parseFloat(g('Remaining'));
+  return [i+1,'',g('Item Description'),m.cat||'',g('Common Package (Yes/No)'),g('Discipline'),
+    g('Finishing (Internal/External)'),g('Package (Lump Sum / Provisional Sum / Prime Cost)'),
+    g('Sub-contractor Name'),g('Supply & Install / Supply / Install Only'),g('Manufacturer'),city,
+    g('PQD Number'),g('PQD Revision'),g('PQD Status'),g('PQD Submittal Date'),
+    g('MAT Number'),g('MAT Submittal Date'),g('MAT Revision'),g('MAT Status'),
+    g('PA Tentative Date'),city,g('PA Document Number'),g('PA Date'),
+    g('3rd Party Assessment Done'),g('Client Assessment Done'),g('PMC/LDC Assessment Done'),
+    g('Contractor Assessment Done'),g('Assessment Result'),
+    g('Sample'),g('Mock-up Delivered Date'),g('Mock-up First in Place'),g('Mock-up Approved by PMC'),g('Mock-up per Client DLA'),
+    g('Purchase Order Issued (Yes/No)'),g('PO Date'),
+    g('Method Statement Number'),g('MES Incl. ITP (Yes/No)'),g('MES Revision'),g('MES Status'),
+    g('ITP Number'),g('ITP Submittal Date'),g('ITP Revision'),g('ITP Status'),
+    g('PID Number'),g('PID Submittal Date'),g('PID Revision'),g('PID Status'),
+    g('Pre-Fabrication Meeting Date'),g('3rd Party Assigned (Yes/No)'),g('3rd Party Service Provider Name'),
+    g('Design Verification/Calculation Status'),
+    g('Fabrication Planned Date'),g('Fabrication 1st Batch Started Date'),g('Fabrication Percentage Completion (%)'),
+    g('FAT Package/Procedure Number/ITP'),g('FAT Package Status'),g('FAT Planned Date'),g('FAT Location / City'),g('FAT/TPI Results'),
+    g('1st Batch Delivery To Site Planned Date'),g('1st Batch Delivery To Site Actual Date'),g('Storage (Site/Offsite)'),
+    g('MIR Number'),g('MIR Approval Date'),g('MIR Status'),
+    g('Installation Planned Date'),g('Installation Actual Date'),g('Installer Name'),
+    g('WIR Number'),g('WIR Approval Date'),g('WIR Status'),
+    unit('Total Quantity','Total Quantity Unit'),unit('Delivered No','Delivered Unit'),unit('Remaining','Remaining Unit'),
+    (isFinite(tot)&&tot>0&&isFinite(rem))?(rem<=0?'Yes':'No'):''];
+}
+function sevenCell(ref,v,s){
+  if(v==null||v==='')return '<c r="'+ref+'" s="'+s+'"/>';
+  if(typeof v==='number'&&isFinite(v))return '<c r="'+ref+'" s="'+s+'"><v>'+v+'</v></c>';
+  var t=String(v);
+  /* a date reads as dd/mm/yyyy, one to a line where a cell holds several */
+  t=t.split('\n').map(function(x){return /^\d{4}-\d{2}-\d{2}$/.test(x)?showDate(x):x;}).join('\n');
+  return '<c r="'+ref+'" s="'+s+'" t="inlineStr"><is><t xml:space="preserve">'+xml(t)+'</t></is></c>';
+}
+function sevenBook(list){
+  var T=window.SEVEN_TPL;
+  if(!T)throw new Error('seven-tpl.js was not found beside the page');
+  /* one extra style: a terminated material's row, shaded red */
+  var st=T.styles;
+  var nf=+(/<fills count="(\d+)"/.exec(st)[1]), nx=+(/<cellXfs count="(\d+)"/.exec(st)[1]);
+  st=st.replace(/<fills count="\d+">/,'<fills count="'+(nf+1)+'">')
+    .replace('</fills>','<fill><patternFill patternType="solid"><fgColor rgb="FFFFC7CE"/><bgColor indexed="64"/></patternFill></fill></fills>')
+    .replace(/<cellXfs count="\d+">/,'<cellXfs count="'+(nx+1)+'">')
+    .replace('</cellXfs>','<xf numFmtId="0" fontId="5" fillId="'+nf+'" borderId="6" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">'
+      +'<alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs>');
+  var RED=nx;
+  var rows=list.map(function(m,i){
+    var vals=sevenRow(m,i), r=7+i;
+    var dead=vals.some(function(x){return /terminat/i.test(String(x));});
+    var lines=vals.reduce(function(a,x){return Math.max(a,String(x).split('\n').length);},1);
+    return '<row r="'+r+'"'+(lines>1?' ht="'+(lines*15)+'" customHeight="1"':'')+'>'
+      +vals.map(function(x,c){return sevenCell(colName(c)+r,x,dead?RED:(T.data[c]||0));}).join('')+'</row>';
+  }).join('');
+  var last=6+Math.max(list.length,1);
+  var name=(DB.project||'Materials').replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,31)||'Materials';
+  var head=T.head.replace('%%PROJECT%%',xml((DB.project||'').toUpperCase()));
+  var sheetXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+    +'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    +'<sheetViews><sheetView zoomScale="70" zoomScaleNormal="70" workbookViewId="0">'
+    +'<pane xSplit="6" ySplit="6" topLeftCell="G7" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>'
+    +'<sheetFormatPr defaultColWidth="8.796875" defaultRowHeight="14.25"/>'
+    +T.cols+'<sheetData>'+head+rows+'</sheetData>'
+    +'<autoFilter ref="A6:BX'+last+'"/>'+T.merges
+    +'<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>';
+  var files=[
+    {name:'[Content_Types].xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      +'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      +'<Default Extension="xml" ContentType="application/xml"/>'
+      +'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      +'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+      +'<Override PartName="/xl/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>'
+      +'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+      +'</Types>'},
+    {name:'_rels/.rels',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+      +'</Relationships>'},
+    {name:'xl/workbook.xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+      +'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
+      +'<sheet name="'+xml(name)+'" sheetId="1" r:id="rId1"/></sheets>'
+      +'<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">\''
+      +xml(name.replace(/'/g,"''"))+'\'!$A$6:$BX$'+last+'</definedName></definedNames></workbook>'},
+    {name:'xl/_rels/workbook.xml.rels',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+      +'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>'
+      +'<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+      +'</Relationships>'},
+    {name:'xl/theme/theme1.xml',text:T.theme},
+    {name:'xl/styles.xml',text:st},
+    {name:'xl/worksheets/sheet1.xml',text:sheetXml}
+  ];
+  return zipUp(files);
+}
 var REPORTS=[
+ {k:'seven',t:'SEVEN Live Tracking Sheet',back:false,
+  d:'The client\u2019s own Material Live Tracking Sheet \u2014 its headings, colours and 76 columns \u2014 '
+    +'with every material on a row, filled from the tracker. The materials the Materials table '
+    +'shows with its filters are the ones written.',
+  go:function(){
+    var prev=TBL;TBL='mat';var list=filtered();TBL=prev;
+    download(sevenBook(list),(DB.project||'Project')+' \u2014 Material Live Tracking Sheet '+today()+'.xlsx');
+  }},
  {k:'log',t:'The general log',back:false,   /* written out only: Aconex is the source */
   d:'Every material on one row, with its documents folded back into the columns the project '
     +'already reads — the same seventy-seven columns in the same order, sorted by discipline '
