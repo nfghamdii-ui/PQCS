@@ -419,41 +419,62 @@ function isTerminated(v){return typeof v==='string'&&/terminat/i.test(v);}
 /* tbl: the sheet is an Excel table. Its heading row is then written as
    shared strings and without a style of its own, so the table's style
    colours it, and the sheet points at its table part. */
-function sheetXml(rows,widths,tbl){
+/* bands: a row above the table naming each stage, merged across its
+   columns and in its colour; the table's heading takes the same colours.
+   The table itself starts under it, so a filter still covers every
+   column at once. */
+var BAND_FIRST=7;               /* the first band's style in styles.xml */
+var BAND_COLOURS=['1F4E79','2E75B6','7030A0','C55A11','BF8F00','548235','0E7C7B','8B2252','4472C4','A5473D','5B6770','375623'];
+function sheetXml(rows,widths,tbl,bands){
+  var off=bands&&bands.length?1:0;
+  var colStyle={};
+  (bands||[]).forEach(function(b,i){for(var c=b.from;c<=b.to;c++)colStyle[c]=BAND_FIRST+(i%BAND_COLOURS.length);});
   var wide=rows.reduce(function(a,r){return Math.max(a,r.length);},0);
+  var bandRow=off?('<row r="1" ht="24" customHeight="1">'+(bands||[]).map(function(b){
+      var out='';
+      for(var c=b.from;c<=b.to;c++)out+=c===b.from
+        ?'<c r="'+colName(c)+'1" t="inlineStr" s="'+colStyle[c]+'"><is><t xml:space="preserve">'+xml(b.t)+'</t></is></c>'
+        :'<c r="'+colName(c)+'1" s="'+colStyle[c]+'"/>';
+      return out;
+    }).join('')+'</row>'):'';
+  var merges=(bands||[]).filter(function(b){return b.to>b.from;})
+    .map(function(b){return '<mergeCell ref="'+colName(b.from)+'1:'+colName(b.to)+'1"/>';});
   var body=rows.map(function(row,r){
     /* a terminated submittal is shaded red across its whole row, so it is
        seen in a column of approvals without reading every cell */
     var red=r>0&&row.some(isTerminated);
     var line=red?row.concat(new Array(Math.max(0,wide-row.length)).fill('')):row;
     var cells=line.map(function(v,c){
-      if(tbl&&r===0)return '<c r="'+colName(c)+'1" t="s"><v>'+tbl.sst(tbl.names[c])+'</v></c>';
-      return cellXml(colName(c)+(r+1),v,r===0||(row.head&&c===0),red);
+      if(tbl&&r===0)return '<c r="'+colName(c)+(1+off)+'" t="s"'+(colStyle[c]?' s="'+colStyle[c]+'"':'')
+        +'><v>'+tbl.sst(tbl.names[c])+'</v></c>';
+      return cellXml(colName(c)+(r+1+off),v,r===0||(row.head&&c===0),red);
     }).join('');
     /* a row tall enough for its longest cell, since Excel does not grow
        one written this way by itself */
     var lines=r>0?row.reduce(function(a,v){return typeof v==='string'?Math.max(a,v.split('\n').length):a;},1):1;
-    return cells?('<row r="'+(r+1)+'"'+(lines>1?' ht="'+(lines*15)+'" customHeight="1"':'')+'>'+cells+'</row>'):'';
+    return cells?('<row r="'+(r+1+off)+'"'+(lines>1?' ht="'+(lines*15)+'" customHeight="1"':'')+'>'+cells+'</row>'):'';
   }).join('');
   var cols=widths?('<cols>'+widths.map(function(w,i){
     return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>';}).join('')+'</cols>'):'';
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
    +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
    +'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-   +'<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
-   +cols+'<sheetData>'+body+'</sheetData>'
+   +'<sheetViews><sheetView workbookViewId="0"><pane ySplit="'+(1+off)+'" topLeftCell="A'+(2+off)+'" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+   +cols+'<sheetData>'+bandRow+body+'</sheetData>'
+   +(merges.length?'<mergeCells count="'+merges.length+'">'+merges.join('')+'</mergeCells>':'')
    +(tbl?'<tableParts count="1"><tablePart r:id="rId1"/></tableParts>':'')
    +'</worksheet>';
 }
 /* An Excel table over a sheet's rows, in Excel's own Table Style
    Medium 2: dark teal heading, banded rows, a filter on every column.
    Its column names are the headings, each made unique as Excel needs. */
-function tableXml(n,names,rows){
-  var last=colName(names.length-1)+Math.max(rows,2);
+function tableXml(n,names,rows,off){
+  off=off||0;
+  var last=colName(names.length-1)+(Math.max(rows,2)+off);
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     +'<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="'+n+'" '
-    +'name="Table'+n+'" displayName="Table'+n+'" ref="A1:'+last+'" totalsRowShown="0">'
-    +'<autoFilter ref="A1:'+last+'"/>'
+    +'name="Table'+n+'" displayName="Table'+n+'" ref="A'+(1+off)+':'+last+'" totalsRowShown="0">'
+    +'<autoFilter ref="A'+(1+off)+':'+last+'"/>'
     +'<tableColumns count="'+names.length+'">'
     +names.map(function(t,i){return '<tableColumn id="'+(i+1)+'" name="'+xml(t)+'"/>';}).join('')
     +'</tableColumns>'
@@ -499,15 +520,18 @@ function workbook(sheets){
     {name:'xl/styles.xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
       +'<numFmts count="1"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/></numFmts>'
-      +'<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font>'
+      +'<fonts count="4"><font><sz val="11"/><name val="Calibri"/></font>'
       +'<font><b/><sz val="11"/><name val="Calibri"/></font>'
-      +'<font><sz val="11"/><color rgb="FF9C0006"/><name val="Calibri"/></font></fonts>'
-      +'<fills count="3"><fill><patternFill patternType="none"/></fill>'
+      +'<font><sz val="11"/><color rgb="FF9C0006"/><name val="Calibri"/></font>'
+      +'<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>'
+      +'<fills count="'+(3+BAND_COLOURS.length)+'"><fill><patternFill patternType="none"/></fill>'
       +'<fill><patternFill patternType="gray125"/></fill>'
-      +'<fill><patternFill patternType="solid"><fgColor rgb="FFFFC7CE"/><bgColor indexed="64"/></patternFill></fill></fills>'
+      +'<fill><patternFill patternType="solid"><fgColor rgb="FFFFC7CE"/><bgColor indexed="64"/></patternFill></fill>'
+      +BAND_COLOURS.map(function(c){return '<fill><patternFill patternType="solid"><fgColor rgb="FF'+c+'"/><bgColor indexed="64"/></patternFill></fill>';}).join('')
+      +'</fills>'
       +'<borders count="1"><border/></borders>'
       +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-      +'<cellXfs count="7">'
+      +'<cellXfs count="'+(7+BAND_COLOURS.length)+'">'
       +'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
       +'<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
       +'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
@@ -515,6 +539,8 @@ function workbook(sheets){
       +'<xf numFmtId="164" fontId="2" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/>'
       +'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>'
       +'<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>'
+      +BAND_COLOURS.map(function(_,i){return '<xf numFmtId="0" fontId="3" fillId="'+(3+i)+'" borderId="0" xfId="0" '
+        +'applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>';}).join('')
       +'</cellXfs>'
       +'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
       +'</styleSheet>'}
@@ -528,7 +554,7 @@ function workbook(sheets){
     if(s.table&&s.rows.length&&s.rows[0].length){
       nt++;
       tbl={sst:sstIdx,names:tableNames(s.rows[0])};
-      files.push({name:'xl/tables/table'+nt+'.xml',text:tableXml(nt,tbl.names,s.rows.length)});
+      files.push({name:'xl/tables/table'+nt+'.xml',text:tableXml(nt,tbl.names,s.rows.length,s.bands&&s.bands.length?1:0)});
       files.push({name:'xl/worksheets/_rels/sheet'+(i+1)+'.xml.rels',
         text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
@@ -537,7 +563,7 @@ function workbook(sheets){
       extraTypes+='<Override PartName="/xl/tables/table'+nt+'.xml" '
         +'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/>';
     }
-    files.push({name:'xl/worksheets/sheet'+(i+1)+'.xml',text:sheetXml(s.rows,s.widths,tbl)});
+    files.push({name:'xl/worksheets/sheet'+(i+1)+'.xml',text:sheetXml(s.rows,s.widths,tbl,s.bands)});
   });
   if(sst.length){
     files.push({name:'xl/sharedStrings.xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -1039,7 +1065,8 @@ function widths(){
 window.excelOut=function(){
   try{
     var name=(DB.project||'Project Materials').replace(/[^\w \-]/g,'').trim();
-    var sheets=[{name:'Main Log',rows:generalRows(),widths:widths(),table:true},
+    var lr=generalRows();
+    var sheets=[{name:'Main Log',rows:lr,widths:widths(),table:true,bands:logBands(lr[0])},
                 {name:'Summary',rows:summaryRows()}];
     var loose=looseRows();
     if(loose.length>1)sheets.push({name:'Not linked',rows:loose,table:true});
@@ -3659,6 +3686,19 @@ function visitLines(m,k){
     return [v.ref||'(no reference)',v.date?showDate(v.date):'',v.result||''].filter(Boolean).join(' \u00b7 ');
   }).join('\n');
 }
+/* the Main Log's columns by stage, for the coloured row above the table */
+var LOG_STAGES=[
+  ['Material','Item Description'],['Vendor & PQD','Manufacturer'],['MAT submittal','MAT Number'],
+  ['Assessment','PA Tentative Date'],['Sample & Mock-up','Sample'],['Purchase','Purchase Order Issued (Yes/No)'],
+  ['MES / ITP / PID','Method Statement Number'],['Fabrication & FAT','Pre-Fabrication Meeting Date'],
+  ['Delivery & MIR','1st Batch Delivery To Site Planned Date'],['Installation & WIR','Installation Planned Date'],
+  ['Quantities','Total Quantity'],['From the tracker','Local / Foreign']];
+function logBands(head){
+  var starts=LOG_STAGES.map(function(s){return {t:s[0],from:head.indexOf(s[1])};})
+    .filter(function(b){return b.from>=0;}).sort(function(a,b){return a.from-b.from;});
+  starts.forEach(function(b,i){b.to=(i+1<starts.length?starts[i+1].from:head.length)-1;});
+  return starts;
+}
 function generalRows(){
   var mats=(DB.mats||[]).filter(function(m){return !isDoc(m);});
   mats.sort(function(a,b){
@@ -4232,7 +4272,8 @@ var REPORTS=[
     +'so renaming one changes it rather than doubling it.',
   go:function(){
     var name=(DB.project||'Project Materials').replace(/[^\w \-]/g,'').trim();
-    var sheets=[{name:'Main Log',rows:generalRows(),widths:widths(),table:true},
+    var lr=generalRows();
+    var sheets=[{name:'Main Log',rows:lr,widths:widths(),table:true,bands:logBands(lr[0])},
                 {name:'Summary',rows:summaryRows()}];
     var loose=looseRows();
     if(loose.length>1)sheets.push({name:'Not linked',rows:loose,table:true});
