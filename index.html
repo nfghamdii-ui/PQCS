@@ -162,21 +162,21 @@ svg{display:block}
 /* a step on the road */
 .step{display:flex;gap:16px;padding:16px 20px;border-radius:var(--r-lg);background:var(--card);
   border:1px solid var(--line);margin-bottom:8px;box-shadow:var(--sh);transition:box-shadow var(--fast)}
-.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-bottom:14px}
-.vt{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--line-2);border-radius:var(--r-lg);
-  box-shadow:var(--sh);padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-height:150px}
-.vt-ok{border-top-color:var(--ok)}.vt-bad{border-top-color:var(--bad)}.vt-wait{border-top-color:var(--wait)}
-.vt-now{border-top-color:var(--now)}.vt.on{box-shadow:0 0 0 3px var(--wait-b),var(--sh);border-color:var(--wait)}
-.vt-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12.5px;font-weight:600;
-  color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em}
-.vt-s{font-size:19px;font-weight:650;letter-spacing:-.01em;color:var(--ink)}
-.vt-ok .vt-s{color:var(--ok-t)}.vt-bad .vt-s{color:var(--bad-t)}.vt-wait .vt-s{color:var(--wait-t)}
-.vt-m{display:flex;flex-direction:column;gap:2px;font-size:12.5px;color:var(--ink-2);min-width:0}
-.vt-m .mono{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vt-due{font-size:12px;color:var(--now-t)}.vt-due.late{color:var(--bad-t)}
-.vt-a{margin-top:auto;padding-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.vt-link{cursor:pointer}.vt-link:hover{border-color:var(--line-2)}
 .vopen{margin-bottom:12px}
+.pgroup{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:6px 20px 14px;margin-bottom:10px}
+.pgroup.on{border-color:var(--wait);box-shadow:0 0 0 3px var(--wait-b)}
+.pgroup .step{box-shadow:none;border:none;padding:8px 0 0;margin:0;background:none}
+.pgroup .step .dot,.pgroup .step .shead,.pgroup .step .swhy,.pgroup .step .srec{display:none}
+.pg-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0 8px}
+.pg-t{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.props{display:grid;grid-template-columns:1fr 1fr;column-gap:48px}
+.pr{border-top:1px solid var(--line);padding:7px 2px 8px;min-height:44px}
+.pr-l{font-size:12px;color:var(--ink-3)}
+.pr-v{font-size:13.5px;color:var(--ink);font-weight:500;word-break:break-word}
+.pr-v.mono{font-family:var(--mono);font-size:12.5px;font-weight:400}
+.pg-note{font-size:12.5px;color:var(--now-t);padding-top:8px}
+.pg-note.late{color:var(--bad-t)}
+@media(max-width:700px){.props{grid-template-columns:1fr}}
 .shead{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;min-height:30px}
 .sacts{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .step.quiet{padding:11px 20px}
@@ -2317,39 +2317,48 @@ function mfrPane(v){
    the row, and the pre-qualification file's list sits under that.
    --------------------------------------------------------------- */
 function venDash(v,r,mine){
+  /* Everything about the vendor in plain sight, the way Aconex lays out
+     a document's properties: two columns of a name over its value. Each
+     step is a group; its Edit opens the step's form inside the group. */
   var open=(OPEN&&OPEN.indexOf('mfr:')===0)?OPEN.slice(4):'';
-  var tiles=r.map(function(x){
-    var st=x.s, d=x.data, tone=x.state==='done'?'ok':x.state==='bad'?'bad':x.state==='wait'?'wait':x.now?'now':'na';
-    var word=d.status||(x.state==='done'?'not needed':'Not recorded');
-    var due=st.due?st.due(v,d):null, dueTxt='';
-    if(due){var n2=daysTo(due.on);
-      dueTxt='<div class="vt-due'+((!due.soft&&n2<0)?' late':'')+'">'+esc(due.t)+' '+show(due.on)+'</div>';}
-    var warn=st.warn?st.warn(v,d):'';
-    return '<div class="vt vt-'+tone+(open===st.k?' on':'')+'">'
-      +'<div class="vt-h"><span>'+esc(st.n)+'</span><span class="sclause">'+esc(st.clause)+'</span></div>'
-      +'<div class="vt-s">'+esc(word)+'</div>'
-      +'<div class="vt-m">'+(d.ref?'<span class="mono">'+esc(d.ref)+'</span>':'')
-        +(d.date?'<span>'+esc(dateLabel(st))+' '+show(d.date)+'</span>':'')
-        +(d.by?'<span>'+esc(d.by)+(d.by2?' · '+esc(d.by2):'')+'</span>':'')
-        +(!d.ref&&!d.date&&!d.by?'<span class="dim">nothing recorded</span>':'')+'</div>'
-      +dueTxt+(warn?'<div class="vt-due late">'+esc(warn)+'</div>':'')
-      +'<div class="vt-a no-print">'
-        +'<button class="btn btn-s'+(x.now&&open!==st.k?' btn-p':'')+'" onclick="openStep('+(open===st.k?'null':'\'mfr:'+st.k+'\'')+')">'
-        +(open===st.k?'Close':(d.status||d.ref||d.date?'Update':'Record'))+'</button>'
-        +(x.state!=='done'&&open!==st.k?'<button class="btn-q" onclick="quickDone(\'mfr\',\''+st.k+'\')">Mark done</button>':'')
-      +'</div></div>';
-  });
-  var waiting=mine.filter(function(m){return matRoad(m).at>=0;}).length;
-  tiles.push('<div class="vt vt-na vt-link" onclick="var e=document.getElementById(\'ven-mats\');if(e)e.scrollIntoView({behavior:\'smooth\'})">'
-    +'<div class="vt-h"><span>Materials</span></div>'
-    +'<div class="vt-s">'+mine.length+'</div>'
-    +'<div class="vt-m"><span>'+(mine.length?(waiting+' still on their road'):'none named yet')+'</span></div></div>');
-  var h='<div class="vgrid">'+tiles.join('')+'</div>';
-  /* the step being recorded, in full, under the row */
-  if(open){
-    var i=r.findIndex(function(x){return x.s.k===open;});
-    if(i>=0)h+='<div class="vopen">'+stepCard(v,r[i],i,'mfr')+'</div>';
+  function pr(label,val,cls){
+    return '<div class="pr"><div class="pr-l">'+esc(label)+'</div><div class="pr-v'+(cls?' '+cls:'')+'">'
+      +(val==null||val===''?'':val)+'</div></div>';
   }
+  var h='<div class="pgroup"><div class="pg-h"><span class="pg-t">Company</span></div><div class="props">'
+    +pr('Name',esc(v.name))+pr('Kind',esc(KINDS[kindOf(v)].l))
+    +pr('Category',esc(v.cat||''))+pr('Country',esc(v.country||''))
+    +pr('Production site',esc(v.site||''))+pr('Local / Foreign',esc(v.locality||''))
+    +pr('Scope',esc(v.scope||''))+pr('Brought by',esc(v.by||''))
+    +'</div></div>';
+  r.forEach(function(x,i){
+    var st=x.s, d=x.data;
+    var tone=x.state==='done'?'ok':x.state==='bad'?'bad':x.state==='wait'?'wait':x.now?'now':'na';
+    h+='<div class="pgroup'+(open===st.k?' on':'')+'"><div class="pg-h">'
+      +'<span class="pg-t">'+esc(st.n)+'</span><span class="sclause">'+esc(st.clause)+'</span>'
+      +'<span class="tag t-'+tone+'">'+esc(d.status||(x.state==='done'?'not needed':'Not recorded'))+'</span>'
+      +'<span style="flex:1"></span>'
+      +'<span class="no-print" style="display:flex;gap:6px">'
+      +(open===st.k?'<button class="btn-q" onclick="openStep(null)">Close</button>'
+        :'<button class="btn btn-s'+(x.now?' btn-p':'')+'" onclick="openStep(\'mfr:'+st.k+'\')">Edit</button>'
+         +(x.state!=='done'?'<button class="btn-q" onclick="quickDone(\'mfr\',\''+st.k+'\')">Mark done</button>':''))
+      +'</span></div>';
+    if(open===st.k){
+      h+=stepCard(v,x,i,'mfr');
+    }else{
+      h+='<div class="props">'+(st.f||[]).map(function(f){
+        var val=d[f[0]];
+        if(f[0]==='status')return pr(f[1],val?esc(val):'');
+        if(f[2]==='date')return pr(f[1],val?show(val):'');
+        return pr(f[1],val?esc(val):'',/^ref/.test(f[0])?'mono':'');
+      }).join('')+'</div>';
+      var due=st.due?st.due(v,d):null, warn=st.warn?st.warn(v,d):'';
+      if(due){var n2=daysTo(due.on);
+        h+='<div class="pg-note'+((!due.soft&&n2<0)?' late':'')+'">'+esc(due.t)+' <b>'+show(due.on)+'</b></div>';}
+      if(warn)h+='<div class="pg-note late">'+esc(warn)+'</div>';
+    }
+    h+='</div>';
+  });
   if(r.some(function(x){return x.s.k==='pqd';}))
     h+='<div class="vopen">'+checklist(v,'pq',pqList(v),'2.1.14','The pre-qualification file')+'</div>';
   return h;
