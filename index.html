@@ -174,6 +174,22 @@ svg{display:block}
 .pr-l{font-size:12px;color:var(--ink-3)}
 .pr-v{font-size:13.5px;color:var(--ink);font-weight:500;word-break:break-word}
 .pr-v.mono{font-family:var(--mono);font-size:12.5px;font-weight:400}
+/* the material page's side index */
+.mat-wrap{display:grid;grid-template-columns:230px minmax(0,1fr);gap:22px;align-items:start}
+.mat-nav{position:sticky;top:0;display:flex;flex-direction:column;gap:1px;padding:10px 6px;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r-lg);max-height:calc(100vh - 220px);overflow-y:auto}
+.mat-nav button{display:flex;align-items:center;gap:9px;text-align:left;background:none;border:0;border-radius:7px;
+  padding:6px 9px;font:inherit;font-size:13px;color:var(--ink-2);cursor:pointer;line-height:1.3}
+.mat-nav button:hover{background:var(--hover);color:var(--ink)}
+.mn-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--line-2)}
+.mn-ok{background:var(--ok)}.mn-bad{background:var(--bad)}.mn-wait{background:var(--wait)}.mn-now{background:var(--now)}
+.mat-nav .mn-log{flex-wrap:wrap;justify-content:space-between;margin-bottom:6px;padding:8px 9px 10px;border-bottom:1px solid var(--line);border-radius:7px 7px 0 0}
+.mn-log b{font-family:var(--mono);font-size:12.5px}
+.mn-log i{flex:1 0 100%;height:5px;border-radius:3px;background:var(--sunk);overflow:hidden}
+.mn-log u{display:block;height:100%;text-decoration:none}
+.mat-main{min-width:0}
+.pgroup,.sec{scroll-margin-top:12px}
+@media(max-width:1100px){.mat-wrap{display:block}.mat-nav{display:none}}
 .dl-row{display:flex;align-items:center;gap:14px;min-height:0}
 .pg-note{font-size:12.5px;color:var(--now-t);padding-top:8px}
 .pg-note.late{color:var(--bad-t)}
@@ -2281,7 +2297,7 @@ function matPane(m){
       +pr('Sub-contractor',esc(m.sub||''))+pr('Aconex reference',esc(m.ref||''),'mono')
       +pr('Quantity',m.qty?(esc(m.qty)+' '+esc(m.unit||'')):'')+pr('PO Number',esc(raw['PO Number']||''),'mono'));
     body+=(lg._mat||'')+roadProps(m,r.steps,'mat',lg);
-    body+=delPanel(m)+ncrPanel(m);
+    body+=ncrPanel(m);
   }
   return head+'<div class="body"><div class="wrap">'+body+'</div></div>';
 }
@@ -2347,8 +2363,10 @@ function pr(label,val,cls){
   return '<div class="pr"><div class="pr-l">'+esc(label)+'</div><div class="pr-v'+(cls?' '+cls:'')+'">'
     +(val==null||val===''?'':val)+'</div></div>';
 }
+/* a section the page's side index lists: its name, its colour, where it is */
+function navAttr(t,tone,id){return ' data-nav="'+attr(t)+'" data-tone="'+(tone||'na')+'" id="'+id+'"';}
 function pgroup(title,props,extra){
-  return '<div class="pgroup"><div class="pg-h"><span class="pg-t">'+esc(title)+'</span>'+(extra||'')+'</div>'
+  return '<div class="pgroup"'+navAttr(title,'na','pg-'+String(title).toLowerCase().replace(/[^a-z0-9]+/g,'-'))+'><div class="pg-h"><span class="pg-t">'+esc(title)+'</span>'+(extra||'')+'</div>'
     +'<div class="props">'+props+'</div></div>';
 }
 function roadProps(rec,steps,kind,after){
@@ -2374,11 +2392,12 @@ function roadProps(rec,steps,kind,after){
       var ord=num(rec.qty), got=received(rec), n=(rec.dels||[]).length;
       word=n?(n+' consignment'+(n===1?'':'s')):'nothing yet';
       var dl=typeof window.logInline==='function'?window.logInline(rec,'Delivery'):null;
-      btns='<button class="btn btn-s'+(x.now?' btn-p':'')+'" onclick="addDel()">Record a delivery</button>'
-        +(dl?'<button class="btn btn-s" onclick="editLog('+rec.id+','+dl.gi+')">Edit dates</button>':'');
+      btns=(typeof window.linkPick==='function'?'<button class="btn btn-s" onclick="linkPick('+rec.id+',\'MIR\')">Link an MIR</button>':'')
+        +'<button class="btn btn-s'+(x.now?' btn-p':'')+'" onclick="addDel()">Record a delivery</button>'
+        +(dl?'<button class="btn-q" onclick="editLog('+rec.id+','+dl.gi+')">Edit dates</button>':'');
       body='<div class="props">'+pr('Consignments',n?String(n):'')
         +pr('Accepted',ord?(got+' of '+ord+' '+esc(rec.unit||'')):(n?String(got):''))
-        +(dl?dl.props:'')+'</div>';
+        +(dl?dl.props:'')+'</div>'+delLines(rec);
     }else if(visits){
       /* repeated visits keep their own list, with its own button; the
          tag says the newest result and how many there are */
@@ -2424,7 +2443,7 @@ function roadProps(rec,steps,kind,after){
         if(warn)body+='<div class="pg-note late">'+esc(warn)+'</div>';
       }
     }
-    h+='<div class="pgroup'+(open===st.k?' on':'')+'"><div class="pg-h">'
+    h+='<div class="pgroup'+(open===st.k?' on':'')+'"'+navAttr(st.n,tone,'pg-'+st.k)+'><div class="pg-h">'
       +'<span class="pg-t">'+esc(st.n)+'</span><span class="sclause">'+esc(st.clause)+'</span>'
       +'<span class="tag t-'+tone+'">'+esc(word)+'</span>'
       +'<span style="flex:1"></span>'
@@ -2822,6 +2841,29 @@ window.saveStep=function(kind,k){
    due a week after the last quantity is accepted — so consignments
    are recorded one by one and the deadline follows from them.
    ================================================================ */
+/* the consignments, newest first, with the received bar when an order
+   quantity is known — drawn inside the delivery step's group */
+function delLines(m){
+  var dels=(m.dels||[]).slice().sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
+  var ord=num(m.qty), got=received(m);
+  var pct=ord?Math.min(100,Math.round(got/ord*100)):(got?100:0);
+  return '<div style="margin-top:12px">'
+    +(ord?'<div style="margin-bottom:10px"><div class="bar"><i style="width:'+pct+'%"></i></div>'
+      +'<div class="dim" style="font-size:12.5px;margin-top:6px">'+got+' of '+ord+' '+esc(m.unit||'')+' accepted · '+pct+'%'
+      +(got<ord?(' · '+(Math.round((ord-got)*1000)/1000)+' still to come'):'')+'</div></div>':'')
+    +(dels.length?dels.map(function(d){
+        var t=settled(d.status)?'ok':failed(d.status)?'bad':'wait';
+        return '<div class="line">'
+          +'<span class="tag t-'+t+'" style="min-width:120px;text-align:center">'+esc(d.status||'Pending')+'</span>'
+          +'<div class="line-m"><div>'+(d.ref?'<span class="mono">'+esc(d.ref)+'</span>':'<span class="dim">no request number</span>')+'</div>'
+          +'<div class="dim" style="font-size:12.5px;margin-top:2px">'+(d.qty?esc(d.qty)+' '+esc(m.unit||''):'quantity not set')
+          +(d.note?' · '+esc(d.note):'')+'</div></div>'
+          +'<span class="meta">'+esc(show(d.date))+'</span>'
+          +'<button class="btn-q no-print" onclick="editDel('+d.id+')">Edit</button></div>';
+      }).join('')
+      :'<span class="dim" style="font-size:13px">Nothing has arrived yet. Link its inspection request from Aconex, or record a consignment by hand.</span>')
+    +'</div>';
+}
 function delPanel(m){
   var dels=(m.dels||[]).slice().sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
   var ord=num(m.qty), got=received(m);
@@ -2900,7 +2942,7 @@ window.delDel=function(ev,id){
 function ncrPanel(m){
   var list=(m.ncrs||[]).slice().sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
   var open=list.filter(function(n){return n.status!=='Closed';}).length;
-  return '<div class="sec">Non-conformances</div><div class="panel">'
+  return '<div class="sec"'+navAttr('Non-conformances',open?'bad':'na','pg-ncr')+'>Non-conformances</div><div class="panel">'
     +'<div class="panel-h"><div class="panel-t">Reports'+(open?' <span class="tag t-now" style="margin-left:8px">'+open+' open</span>':'')+'</div>'
       +'<button class="btn btn-s no-print" onclick="addNCR()">Raise one</button></div>'
     +'<div class="panel-b">'

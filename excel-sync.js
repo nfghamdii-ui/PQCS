@@ -2941,8 +2941,43 @@ function install2(){
     var html=readingBar(nameable(origMat(m),'mat',m.id),'mat',m.id);
     var add=linkPanel(m)+(isDoc(m)?'':logPanel(m));
     var i=html.lastIndexOf('</div></div>');
-    if(i<0)return html+add;
-    return html.slice(0,i)+add+html.slice(i);
+    html=(i<0)?html+add:html.slice(0,i)+add+html.slice(i);
+    return isDoc(m)?html:withIndex(html,m);
+  };
+  /* A long page gets an index down its side: every section, in its
+     colour, a press away — and the Main Log's share filled at its head.
+     It stays put while the page scrolls; a narrow screen goes without. */
+  function withIndex(html,m){
+    var items=[],re=/data-nav="([^"]*)" data-tone="([^"]*)" id="([^"]+)"/g,x;
+    while((x=re.exec(html)))items.push({t:x[1],tone:x[2],id:x[3]});
+    if(items.length<4)return html;
+    var f=logFill(m,true), pct=Math.round(f.n/f.total*100);
+    var nav='<nav class="mat-nav no-print">'
+      +'<button class="mn-log" onclick="navTo(\'pg-mainlog\')"><span>Main Log</span><b>'+pct+'%</b>'
+      +'<i><u style="width:'+pct+'%;background:'+(pct>=80?'var(--ok)':pct>=50?'var(--wait)':'var(--now)')+'"></u></i></button>'
+      +items.map(function(it){
+        return '<button onclick="navTo(\''+it.id+'\')"><span class="mn-dot mn-'+it.tone+'"></span>'+it.t+'</button>';
+      }).join('')+'</nav>';
+    var start='<div class="body"><div class="wrap">';
+    var a=html.indexOf(start);if(a<0)return html;
+    html=html.slice(0,a)+'<div class="body"><div class="wrap mat-wrap">'+nav+'<div class="mat-main">'+html.slice(a+start.length);
+    var b=html.lastIndexOf('</div></div>');
+    return html.slice(0,b)+'</div>'+html.slice(b);
+  }
+  /* scrolled by hand: the page body is its own scroller, which
+     scrollIntoView does not always move */
+  window.navTo=function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var box=el.parentNode;
+    while(box&&box!==document.body){
+      var oy=getComputedStyle(box).overflowY;
+      if((oy==='auto'||oy==='scroll')&&box.scrollHeight>box.clientHeight)break;
+      box=box.parentNode;
+    }
+    if(!box||box===document.body)box=document.scrollingElement;
+    var top=el.getBoundingClientRect().top-(box===document.scrollingElement?0:box.getBoundingClientRect().top)+box.scrollTop-12;
+    var was=box.style.scrollBehavior;box.style.scrollBehavior='auto';
+    box.scrollTop=top;box.style.scrollBehavior=was;
   };
 }
 
@@ -3047,7 +3082,7 @@ function linkPanel(m){
   var all=docsOf(m), list=all.filter(function(d){return d.doc!=='MIR'&&!inStep(d);});
   var nmir=all.filter(function(d){return d.doc==='MIR';}).length;
   var stepped={};all.filter(inStep).forEach(function(d){stepped[d.doc]=(stepped[d.doc]||0)+1;});
-  return '<div class="sec">Documents</div><div class="panel">'
+  return '<div class="sec"'+navAttr('Documents','na','pg-docs')+'>Documents</div><div class="panel">'
     +'<div class="panel-h"><div class="panel-t">Linked to this material</div>'
     +'<button class="btn btn-s no-print" onclick="linkPick('+m.id+')">Link a document</button></div>'
     +'<div class="panel-b">'
@@ -3205,7 +3240,7 @@ window.logGroupsFor=function(m,keys){
     var at=(LOG_ANCHOR[g[0]]||['del']).filter(function(k){return have[k];})[0]||'_mat';
     var filled=g[1].filter(function(f){return logShow(f,raw[f[0]]);}).length;
     out[at]=(out[at]||'')
-      +'<div class="pgroup"><div class="pg-h"><span class="pg-t">'+esc(g[0])+'</span>'
+      +'<div class="pgroup"'+navAttr(g[0],filled===g[1].length?'ok':filled?'wait':'na','pg-log-'+gi)+'><div class="pg-h"><span class="pg-t">'+esc(g[0])+'</span>'
       +'<span class="tag t-'+(filled===g[1].length?'ok':filled?'wait':'na')+'">'+filled+' of '+g[1].length+'</span>'
       +'<span style="flex:1"></span>'
       +'<button class="btn btn-s no-print" onclick="editLog('+m.id+','+gi+')">Edit</button></div>'
@@ -3260,7 +3295,7 @@ function logPanel(m){
     return '<div style="display:flex;gap:12px;padding:3px 0;font-size:13px;border-top:1px solid var(--line)">'
       +'<span style="flex:0 0 46%">'+esc(c)+'</span><span class="dim">'+esc(w)+'</span></div>';
   }).join('');
-  return '<div class="sec">Main Log</div><div class="panel">'
+  return '<div class="sec"'+navAttr('Main Log',pct>=80?'ok':pct>=50?'wait':'now','pg-mainlog')+'>Main Log</div><div class="panel">'
     +'<div class="panel-h"><div style="flex:1;min-width:220px">'
     +'<div class="panel-t">'+fill.n+' of '+fill.total+' columns filled <span class="dim" style="font-weight:400">· '+pct+'%</span></div>'
     +'<div style="height:6px;border-radius:3px;background:var(--sunk);margin-top:8px;overflow:hidden">'
