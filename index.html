@@ -2231,21 +2231,23 @@ window.delEvent=function(ev,id){
 function matPane(m){
   var r=matRoad(m), v=mfrOf(m), hit=lookCat(m.name);
   var ord=num(m.qty), got=received(m), ncr=openNCR(m);
+  /* a document has no category, vendor, quantity or road of its own */
+  var isD=!!m.doc;
   var head='<div class="head"><div class="wrap"><div class="head-t">'+esc(m.name)+'</div><div class="head-m">'
-    +'<button class="chip '+(m.cat?'set':'warn')+'" data-pop onclick="editCat(event)">'+(m.cat?esc(m.cat):'set the category')+(m.cat&&!m.catSure?' ?':'')+'</button>'
-    +(function(){var ms=mfrState(v);
+    +(isD?'<span class="chip set">'+esc(m.doc)+'</span>':'<button class="chip '+(m.cat?'set':'warn')+'" data-pop onclick="editCat(event)">'+(m.cat?esc(m.cat):'set the category')+(m.cat&&!m.catSure?' ?':'')+'</button>')
+    +(isD?'':(function(){var ms=mfrState(v);
        return '<button class="chip '+(!v?'warn':ms.tone==='ok'?'set':'warn')+'" data-pop onclick="pickMfr(event)" '
         +'title="'+attr(v?(ms.ok?'qualified':ms.short.join(' · ')):'none named')+'">'
         +(v?esc(v.name):'no vendor')
-        +(v&&!ms.ok?' · '+esc(ms.word):'')+'</button>';})()
+        +(v&&!ms.ok?' · '+esc(ms.word):'')+'</button>';})())
     +(function(){
       /* a document's number sits in its own kind's column (MIR Number,
          ITP Number…), not in the material's, so it is read from there */
       var r=m.ref||(typeof window.docRef==='function'?window.docRef(m):'');
       return '<button class="chip" data-pop onclick="editText(event,\'ref\',\'Aconex reference\')">'
         +(r?('<span class="mono">'+esc(r)+'</span>'):'no reference')+'</button>';})()
-    +'<button class="chip" data-pop onclick="editQty(event)">'+(ord?(got+' of '+ord+' '+esc(m.unit||'')+' received'):'set the quantity')+'</button>'
-    +'<span class="chip flat">'+(r.at<0?'all steps cleared':(r.done+' of '+r.steps.length+' done'))+'</span>'
+    +(isD?'':'<button class="chip" data-pop onclick="editQty(event)">'+(ord?(got+' of '+ord+' '+esc(m.unit||'')+' received'):'set the quantity')+'</button>'
+      +'<span class="chip flat">'+(r.at<0?'all steps cleared':(r.done+' of '+r.steps.length+' done'))+'</span>')
     +'<span style="flex:1"></span>'
     +'<button class="btn-q no-print" onclick="printRecord()">Record sheet</button>'
     +'<button class="btn-q no-print" data-pop onclick="remove(event)">Delete</button>'
@@ -2255,11 +2257,28 @@ function matPane(m){
     +'</div></div>';
 
   var body='';
-  if(!m.cat)body+='<div class="panel" style="border-color:var(--now);background:var(--now-b)"><div class="panel-b">'
+  if(!m.cat&&!isD)body+='<div class="panel" style="border-color:var(--now);background:var(--now-b)"><div class="panel-b">'
     +'<b>No category yet.</b> Only the steps every material needs are shown. Set the category above and the rest of the road appears.'
     +'</div></div>';
-  body+=r.steps.map(function(x,i){return stepCard(m,x,i,'mat');}).join('');
-  body+=delPanel(m)+ncrPanel(m);
+  var v0=mfrOf(m), raw=m.raw||{};
+  if(m.doc){
+    /* a document: what Aconex says about it, and no road of steps */
+    var rv=function(end){var p=m.doc+' '+end;if(raw[p])return raw[p];
+      for(var k in raw)if(raw[k]&&k.slice(-end.length-1)===' '+end)return raw[k];return '';};
+    body=pgroup('Document',
+      pr('Kind',esc(m.doc))+pr('Number',esc(m.ref||(typeof window.docRef==='function'?window.docRef(m):'')),'mono')
+      +pr('Title',esc(m.name))+pr('Discipline',esc(m.disc||''))
+      +pr('Status',esc(rv('Status')))+pr('Revision',esc(rv('Revision')))
+      +pr('Date',(m.acxDate||rv('Date'))?show(m.acxDate||rv('Date')):''));
+  }else{
+    body+=pgroup('Material',
+      pr('Item description',esc(m.name))+pr('Category',esc(m.cat||''))
+      +pr('Discipline',esc(m.disc||''))+pr('Vendor',v0?esc(v0.name):'')
+      +pr('Sub-contractor',esc(m.sub||''))+pr('Aconex reference',esc(m.ref||''),'mono')
+      +pr('Quantity',m.qty?(esc(m.qty)+' '+esc(m.unit||'')):'')+pr('PO Number',esc(raw['PO Number']||''),'mono'));
+    body+=roadProps(m,r.steps,'mat');
+    body+=delPanel(m)+ncrPanel(m);
+  }
   return head+'<div class="body"><div class="wrap">'+body+'</div></div>';
 }
 
@@ -2316,50 +2335,86 @@ function mfrPane(v){
    and one for its materials. The tile pressed opens its form beneath
    the row, and the pre-qualification file's list sits under that.
    --------------------------------------------------------------- */
-function venDash(v,r,mine){
-  /* Everything about the vendor in plain sight, the way Aconex lays out
-     a document's properties: two columns of a name over its value. Each
-     step is a group; its Edit opens the step's form inside the group. */
-  var open=(OPEN&&OPEN.indexOf('mfr:')===0)?OPEN.slice(4):'';
-  function pr(label,val,cls){
-    return '<div class="pr"><div class="pr-l">'+esc(label)+'</div><div class="pr-v'+(cls?' '+cls:'')+'">'
-      +(val==null||val===''?'':val)+'</div></div>';
-  }
-  var h='<div class="pgroup"><div class="pg-h"><span class="pg-t">Company</span></div><div class="props">'
-    +pr('Name',esc(v.name))+pr('Kind',esc(KINDS[kindOf(v)].l))
-    +pr('Category',esc(v.cat||''))+pr('Country',esc(v.country||''))
-    +pr('Production site',esc(v.site||''))+pr('Local / Foreign',esc(v.locality||''))
-    +pr('Scope',esc(v.scope||''))+pr('Brought by',esc(v.by||''))
-    +'</div></div>';
-  r.forEach(function(x,i){
+/* Everything about a record in plain sight, the way Aconex lays out a
+   document's properties: two columns of a name over its value, one
+   group for the record and one for each step. A step's Edit opens its
+   form inside its group. */
+function pr(label,val,cls){
+  return '<div class="pr"><div class="pr-l">'+esc(label)+'</div><div class="pr-v'+(cls?' '+cls:'')+'">'
+    +(val==null||val===''?'':val)+'</div></div>';
+}
+function pgroup(title,props,extra){
+  return '<div class="pgroup"><div class="pg-h"><span class="pg-t">'+esc(title)+'</span>'+(extra||'')+'</div>'
+    +'<div class="props">'+props+'</div></div>';
+}
+function roadProps(rec,steps,kind){
+  var open=(OPEN&&OPEN.indexOf(kind+':')===0)?OPEN.slice(kind.length+1):'';
+  var h='';
+  steps.forEach(function(x,i){
     var st=x.s, d=x.data;
     var tone=x.state==='done'?'ok':x.state==='bad'?'bad':x.state==='wait'?'wait':x.now?'now':'na';
+    var visits=kind==='mat'&&typeof window.visitPanel==='function'&&window.VISIT_KINDS&&window.VISIT_KINDS[st.k];
+    var word=d.status||(x.state==='done'?'done':'Not recorded'), btns='', body='';
+    if(st.linked){
+      /* the vendor, as the material needs it */
+      var v=mfrOf(rec), ms=mfrState(v);
+      word=v?ms.word:'none named';
+      tone=!v?'now':ms.tone==='ok'?'ok':ms.tone==='bad'?'bad':'now';
+      btns=(v?'<button class="btn btn-s'+(ms.ok?'':' btn-p')+'" onclick="jump(\'mfr\','+v.id+')">Open vendor</button>':'')
+        +'<button class="btn'+(v?'-q':' btn-s btn-p')+'" data-pop onclick="pickMfr(event)">'+(v?'Change':'Name the vendor')+'</button>';
+      body='<div class="props">'+pr('Vendor',v?esc(v.name):'')+pr('Country',v?esc(v.country||''):'')
+        +pr('Production site',v?esc(v.site||''):'')
+        +pr('Still outstanding',v&&!ms.ok?esc(ms.short.join(' · ')):'')+'</div>';
+    }else if(st.deliveries){
+      var ord=num(rec.qty), got=received(rec), n=(rec.dels||[]).length;
+      word=n?(n+' consignment'+(n===1?'':'s')):'nothing yet';
+      btns='<button class="btn btn-s'+(x.now?' btn-p':'')+'" onclick="addDel()">Record a delivery</button>';
+      body='<div class="props">'+pr('Consignments',n?String(n):'')
+        +pr('Accepted',ord?(got+' of '+ord+' '+esc(rec.unit||'')):(n?String(got):''))+'</div>';
+    }else if(visits){
+      /* repeated visits keep their own list, with its own button; the
+         tag says the newest result and how many there are */
+      var vs=(rec.visits||[]).filter(function(y){return y.step===st.k;})
+        .sort(function(p,q){return String(q.date||'').localeCompare(String(p.date||''));});
+      if(vs.length){
+        var res=vs[0].result||'Pending';
+        word=res+' · '+vs.length+' report'+(vs.length===1?'':'s');
+        tone=/Passed|Sent/.test(res)?'ok':/Failed/.test(res)?'bad':'wait';
+      }else word='No report yet';
+      body=window.visitPanel(rec,st.k);
+    }else{
+      btns=(open===st.k?'<button class="btn-q" onclick="openStep(null)">Close</button>'
+        :'<button class="btn btn-s'+(x.now?' btn-p':'')+'" onclick="openStep(\''+kind+':'+st.k+'\')">Edit</button>'
+         +(x.state!=='done'?'<button class="btn-q" onclick="quickDone(\''+kind+'\',\''+st.k+'\')">Mark done</button>':''));
+      if(open===st.k)body=stepCard(rec,x,i,kind);
+      else{
+        body='<div class="props">'+(st.f||[]).map(function(f){
+          var val=d[f[0]];
+          if(f[2]==='date')return pr(f[1],val?show(val):'');
+          return pr(f[1],val?esc(val):'',/^ref/.test(f[0])?'mono':'');
+        }).join('')+'</div>';
+        var due=st.due?st.due(rec,d):null, warn=st.warn?st.warn(rec,d):'';
+        if(due){var n2=daysTo(due.on);
+          body+='<div class="pg-note'+((!due.soft&&n2<0)?' late':'')+'">'+esc(due.t)+' <b>'+show(due.on)+'</b></div>';}
+        if(warn)body+='<div class="pg-note late">'+esc(warn)+'</div>';
+      }
+    }
     h+='<div class="pgroup'+(open===st.k?' on':'')+'"><div class="pg-h">'
       +'<span class="pg-t">'+esc(st.n)+'</span><span class="sclause">'+esc(st.clause)+'</span>'
-      +'<span class="tag t-'+tone+'">'+esc(d.status||(x.state==='done'?'not needed':'Not recorded'))+'</span>'
+      +'<span class="tag t-'+tone+'">'+esc(word)+'</span>'
       +'<span style="flex:1"></span>'
-      +'<span class="no-print" style="display:flex;gap:6px">'
-      +(open===st.k?'<button class="btn-q" onclick="openStep(null)">Close</button>'
-        :'<button class="btn btn-s'+(x.now?' btn-p':'')+'" onclick="openStep(\'mfr:'+st.k+'\')">Edit</button>'
-         +(x.state!=='done'?'<button class="btn-q" onclick="quickDone(\'mfr\',\''+st.k+'\')">Mark done</button>':''))
-      +'</span></div>';
-    if(open===st.k){
-      h+=stepCard(v,x,i,'mfr');
-    }else{
-      h+='<div class="props">'+(st.f||[]).map(function(f){
-        var val=d[f[0]];
-        if(f[0]==='status')return pr(f[1],val?esc(val):'');
-        if(f[2]==='date')return pr(f[1],val?show(val):'');
-        return pr(f[1],val?esc(val):'',/^ref/.test(f[0])?'mono':'');
-      }).join('')+'</div>';
-      var due=st.due?st.due(v,d):null, warn=st.warn?st.warn(v,d):'';
-      if(due){var n2=daysTo(due.on);
-        h+='<div class="pg-note'+((!due.soft&&n2<0)?' late':'')+'">'+esc(due.t)+' <b>'+show(due.on)+'</b></div>';}
-      if(warn)h+='<div class="pg-note late">'+esc(warn)+'</div>';
-    }
-    h+='</div>';
+      +(btns?'<span class="no-print" style="display:flex;gap:6px">'+btns+'</span>':'')
+      +'</div>'+body+'</div>';
   });
   return h;
+}
+function venDash(v,r,mine){
+  return pgroup('Company',
+      pr('Name',esc(v.name))+pr('Kind',esc(KINDS[kindOf(v)].l))
+      +pr('Category',esc(v.cat||''))+pr('Country',esc(v.country||''))
+      +pr('Production site',esc(v.site||''))+pr('Local / Foreign',esc(v.locality||''))
+      +pr('Scope',esc(v.scope||''))+pr('Brought by',esc(v.by||'')))
+    +roadProps(v,r,'mfr');
 }
 
 /* ---------------------------------------------------------------

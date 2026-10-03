@@ -5115,6 +5115,7 @@ function tableCSS(){
    ================================================================ */
 
 var VISIT_STEPS={ipi:'In-process inspection',fat:'Final inspection or FAT',irn:'Inspection release note'};
+window.VISIT_KINDS=VISIT_STEPS;window.visitPanel=function(m,k){return visitPanel(m,k);};
 var VISIT_RESULTS={
   ipi:['Pending','Passed','Passed with comments','Failed'],
   fat:['Pending','Scheduled','Passed','Passed with comments','Failed'],
