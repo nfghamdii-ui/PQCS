@@ -410,10 +410,16 @@ function cellXml(ref,val,head,red){
   var t=String(val);
   if(/^-?\d+(\.\d+)?$/.test(t)&&t.length<15&&!/^0\d/.test(t))
     return '<c r="'+ref+'"'+st+'><v>'+t+'</v></c>';
+  /* several numbers in one cell, one to a line: the cell wraps, or Excel
+     runs them together into one long string */
+  if(t.indexOf('\n')>=0)st=' s="'+(red?6:5)+'"';
   return '<c r="'+ref+'" t="inlineStr"'+st+'><is><t xml:space="preserve">'+xml(t)+'</t></is></c>';
 }
 function isTerminated(v){return typeof v==='string'&&/terminat/i.test(v);}
-function sheetXml(rows,widths){
+/* tbl: the sheet is an Excel table. Its heading row is then written as
+   shared strings and without a style of its own, so the table's style
+   colours it, and the sheet points at its table part. */
+function sheetXml(rows,widths,tbl){
   var wide=rows.reduce(function(a,r){return Math.max(a,r.length);},0);
   var body=rows.map(function(row,r){
     /* a terminated submittal is shaded red across its whole row, so it is
@@ -421,16 +427,46 @@ function sheetXml(rows,widths){
     var red=r>0&&row.some(isTerminated);
     var line=red?row.concat(new Array(Math.max(0,wide-row.length)).fill('')):row;
     var cells=line.map(function(v,c){
+      if(tbl&&r===0)return '<c r="'+colName(c)+'1" t="s"><v>'+tbl.sst(tbl.names[c])+'</v></c>';
       return cellXml(colName(c)+(r+1),v,r===0||(row.head&&c===0),red);
     }).join('');
-    return cells?('<row r="'+(r+1)+'">'+cells+'</row>'):'';
+    /* a row tall enough for its longest cell, since Excel does not grow
+       one written this way by itself */
+    var lines=r>0?row.reduce(function(a,v){return typeof v==='string'?Math.max(a,v.split('\n').length):a;},1):1;
+    return cells?('<row r="'+(r+1)+'"'+(lines>1?' ht="'+(lines*15)+'" customHeight="1"':'')+'>'+cells+'</row>'):'';
   }).join('');
   var cols=widths?('<cols>'+widths.map(function(w,i){
     return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>';}).join('')+'</cols>'):'';
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-   +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+   +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+   +'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
    +'<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
-   +cols+'<sheetData>'+body+'</sheetData></worksheet>';
+   +cols+'<sheetData>'+body+'</sheetData>'
+   +(tbl?'<tableParts count="1"><tablePart r:id="rId1"/></tableParts>':'')
+   +'</worksheet>';
+}
+/* An Excel table over a sheet's rows, in Excel's own Table Style
+   Medium 2: dark teal heading, banded rows, a filter on every column.
+   Its column names are the headings, each made unique as Excel needs. */
+function tableXml(n,names,rows){
+  var last=colName(names.length-1)+Math.max(rows,2);
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="'+n+'" '
+    +'name="Table'+n+'" displayName="Table'+n+'" ref="A1:'+last+'" totalsRowShown="0">'
+    +'<autoFilter ref="A1:'+last+'"/>'
+    +'<tableColumns count="'+names.length+'">'
+    +names.map(function(t,i){return '<tableColumn id="'+(i+1)+'" name="'+xml(t)+'"/>';}).join('')
+    +'</tableColumns>'
+    +'<tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" '
+    +'showRowStripes="1" showColumnStripes="0"/></table>';
+}
+function tableNames(head){
+  var seen={};
+  return head.map(function(h,i){
+    var t=String(h==null||h===''?'Column '+(i+1):h).replace(/[\r\n]+/g,' ').trim(), b=t, k=2;
+    while(seen[t.toLowerCase()])t=b+' '+(k++);
+    seen[t.toLowerCase()]=1;return t;
+  });
 }
 function workbook(sheets){
   var files=[
@@ -471,19 +507,50 @@ function workbook(sheets){
       +'<fill><patternFill patternType="solid"><fgColor rgb="FFFFC7CE"/><bgColor indexed="64"/></patternFill></fill></fills>'
       +'<borders count="1"><border/></borders>'
       +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-      +'<cellXfs count="5">'
+      +'<cellXfs count="7">'
       +'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
       +'<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
       +'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
       +'<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
       +'<xf numFmtId="164" fontId="2" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/>'
+      +'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>'
+      +'<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>'
       +'</cellXfs>'
       +'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
       +'</styleSheet>'}
   ];
+  /* the strings a table's heading needs, shared once for the workbook */
+  var sst=[], at={};
+  function sstIdx(t){if(!(t in at)){at[t]=sst.length;sst.push(t);}return at[t];}
+  var nt=0, extraTypes='';
   sheets.forEach(function(s,i){
-    files.push({name:'xl/worksheets/sheet'+(i+1)+'.xml',text:sheetXml(s.rows,s.widths)});
+    var tbl=null;
+    if(s.table&&s.rows.length&&s.rows[0].length){
+      nt++;
+      tbl={sst:sstIdx,names:tableNames(s.rows[0])};
+      files.push({name:'xl/tables/table'+nt+'.xml',text:tableXml(nt,tbl.names,s.rows.length)});
+      files.push({name:'xl/worksheets/_rels/sheet'+(i+1)+'.xml.rels',
+        text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" '
+        +'Target="../tables/table'+nt+'.xml"/></Relationships>'});
+      extraTypes+='<Override PartName="/xl/tables/table'+nt+'.xml" '
+        +'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/>';
+    }
+    files.push({name:'xl/worksheets/sheet'+(i+1)+'.xml',text:sheetXml(s.rows,s.widths,tbl)});
   });
+  if(sst.length){
+    files.push({name:'xl/sharedStrings.xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="'+sst.length+'" uniqueCount="'+sst.length+'">'
+      +sst.map(function(t){return '<si><t xml:space="preserve">'+xml(t)+'</t></si>';}).join('')+'</sst>'});
+    extraTypes+='<Override PartName="/xl/sharedStrings.xml" '
+      +'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>';
+    files[3].text=files[3].text.replace('</Relationships>',
+      '<Relationship Id="rId'+(sheets.length+2)+'" '
+      +'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>'
+      +'</Relationships>');
+  }
+  if(extraTypes)files[0].text=files[0].text.replace('</Types>',extraTypes+'</Types>');
   return zipUp(files);
 }
 
@@ -972,10 +1039,10 @@ function widths(){
 window.excelOut=function(){
   try{
     var name=(DB.project||'Project Materials').replace(/[^\w \-]/g,'').trim();
-    var sheets=[{name:'Main Log',rows:generalRows(),widths:widths()},
+    var sheets=[{name:'Main Log',rows:generalRows(),widths:widths(),table:true},
                 {name:'Summary',rows:summaryRows()}];
     var loose=looseRows();
-    if(loose.length>1)sheets.push({name:'Not linked',rows:loose});
+    if(loose.length>1)sheets.push({name:'Not linked',rows:loose,table:true});
     download(workbook(sheets),name+' — Live Tracking '+today()+'.xlsx');
     toast('Workbook written — '+(DB.mats||[]).length+' items');
   }catch(e){toast('Could not write the workbook — '+(e.message||e));}
@@ -3555,6 +3622,8 @@ function generalRows(){
       var v=raw[c];
       if(v==null||v==='')return '';
       if(DATE_COLS[c]&&/^\d{4}-\d{2}-\d{2}$/.test(String(v)))return {date:String(v)};
+      if(DATE_COLS[c]&&String(v).indexOf('\n')>=0)
+        return String(v).split('\n').map(function(x){return /^\d{4}-\d{2}-\d{2}$/.test(x)?showDate(x):x;}).join('\n');
       return v;
     }).concat(LOG_EXTRA.map(function(x){return x.read(m)||'';})));
   });
@@ -4113,10 +4182,10 @@ var REPORTS=[
     +'so renaming one changes it rather than doubling it.',
   go:function(){
     var name=(DB.project||'Project Materials').replace(/[^\w \-]/g,'').trim();
-    var sheets=[{name:'Main Log',rows:generalRows(),widths:widths()},
+    var sheets=[{name:'Main Log',rows:generalRows(),widths:widths(),table:true},
                 {name:'Summary',rows:summaryRows()}];
     var loose=looseRows();
-    if(loose.length>1)sheets.push({name:'Not linked',rows:loose});
+    if(loose.length>1)sheets.push({name:'Not linked',rows:loose,table:true});
     download(workbook(sheets),name+' — '+today()+'.xlsx');
   }},
  {k:'ven',t:'Vendors and who brought them',back:true,
