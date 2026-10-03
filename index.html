@@ -160,8 +160,14 @@ svg{display:block}
 .t-na{border-color:var(--line-2);color:var(--ink-3);background:var(--sunk)}
 
 /* a step on the road */
-.step{display:flex;gap:18px;padding:22px 24px;border-radius:var(--r-lg);background:var(--card);
-  border:1px solid var(--line);margin-bottom:10px;box-shadow:var(--sh);transition:box-shadow var(--fast)}
+.step{display:flex;gap:16px;padding:16px 20px;border-radius:var(--r-lg);background:var(--card);
+  border:1px solid var(--line);margin-bottom:8px;box-shadow:var(--sh);transition:box-shadow var(--fast)}
+.shead{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;min-height:30px}
+.sacts{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.step.quiet{padding:11px 20px}
+.step.quiet .swhy{display:none}
+.step.quiet .srec{margin-top:6px}
+.step.quiet .sacts .btn-q{display:none}
 .step.now{border-color:var(--now);box-shadow:0 0 0 3px var(--now-b),var(--sh)}
 .step.ahead{background:transparent;box-shadow:none;border-style:dashed;border-color:var(--line)}
 .step.ahead .stitle,.step.ahead .swhy{color:var(--ink-4)}
@@ -175,8 +181,8 @@ svg{display:block}
 .sbody{flex:1;min-width:0}
 .stitle{font-size:16px;font-weight:550;letter-spacing:-.011em;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
 .sclause{font-family:var(--mono);font-size:11px;color:var(--ink-4);font-weight:400;letter-spacing:.02em}
-.swhy{font-size:13.5px;color:var(--ink-2);line-height:1.65;margin-top:6px}
-.srec{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:11px;font-size:13px;color:var(--ink-2)}
+.swhy{font-size:13px;color:var(--ink-3);line-height:1.6;margin-top:2px;max-width:90ch}
+.srec{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--ink-2)}
 .sdue{display:inline-flex;align-items:center;gap:7px;margin-top:11px;font-size:13px;padding:7px 11px;border-radius:var(--r);border:1px solid}
 .sdue svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9;flex-shrink:0}
 .d-soon{border-color:var(--now);color:var(--now-t);background:var(--now-b)}
@@ -2416,7 +2422,7 @@ function stepCard(rec,x,i,kind){
   var dot=state==='done'?'done':state==='bad'?'bad':state==='wait'?'wait':(x.now?'now':'');
   var editing=(OPEN===kind+':'+st.k);
 
-  var inner='';
+  var inner='', acts='';
   if(st.linked){
     var v=mfrOf(rec), ms=mfrState(v);
     if(v&&!needsQual(v)){
@@ -2502,16 +2508,15 @@ function stepCard(rec,x,i,kind){
     });
     /* two warnings stack, one under the other, rather than jostle on a line */
     if(whoWarn.length)inner+='<div style="display:flex;flex-direction:column;align-items:flex-start">'+whoWarn.join('')+'</div>';
-    inner+=editing?form(rec,st,d,kind)
-      :'<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'
-        +'<button class="btn '+(x.now?'btn-p ':'')+'btn-s" onclick="openStep(\''+kind+':'+st.k+'\')">'
+    if(editing)inner+=form(rec,st,d,kind);
+    /* what can be done, at the head of the card, out of the reading */
+    else acts='<button class="btn '+(x.now?'btn-p ':'')+'btn-s" onclick="openStep(\''+kind+':'+st.k+'\')">'
         +(d.status||d.ref||d.date?'Update':'Record it')+'</button>'
         /* when the detail does not matter, one press settles it */
-        +((state!=='done'&&!editing)?'<button class="btn btn-s" onclick="quickDone(\''+kind+'\',\''+st.k+'\')">Mark done</button>':'')
+        +((state!=='done')?'<button class="btn btn-s" onclick="quickDone(\''+kind+'\',\''+st.k+'\')">Mark done</button>':'')
         /* put this one step aside until a day you choose */
-        +((state!=='done'&&!editing)?'<button class="btn-q" data-pop onclick="remindPick(event,'+jsq(kind)+','+rec.id+','+jsq(st.k)+')">'
-          +(rem?'Change reminder':'Remind me later')+'</button>':'')
-        +'</div>';
+        +((state!=='done')?'<button class="btn-q" data-pop onclick="remindPick(event,'+jsq(kind)+','+rec.id+','+jsq(st.k)+')">'
+          +(rem?'Change reminder':'Remind me later')+'</button>':'');
     if(rem&&state!=='done'&&!editing)
       inner+='<div class="sdue d-soon" style="display:flex;align-items:center">'+ICON.clock
         +'<span>'+(rem>today()?'Off the board until your reminder on ':'Your reminder was for ')+'<b>'+show(rem)+'</b></span>'
@@ -2523,10 +2528,15 @@ function stepCard(rec,x,i,kind){
       inner+=checklist(rec,'pq',pqList(rec),'2.1.14','The pre-qualification file');
   }
 
-  return '<div class="step'+(x.now?' now':'')+(x.ahead&&!editing?' ahead':'')+'">'
+  /* A finished step and one not reached yet are read at a glance: the
+     why of them is folded away, and only the step being worked on
+     explains itself in full. */
+  var quiet=!editing&&(state==='done'||(x.ahead&&!x.now));
+  return '<div class="step'+(x.now?' now':'')+(x.ahead&&!editing?' ahead':'')+(quiet?' quiet':'')+'">'
     +'<div class="dot '+dot+'">'+(state==='done'?ICON.tick:(i+1))+'</div>'
     +'<div class="sbody">'
-      +'<div class="stitle">'+esc(st.n)+'<span class="sclause">'+esc(st.clause)+'</span></div>'
+      +'<div class="shead"><div class="stitle">'+esc(st.n)+'<span class="sclause">'+esc(st.clause)+'</span></div>'
+      +(acts?'<div class="sacts no-print">'+acts+'</div>':'')+'</div>'
       +'<div class="swhy">'+esc(st.why)+'</div>'
       +inner
     +'</div></div>';

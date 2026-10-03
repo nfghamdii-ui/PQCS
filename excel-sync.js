@@ -2802,7 +2802,7 @@ function install2(){
          says. Two ways to record the same thing, one of which quietly
          replaces the other's work, is worse than either alone — so the
          buttons that open it go, and openStep below refuses to. */
-      html=html.replace(/<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">[\s\S]*?<\/div>/,'');
+      html=html.replace(/<div class="sacts no-print">[\s\S]*?<\/div>/,'');
       var j=html.lastIndexOf('</div></div>');
       if(j<0)return html+visitPanel(rec,x.s.k);
       return html.slice(0,j)+visitPanel(rec,x.s.k)+html.slice(j);
