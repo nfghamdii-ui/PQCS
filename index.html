@@ -1460,7 +1460,8 @@ function lastAccepted(m){
   var d=(m.dels||[]).filter(function(x){return settled(x.status);}).map(function(x){return x.date;}).filter(Boolean).sort();
   return d.length?d[d.length-1]:'';
 }
-function received(m){return (m.dels||[]).filter(function(d){return settled(d.status);}).reduce(function(a,d){return a+num(d.qty);},0);}
+function received(m){var t=(m.dels||[]).filter(function(d){return settled(d.status);}).reduce(function(a,d){return a+num(d.qty);},0);
+  return Math.round(t*1000)/1000;}
 function openNCR(m){return (m.ncrs||[]).filter(function(n){return n.status!=='Closed';}).length;}
 
 function stepState(step,m){
@@ -2372,9 +2373,12 @@ function roadProps(rec,steps,kind,after){
     }else if(st.deliveries){
       var ord=num(rec.qty), got=received(rec), n=(rec.dels||[]).length;
       word=n?(n+' consignment'+(n===1?'':'s')):'nothing yet';
-      btns='<button class="btn btn-s'+(x.now?' btn-p':'')+'" onclick="addDel()">Record a delivery</button>';
+      var dl=typeof window.logInline==='function'?window.logInline(rec,'Delivery'):null;
+      btns='<button class="btn btn-s'+(x.now?' btn-p':'')+'" onclick="addDel()">Record a delivery</button>'
+        +(dl?'<button class="btn btn-s" onclick="editLog('+rec.id+','+dl.gi+')">Edit dates</button>':'');
       body='<div class="props">'+pr('Consignments',n?String(n):'')
-        +pr('Accepted',ord?(got+' of '+ord+' '+esc(rec.unit||'')):(n?String(got):''))+'</div>';
+        +pr('Accepted',ord?(got+' of '+ord+' '+esc(rec.unit||'')):(n?String(got):''))
+        +(dl?dl.props:'')+'</div>';
     }else if(visits){
       /* repeated visits keep their own list, with its own button; the
          tag says the newest result and how many there are */
@@ -2435,7 +2439,7 @@ function venDash(v,r,mine){
       +pr('Category',esc(v.cat||''))+pr('Country',esc(v.country||''))
       +pr('Production site',esc(v.site||''))+pr('Local / Foreign',esc(v.locality||''))
       +pr('Scope',esc(v.scope||''))+pr('Brought by',esc(v.by||'')))
-    +roadProps(v,r,'mfr');
+    +roadProps(v,r,'mfr',typeof window.venLogFor==='function'?window.venLogFor(v,r.map(function(x){return x.s.k;})):{});
 }
 
 /* ---------------------------------------------------------------

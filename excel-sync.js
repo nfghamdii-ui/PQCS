@@ -941,6 +941,9 @@ function rawOut(m){
     if(pq.rev)set('PQD Revision',pq.rev);
     if(pq.status)set('PQD Status',pq.status);
     if(pq.date)set('PQD Submittal Date',pq.date);
+    /* the factory assessment, kept on the vendor */
+    var lf=v.logf||{};
+    VEN_LOG.forEach(function(f){if(lf[f[0]])set(f[0],lf[f[0]]);});
     /* the factory survey, from the vendor's own step */
     var pa=(v.steps||{}).pa||{};
     if(pa.status==='Scheduled'){if(pa.date&&!raw['PA Tentative Date'])set('PA Tentative Date',pa.date);}
@@ -963,6 +966,10 @@ function rawOut(m){
   /* deliveries: the newest one fills the inspection-request columns,
      and the running total fills the quantities */
   var dels=(m.dels||[]).slice().sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
+  if(dels.length&&!raw['1st Batch Delivery To Site Actual Date']){
+    var first=dels.map(function(d){return d.date;}).filter(Boolean).sort()[0];
+    if(first)set('1st Batch Delivery To Site Actual Date',first);
+  }
   if(dels.length){
     set('MIR Number',dels[0].ref||'');
     set('MIR Approval Date',dels[0].date||'');
@@ -971,11 +978,12 @@ function rawOut(m){
   var ord=parseFloat(m.qty), got=(m.dels||[]).filter(function(d){
     return ['Received','Approved','Approved with comments'].indexOf(d.status)>=0;})
     .reduce(function(a,d){return a+(parseFloat(d.qty)||0);},0);
+  got=Math.round(got*1000)/1000;      /* 113.29, not 113.28999999999999 */
   if(m.qty){set('Total Quantity',m.qty);set('Total Quantity Unit',m.unit||'');}
   if(m.dels&&m.dels.length){
     set('Delivered No',got);set('Delivered Unit',m.unit||'');
     if(isFinite(ord)&&ord>0){
-      set('Remaining',Math.max(0,ord-got));set('Remaining Unit',m.unit||'');
+      set('Remaining',Math.round(Math.max(0,ord-got)*1000)/1000);set('Remaining Unit',m.unit||'');
       set('Delivered %',Math.round(got/ord*100)/100);
     }
   }
@@ -3084,12 +3092,6 @@ var LOG_FORM=[
     ['Mock-up First in Place','text'],
     ['Mock-up Approved by PMC','text'],
     ['Mock-up per Client DLA','text']]],
-  ['Assessment',[
-    ['PA Tentative Date','date'],
-    ['3rd Party Assessment Done','sel',YN],
-    ['Client Assessment Done','sel',YN],
-    ['PMC/LDC Assessment Done','sel',YN],
-    ['Contractor Assessment Done','sel',YN]]],
   ['Purchasing',[
     ['Purchase Order Issued (Yes/No)','sel',YN],
     ['PO Number','text'],
@@ -3118,17 +3120,82 @@ var LOG_FORM=[
     ['WIR Approval Date','date'],
     ['WIR Status','sel',['Approved','Approved as Noted','Under Review','Revise and Resubmit','Rejected','Terminated']]]]
 ];
+/* The factory assessment belongs to the company, not to one material:
+   it is kept on the vendor, beside its physical assessment, and every
+   material from that vendor carries it into the Main Log. */
+var VEN_LOG=[
+  ['PA Tentative Date','date'],
+  ['3rd Party Assessment Done','sel',YN],
+  ['Client Assessment Done','sel',YN],
+  ['PMC/LDC Assessment Done','sel',YN],
+  ['Contractor Assessment Done','sel',YN]];
+window.venLogFor=function(v,keys){
+  var o=v.logf||{}, at=(keys||[]).indexOf('pa')>=0?'pa':(keys||[])[(keys||[]).length-1]||'';
+  var filled=VEN_LOG.filter(function(f){return logShow(f,o[f[0]]);}).length;
+  var h='<div class="pgroup"><div class="pg-h"><span class="pg-t">Assessment</span>'
+    +'<span class="tag t-'+(filled===VEN_LOG.length?'ok':filled?'wait':'na')+'">'+filled+' of '+VEN_LOG.length+'</span>'
+    +'<span style="flex:1"></span>'
+    +'<button class="btn btn-s no-print" onclick="editVenLog('+v.id+')">Edit</button></div>'
+    +'<div class="props">'+VEN_LOG.map(function(f){
+      return '<div class="pr"><div class="pr-l">'+esc(f[0])+'</div><div class="pr-v">'+esc(logShow(f,o[f[0]]))+'</div></div>';
+    }).join('')+'</div>'
+    +'<div class="pg-note" style="color:var(--ink-3)">Carried into the Main Log of every material from this vendor.</div></div>';
+  var out={};out[at]=h;return out;
+};
+window.editVenLog=function(id){
+  var v=mfr(id);if(!v)return;
+  var o=v.logf||{};
+  sheet('Assessment \u2014 '+v.name,
+     '<div class="form" style="margin:0;padding:0;border:none">'
+    +VEN_LOG.map(function(f,i){
+      var fid='vl-'+i, val=o[f[0]];
+      var h='<div class="f"><label for="'+fid+'">'+esc(f[0])+'</label>';
+      if(f[1]==='sel')h+='<select id="'+fid+'"><option value="">\u2014</option>'
+        +f[2].map(function(x){return '<option'+(x===val?' selected':'')+'>'+esc(x)+'</option>';}).join('')+'</select>';
+      else h+='<input id="'+fid+'" class="mono" value="'+attr(logShow(f,val))+'" placeholder="dd/mm/yyyy" autocomplete="off">'
+        +'<span class="err" id="e-'+fid+'"></span>';
+      return h+'</div>';
+    }).join('')
+    +'<div class="f-act"><button class="btn btn-p" onclick="saveVenLog('+id+')">Save</button>'
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button></div></div>');
+};
+window.saveVenLog=function(id){
+  var v=mfr(id);if(!v)return;
+  var o=Object.assign({},v.logf||{}),bad=false;
+  VEN_LOG.forEach(function(f,i){
+    var el=document.getElementById('vl-'+i);if(!el)return;
+    var x=trim(el.value);
+    if(f[1]==='date'&&x){var iso=parseDate(x);
+      if(!iso){bad=true;document.getElementById('e-vl-'+i).textContent='Use dd/mm/yyyy';return;}x=iso;}
+    if(x)o[f[0]]=x;else delete o[f[0]];
+  });
+  if(bad)return;
+  v.logf=o;touch();closeSheet();rPane();
+  toast('Saved \u2014 every material from '+v.name+' carries it');
+};
 /* Where each group sits on the material's page: after the first of its
    steps the material's road has (a C0 material has no vendor step, a C2
    no pre-fabrication meeting). '_mat' is the Material group itself. */
 var LOG_ANCHOR={'Package and supply':['_mat'],'Sample and mock-up':['mts'],
-  'Assessment':['mfr','mts'],'Purchasing':['mfr','mts'],
+  'Purchasing':['mfr','mts'],
   'Fabrication':['pfm','itp','pid','mfr','mts'],
   'Delivery':['del'],'Installation':['del'],'Work inspection (WIR)':['del']};
+/* a group drawn inside a step's own group instead of beside it */
+var LOG_INLINE={'Delivery':'del'};
+window.logInline=function(m,name){
+  var gi=LOG_FORM.map(function(g){return g[0];}).indexOf(name);if(gi<0)return null;
+  var raw=m.raw||{}, row=appRow(m);
+  return {gi:gi,props:LOG_FORM[gi][1].map(function(f){
+    /* the first actual delivery, when not typed, is the first consignment */
+    var v=logShow(f,raw[f[0]])||(f[0]==='1st Batch Delivery To Site Actual Date'&&row[f[0]]?logShow(f,row[f[0]]):'');
+    return '<div class="pr"><div class="pr-l">'+esc(f[0])+'</div><div class="pr-v">'+esc(v)+'</div></div>';
+  }).join('')};
+};
 window.logGroupsFor=function(m,keys){
   var raw=m.raw||{}, out={}, have={_mat:1};
   (keys||[]).forEach(function(k){have[k]=1;});
   LOG_FORM.forEach(function(g,gi){
+    if(LOG_INLINE[g[0]]&&have[LOG_INLINE[g[0]]])return;
     var at=(LOG_ANCHOR[g[0]]||['del']).filter(function(k){return have[k];})[0]||'_mat';
     var filled=g[1].filter(function(f){return logShow(f,raw[f[0]]);}).length;
     out[at]=(out[at]||'')
@@ -3160,7 +3227,7 @@ function logFill(m,fresh){
 /* where in the system an empty column is filled */
 var LOG_WHERE=[
   [/^(Item Description|Material Category|Discipline|Sub-contractor Name)$/,'the Material group'],
-  [/^(Manufacturer|Country of Origin|PQD |PA Date|PA Document|Assessment Result)/,'the vendor’s page'],
+  [/^(Manufacturer|Country of Origin|PQD |PA |Assessment Result|3rd Party Assessment|Client Assessment|PMC\/LDC Assessment|Contractor Assessment)/,'the vendor’s page'],
   [/^MAT /,'Technical submittal, or Aconex'],
   [/^(ITP )/,'link the ITP, or the ITP step'],
   [/^(Method Statement Number|MES Revision|MES Status)$/,'link the method statement'],
