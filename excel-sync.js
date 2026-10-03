@@ -5553,8 +5553,19 @@ function editMatSheet(){
       +'<datalist id="ven-list">'
       +vendors.map(function(v){return '<option value="'+attr(v.name)+'">';}).join('')
       +'</datalist></div>'
-    +'<div class="f"><label for="ed-sub">Sub-contractor</label>'
-      +'<input id="ed-sub" value="'+attr(m.sub||'')+'" autocomplete="off"></div>'
+    +'<div class="f wide"><label for="ed-sub">Sub-contractor '
+      +'<span class="dim">— type to narrow the list</span></label>'
+      +'<input id="ed-sub" list="sub-list" value="'+attr(m.sub||'')+'" placeholder="none" autocomplete="off">'
+      /* the subcontractors on the vendor list, and any name already
+         written on a material */
+      +'<datalist id="sub-list">'
+      +(function(){
+        var seen={},out=[];
+        (DB.mfrs||[]).forEach(function(x){if(kindOf(x)==='sub'&&x.name&&!seen[K(x.name)]){seen[K(x.name)]=1;out.push(x.name);}});
+        (DB.mats||[]).forEach(function(x){if(x.sub&&!seen[K(x.sub)]){seen[K(x.sub)]=1;out.push(x.sub);}});
+        return out.sort().map(function(n){return '<option value="'+attr(n)+'">';}).join('');
+      })()
+      +'</datalist></div>'
     +'<div class="f wide"><label for="ed-ref">Aconex reference</label>'
       +'<input id="ed-ref" class="mono" value="'+attr(m.ref||'')+'" autocomplete="off"></div>'
     +'<div class="f"><label for="ed-qty">Quantity</label>'
@@ -5974,11 +5985,14 @@ function ddSelect(sel){
 function ddSuggest(inp){
   var id=inp.getAttribute('data-list');
   var dl=id&&document.getElementById(id);if(!dl)return;
-  var k=inp.value.trim().toLowerCase();
+  /* compared without spaces or punctuation: "alra" finds "Al Ramasat",
+     "binladen" finds "Bin Laden" */
+  var flat=function(t){return String(t||'').toLowerCase().replace(/[^a-z0-9؀-ۿ]+/g,'');};
+  var k=inp.value.trim().toLowerCase(), kf=flat(k);
   var all=[].slice.call(dl.options).map(function(o){return {text:o.value,value:o.value,note:o.label&&o.label!==o.value?o.label:''};});
-  var hits=all.filter(function(x){return !k||x.text.toLowerCase().indexOf(k)>=0;});
+  var hits=all.filter(function(x){return !kf||flat(x.text).indexOf(kf)>=0;});
   hits.sort(function(a,b){
-    var A=a.text.toLowerCase().indexOf(k)===0?0:1, B=b.text.toLowerCase().indexOf(k)===0?0:1;
+    var A=flat(a.text).indexOf(kf)===0?0:1, B=flat(b.text).indexOf(kf)===0?0:1;
     return A-B||a.text.localeCompare(b.text);
   });
   hits=hits.slice(0,60).map(function(x){x.sel=x.text.toLowerCase()===k;return x;});
