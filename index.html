@@ -2803,7 +2803,9 @@ function delPanel(m){
   var pct=ord?Math.min(100,Math.round(got/ord*100)):(got?100:0);
   return '<div class="sec">Deliveries</div><div class="panel">'
     +'<div class="panel-h"><div class="panel-t">Consignments</div>'
-      +'<button class="btn btn-s no-print" onclick="addDel()">Record a delivery</button></div>'
+      +'<span class="no-print" style="display:flex;gap:6px">'
+      +(typeof window.linkPick==='function'?'<button class="btn btn-s" onclick="linkPick('+m.id+',\'MIR\')">Link an MIR</button>':'')
+      +'<button class="btn btn-s" onclick="addDel()">Record a delivery</button></span></div>'
     +'<div class="panel-b">'
     +(ord?'<div style="margin-bottom:14px"><div class="bar"><i style="width:'+pct+'%"></i></div>'
       +'<div class="dim" style="font-size:12.5px;margin-top:6px">'+got+' of '+ord+' '+esc(m.unit||'')+' accepted · '+pct+'%'
@@ -2819,7 +2821,7 @@ function delPanel(m){
             +'<span class="meta">'+esc(show(d.date))+'</span>'
             +'<button class="btn-q no-print" onclick="editDel('+d.id+')">Edit</button></div>';
         }).join('')
-      : '<span class="dim">Nothing has arrived yet. Record each consignment as it lands, with its inspection request number.</span>')
+      : '<span class="dim">Nothing has arrived yet. Link its inspection request from Aconex, or record a consignment by hand.</span>')
     +'</div></div>';
 }
 window.addDel=function(){editDel(null);};
@@ -2849,7 +2851,8 @@ window.saveDel=function(id){
   var m=mat(SEL.mat);if(!m)return;
   var date=parseDate(document.getElementById('d-date').value);
   if(date===null){document.getElementById('e-d-date').textContent='Use dd/mm/yyyy';return;}
-  var o={id:id||uid(),qty:document.getElementById('d-qty').value.trim(),date:date,
+  var was=(m.dels||[]).filter(function(x){return String(x.id)===String(id);})[0]||{};
+  var o={id:id||uid(),fromDoc:was.fromDoc,qty:document.getElementById('d-qty').value.trim(),date:date,
     ref:document.getElementById('d-ref').value.trim(),status:document.getElementById('d-status').value,
     note:document.getElementById('d-note').value.trim()};
   m.dels=m.dels||[];
@@ -2861,6 +2864,10 @@ window.delDel=function(ev,id){
   var m=mat(SEL.mat);if(!m)return;
   popConfirm(ev.currentTarget,'Delete this consignment?',
     'The quantity it carried is taken back off the running total.','Delete',function(){
+      /* a consignment made from a linked inspection request takes the
+         link with it, or the next load would make it again */
+      var gone=(m.dels||[]).filter(function(x){return String(x.id)===String(id);})[0];
+      if(gone&&gone.fromDoc)m.docs=(m.docs||[]).filter(function(x){return String(x)!==String(gone.fromDoc);});
       m.dels=(m.dels||[]).filter(function(x){return String(x.id)!==String(id);});
       touch();closeSheet();rList();rPane();});
 };

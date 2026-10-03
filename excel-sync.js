@@ -2932,7 +2932,8 @@ function linkPanel(m){
           +'</div>'))
       +'</div></div>';
   }
-  var list=docsOf(m);
+  var all=docsOf(m), list=all.filter(function(d){return d.doc!=='MIR';});
+  var nmir=all.length-list.length;
   return '<div class="sec">Documents</div><div class="panel">'
     +'<div class="panel-h"><div class="panel-t">Linked to this material</div>'
     +'<button class="btn btn-s no-print" onclick="linkPick('+m.id+')">Link a document</button></div>'
@@ -2949,6 +2950,8 @@ function linkPanel(m){
       }).join('')
       :'<span class="dim">Nothing linked yet. A method statement or an inspection plan that '
       +'belongs to this material is attached here, and one document can serve many materials.</span>')
+    +(nmir?'<div class="dim" style="font-size:12.5px;margin-top:10px">'+nmir+' inspection request'
+      +(nmir===1?' is':'s are')+' under Deliveries, one consignment each.</div>':'')
     +'</div></div>';
 }
 function refOf(d){
@@ -3208,8 +3211,47 @@ window.showLoosePaa=function(){
 window.unlink=function(matId,docId){
   var m=mat(matId);if(!m)return;
   m.docs=(m.docs||[]).filter(function(x){return String(x)!==String(docId);});
+  /* the consignment the link made goes with it, unless something was
+     written on it by hand — then it stays, no longer tied to the link */
+  m.dels=(m.dels||[]).filter(function(c){
+    if(String(c.fromDoc)!==String(docId))return true;
+    if(c.qty||c.note){delete c.fromDoc;return true;}
+    return false;
+  });
   touch();rPane();paintTabs();
 };
+/* An inspection request is a consignment arriving: linked to a
+   material, it becomes one under Deliveries — its number, date and
+   outcome from Aconex, the quantity left for the person to add. The
+   register keeps its outcome up to date from then on, as it does for
+   any consignment. */
+function delWordOf(s){
+  var w=normStatus(s)||trim(s||'');
+  if(w==='Approved')return 'Received';
+  if(w==='Approved as Noted'||w==='Approved with comments')return 'Approved with comments';
+  return w||'Pending';
+}
+var DELID=null;
+function mirToDel(m,d){
+  if(!m||isDoc(m)||!d||d.doc!=='MIR')return false;
+  var no=refOf(d), raw=d.raw||{};
+  m.dels=m.dels||[];
+  var have=m.dels.filter(function(c){return (c.fromDoc&&String(c.fromDoc)===String(d.id))||(no&&K(c.ref)===K(no));})[0];
+  if(have){if(!have.fromDoc){have.fromDoc=d.id;return true;}return false;}
+  m.dels.push({id:(DELID||(DELID=idMaker()))(),qty:'',date:raw['MIR Approval Date']||d.acxDate||'',ref:no,
+    status:delWordOf(raw['MIR Status']),note:'',fromDoc:d.id});
+  return true;
+}
+/* the requests linked before this, made into their consignments once */
+function liftMirLinks(){
+  var n=0;
+  (DB.mats||[]).forEach(function(m){
+    if(isDoc(m))return;
+    docsOf(m).forEach(function(d){if(mirToDel(m,d))n++;});
+  });
+  if(n)touch();
+  return n;
+}
 /* a search that redraws a short pause after the last key, not on every one */
 var SEARCH_T=null;
 window.searchSoon=function(fn,v){clearTimeout(SEARCH_T);SEARCH_T=setTimeout(function(){fn(v);},250);};
@@ -3262,8 +3304,10 @@ window.linkAdd=function(matId,docId){
   m.docs=m.docs||[];
   if(m.docs.indexOf(docId)<0&&!m.docs.some(function(x){return String(x)===String(docId);}))
     m.docs.push(docId);
-  touch();closeSheet();rPane();paintTabs();
   var d=mat(docId);
+  var made=mirToDel(m,d);
+  touch();closeSheet();rPane();paintTabs();
+  if(made)return toast('Linked '+refOf(d)+' — it is a consignment under Deliveries now; add its quantity there');
   toast('Linked '+(d?d.doc:'the document')+' — it still serves '
     +(d?servedBy(d).length:1)+' material'+((d&&servedBy(d).length!==1)?'s':''));
 };
@@ -5688,7 +5732,7 @@ function install(){
    once everything already carries a label. */
 function sortOut(){
   try{
-    var n=labelDocuments()+liftVisits()+liftTerminated();
+    var n=labelDocuments()+liftVisits()+liftTerminated()+liftMirLinks();
     if(n){rList();rPane();}
     else paintTabs();
   }catch(e){}
