@@ -162,6 +162,21 @@ svg{display:block}
 /* a step on the road */
 .step{display:flex;gap:16px;padding:16px 20px;border-radius:var(--r-lg);background:var(--card);
   border:1px solid var(--line);margin-bottom:8px;box-shadow:var(--sh);transition:box-shadow var(--fast)}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-bottom:14px}
+.vt{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--line-2);border-radius:var(--r-lg);
+  box-shadow:var(--sh);padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-height:150px}
+.vt-ok{border-top-color:var(--ok)}.vt-bad{border-top-color:var(--bad)}.vt-wait{border-top-color:var(--wait)}
+.vt-now{border-top-color:var(--now)}.vt.on{box-shadow:0 0 0 3px var(--wait-b),var(--sh);border-color:var(--wait)}
+.vt-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12.5px;font-weight:600;
+  color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em}
+.vt-s{font-size:19px;font-weight:650;letter-spacing:-.01em;color:var(--ink)}
+.vt-ok .vt-s{color:var(--ok-t)}.vt-bad .vt-s{color:var(--bad-t)}.vt-wait .vt-s{color:var(--wait-t)}
+.vt-m{display:flex;flex-direction:column;gap:2px;font-size:12.5px;color:var(--ink-2);min-width:0}
+.vt-m .mono{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vt-due{font-size:12px;color:var(--now-t)}.vt-due.late{color:var(--bad-t)}
+.vt-a{margin-top:auto;padding-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.vt-link{cursor:pointer}.vt-link:hover{border-color:var(--line-2)}
+.vopen{margin-bottom:12px}
 .shead{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;min-height:30px}
 .sacts{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .step.quiet{padding:11px 20px}
@@ -2271,7 +2286,7 @@ function mfrPane(v){
       :'<div class="swhy" style="margin-top:10px">'+esc(KINDS[kindOf(v)].d)+'</div>')
     +'</div></div>';
   var body=needsQual(v)
-    ? r.map(function(x,i){return stepCard(v,x,i,'mfr');}).join('')
+    ? venDash(v,r,mine)
     : '<div class="panel"><div class="panel-b">'
       +'<div style="display:flex;gap:12px;align-items:flex-start">'
       +'<span class="tag t-ok" style="flex-shrink:0">Nothing to clear</span>'
@@ -2280,7 +2295,7 @@ function mfrPane(v){
       +'A C0 material is reviewed through its technical submittal before the purchase order and inspected at site on delivery. '
       +'Raise the category above if this company also supplies something heavier, and its steps appear.</div></div></div>'
       +'</div></div>';
-  body+='<div class="sec">Materials from this vendor</div><div class="panel"><div class="panel-b">'
+  body+='<div class="sec" id="ven-mats">Materials from this vendor</div><div class="panel"><div class="panel-b">'
     +(mine.length
       ? mine.map(function(m){
           var rr=matRoad(m), cur=rr.at>=0?rr.steps[rr.at]:null;
@@ -2293,6 +2308,51 @@ function mfrPane(v){
       : '<span class="dim">No material names this vendor yet.</span>')
     +'</div></div>';
   return head+'<div class="body"><div class="wrap">'+body+'</div></div>';
+}
+
+/* ---------------------------------------------------------------
+   The vendor at a glance: one tile for each thing it must clear —
+   its state in colour, its number and date, and what to do next —
+   and one for its materials. The tile pressed opens its form beneath
+   the row, and the pre-qualification file's list sits under that.
+   --------------------------------------------------------------- */
+function venDash(v,r,mine){
+  var open=(OPEN&&OPEN.indexOf('mfr:')===0)?OPEN.slice(4):'';
+  var tiles=r.map(function(x){
+    var st=x.s, d=x.data, tone=x.state==='done'?'ok':x.state==='bad'?'bad':x.state==='wait'?'wait':x.now?'now':'na';
+    var word=d.status||(x.state==='done'?'not needed':'Not recorded');
+    var due=st.due?st.due(v,d):null, dueTxt='';
+    if(due){var n2=daysTo(due.on);
+      dueTxt='<div class="vt-due'+((!due.soft&&n2<0)?' late':'')+'">'+esc(due.t)+' '+show(due.on)+'</div>';}
+    var warn=st.warn?st.warn(v,d):'';
+    return '<div class="vt vt-'+tone+(open===st.k?' on':'')+'">'
+      +'<div class="vt-h"><span>'+esc(st.n)+'</span><span class="sclause">'+esc(st.clause)+'</span></div>'
+      +'<div class="vt-s">'+esc(word)+'</div>'
+      +'<div class="vt-m">'+(d.ref?'<span class="mono">'+esc(d.ref)+'</span>':'')
+        +(d.date?'<span>'+esc(dateLabel(st))+' '+show(d.date)+'</span>':'')
+        +(d.by?'<span>'+esc(d.by)+(d.by2?' · '+esc(d.by2):'')+'</span>':'')
+        +(!d.ref&&!d.date&&!d.by?'<span class="dim">nothing recorded</span>':'')+'</div>'
+      +dueTxt+(warn?'<div class="vt-due late">'+esc(warn)+'</div>':'')
+      +'<div class="vt-a no-print">'
+        +'<button class="btn btn-s'+(x.now&&open!==st.k?' btn-p':'')+'" onclick="openStep('+(open===st.k?'null':'\'mfr:'+st.k+'\'')+')">'
+        +(open===st.k?'Close':(d.status||d.ref||d.date?'Update':'Record'))+'</button>'
+        +(x.state!=='done'&&open!==st.k?'<button class="btn-q" onclick="quickDone(\'mfr\',\''+st.k+'\')">Mark done</button>':'')
+      +'</div></div>';
+  });
+  var waiting=mine.filter(function(m){return matRoad(m).at>=0;}).length;
+  tiles.push('<div class="vt vt-na vt-link" onclick="var e=document.getElementById(\'ven-mats\');if(e)e.scrollIntoView({behavior:\'smooth\'})">'
+    +'<div class="vt-h"><span>Materials</span></div>'
+    +'<div class="vt-s">'+mine.length+'</div>'
+    +'<div class="vt-m"><span>'+(mine.length?(waiting+' still on their road'):'none named yet')+'</span></div></div>');
+  var h='<div class="vgrid">'+tiles.join('')+'</div>';
+  /* the step being recorded, in full, under the row */
+  if(open){
+    var i=r.findIndex(function(x){return x.s.k===open;});
+    if(i>=0)h+='<div class="vopen">'+stepCard(v,r[i],i,'mfr')+'</div>';
+  }
+  if(r.some(function(x){return x.s.k==='pqd';}))
+    h+='<div class="vopen">'+checklist(v,'pq',pqList(v),'2.1.14','The pre-qualification file')+'</div>';
+  return h;
 }
 
 /* ---------------------------------------------------------------
