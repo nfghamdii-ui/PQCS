@@ -184,8 +184,8 @@ svg{display:block}
 .d-ok{border-color:var(--line-2);color:var(--ink-2);background:var(--sunk)}
 
 /* inline form — the only place anything is typed */
-.form{margin-top:15px;padding-top:15px;border-top:1px solid var(--line);
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;align-items:end}
+.form{margin-top:15px;padding:16px 18px;border:1px solid var(--line);border-radius:12px;background:var(--bg);
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px 16px;align-items:start;max-width:1040px}
 .f{display:flex;flex-direction:column;gap:6px;min-width:0}
 .f.wide{grid-column:span 2}
 .f label{font-size:12px;font-weight:450;color:var(--ink-2)}
@@ -196,7 +196,12 @@ svg{display:block}
 .f input.mono{font-family:var(--mono);font-size:13.5px}
 .f input[aria-invalid=true]{border-color:var(--bad);box-shadow:0 0 0 3px var(--bad-b)}
 .f .err{font-size:12px;color:var(--bad-t)}
-.f-act{grid-column:1/-1;display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:2px}
+.f .err:empty,.f .dim:empty{display:none}
+.sheet-b .form{background:none;border:none;padding:0;max-width:none}
+.f-opt{grid-column:1/-1;margin-top:-4px}
+.f-opt .btn-q{padding-left:0;font-size:13px}
+.f-act{grid-column:1/-1;display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:2px;
+  padding-top:12px;border-top:1px solid var(--line)}
 
 .btn{border:1px solid var(--line-2);background:var(--card);color:var(--ink);border-radius:var(--r);
   padding:9px 16px;font-size:14px;font-weight:450;cursor:pointer;white-space:nowrap;min-height:42px;
@@ -2532,13 +2537,17 @@ function dateLabel(st){
 }
 function form(rec,st,d,kind){
   var h='<div class="form">';
-  st.f.forEach(function(f){
+  /* the fields always asked first; a seldom one, and the line that opens
+     it, after them, so the row of the usual ones is not broken */
+  var fs=st.f.filter(function(f){return f[3]!=='optional';})
+    .concat(st.f.filter(function(f){return f[3]==='optional';}));
+  fs.forEach(function(f){
     var k=f[0],lab=f[1],ty=f[2],opts=f[3];
     /* a field that is seldom needed stays folded behind one line until
        asked for, or until it already holds something different */
     var folded=(opts==='optional')&&!(d[k]&&d[k]!==d.ref);
-    if(opts==='optional')h+='<div class="f wide" id="o-'+k+'"'+(folded?'':' style="display:none"')+'>'
-      +'<button type="button" class="btn-q" style="padding-left:0" onclick="'
+    if(opts==='optional')h+='<div class="f-opt" id="o-'+k+'"'+(folded?'':' style="display:none"')+'>'
+      +'<button type="button" class="btn-q" onclick="'
       +'this.parentNode.style.display=\'none\';document.getElementById(\'w-'+k+'\').style.display=\'\';'
       +'document.getElementById(\'i-'+k+'\').focus()">+ '+esc(lab)+'</button></div>';
     h+='<div class="f'+(/^ref/.test(k)?' wide':'')+'" id="w-'+k+'"'+(folded?' style="display:none"':'')+'>'
@@ -2562,7 +2571,7 @@ function form(rec,st,d,kind){
 function personInput(id,cur){
   var people=(DB.people||[]).slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
   return '<input id="'+id+'" list="'+id+'-list" value="'+attr(cur||'')+'" autocomplete="off" '
-    +'placeholder="type a name to search" oninput="personCheck(this)" onchange="personCheck(this)">'
+    +'placeholder="Search a name" oninput="personCheck(this)" onchange="personCheck(this)">'
     +'<datalist id="'+id+'-list">'+people.map(function(p){
       var note=[(p.status||'Pending')!=='Approved'?String(p.status||'pending').toLowerCase():'',p.agency||'']
         .filter(Boolean).join(' \u00b7 ');
