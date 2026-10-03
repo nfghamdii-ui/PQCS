@@ -3109,13 +3109,12 @@ var LOG_FORM=[
     ['1st Batch Delivery To Site Planned Date','date'],
     ['1st Batch Delivery To Site Actual Date','date'],
     ['Storage (Site/Offsite)','sel',['Site','Offsite']]]],
-  ['Installation',[
+  /* installed, then inspected as work done: one group. Work inspection
+     requests are not brought in from Aconex; their columns are typed */
+  ['Installation & WIR',[
     ['Installation Planned Date','date'],
     ['Installation Actual Date','date'],
-    ['Installer Name','text']]],
-  /* work inspection requests are not brought in from Aconex; their
-     three columns are typed here */
-  ['Work inspection (WIR)',[
+    ['Installer Name','text'],
     ['WIR Number','text'],
     ['WIR Approval Date','date'],
     ['WIR Status','sel',['Approved','Approved as Noted','Under Review','Revise and Resubmit','Rejected','Terminated']]]]
@@ -3179,7 +3178,7 @@ window.saveVenLog=function(id){
 var LOG_ANCHOR={'Package and supply':['_mat'],'Sample and mock-up':['mts'],
   'Purchasing':['mfr','mts'],
   'Fabrication':['pfm','itp','pid','mfr','mts'],
-  'Delivery':['del'],'Installation':['del'],'Work inspection (WIR)':['del']};
+  'Delivery':['del'],'Installation & WIR':['del']};
 /* a group drawn inside a step's own group instead of beside it */
 var LOG_INLINE={'Delivery':'del'};
 window.logInline=function(m,name){
