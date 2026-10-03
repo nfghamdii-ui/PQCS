@@ -3040,8 +3040,13 @@ function linkPanel(m){
           +'</div>'))
       +'</div></div>';
   }
-  var all=docsOf(m), list=all.filter(function(d){return d.doc!=='MIR';});
-  var nmir=all.length-list.length;
+  /* What has a place of its own on the page is not listed again here:
+     inspection requests are consignments, and an ITP or PID shows in its
+     step — when the material's road has that step at all. */
+  var inStep=function(d){return DOC_STEP[d.doc]&&stepApplies(m,DOC_STEP[d.doc]);};
+  var all=docsOf(m), list=all.filter(function(d){return d.doc!=='MIR'&&!inStep(d);});
+  var nmir=all.filter(function(d){return d.doc==='MIR';}).length;
+  var stepped={};all.filter(inStep).forEach(function(d){stepped[d.doc]=(stepped[d.doc]||0)+1;});
   return '<div class="sec">Documents</div><div class="panel">'
     +'<div class="panel-h"><div class="panel-t">Linked to this material</div>'
     +'<button class="btn btn-s no-print" onclick="linkPick('+m.id+')">Link a document</button></div>'
@@ -3056,8 +3061,10 @@ function linkPanel(m){
           +'<button class="btn-q" onclick="jump(\'mat\','+d.id+')">Open</button>'
           +'<button class="btn-q" onclick="unlink('+m.id+','+d.id+')">Unlink</button></div>';
       }).join('')
-      :'<span class="dim">Nothing linked yet. A method statement or an inspection plan that '
-      +'belongs to this material is attached here, and one document can serve many materials.</span>')
+      :'<span class="dim">Nothing else linked. A method statement that belongs to this material is '
+      +'attached here, and one document can serve many materials.</span>')
+    +Object.keys(stepped).map(function(k){
+      return '<div class="dim" style="font-size:12.5px;margin-top:10px">'+stepped[k]+' '+k+(stepped[k]===1?' is':'s are')+' shown in '+(k==='ITP'?'the Inspection and test plan':'the Pre-inspection dossier')+' step.</div>';}).join('')
     +(nmir?'<div class="dim" style="font-size:12.5px;margin-top:10px">'+nmir+' inspection request'
       +(nmir===1?' is':'s are')+' under Deliveries, one consignment each.</div>':'')
     +'</div></div>';
