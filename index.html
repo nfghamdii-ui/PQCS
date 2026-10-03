@@ -2272,12 +2272,14 @@ function matPane(m){
       +pr('Status',esc(rv('Status')))+pr('Revision',esc(rv('Revision')))
       +pr('Date',(m.acxDate||rv('Date'))?show(m.acxDate||rv('Date')):''));
   }else{
+    /* the Main Log's own columns, each group after the step it belongs to */
+    var lg=typeof window.logGroupsFor==='function'?window.logGroupsFor(m,r.steps.map(function(x){return x.s.k;})):{};
     body+=pgroup('Material',
       pr('Item description',esc(m.name))+pr('Category',esc(m.cat||''))
       +pr('Discipline',esc(m.disc||''))+pr('Vendor',v0?esc(v0.name):'')
       +pr('Sub-contractor',esc(m.sub||''))+pr('Aconex reference',esc(m.ref||''),'mono')
       +pr('Quantity',m.qty?(esc(m.qty)+' '+esc(m.unit||'')):'')+pr('PO Number',esc(raw['PO Number']||''),'mono'));
-    body+=roadProps(m,r.steps,'mat');
+    body+=(lg._mat||'')+roadProps(m,r.steps,'mat',lg);
     body+=delPanel(m)+ncrPanel(m);
   }
   return head+'<div class="body"><div class="wrap">'+body+'</div></div>';
@@ -2348,9 +2350,10 @@ function pgroup(title,props,extra){
   return '<div class="pgroup"><div class="pg-h"><span class="pg-t">'+esc(title)+'</span>'+(extra||'')+'</div>'
     +'<div class="props">'+props+'</div></div>';
 }
-function roadProps(rec,steps,kind){
+function roadProps(rec,steps,kind,after){
   var open=(OPEN&&OPEN.indexOf(kind+':')===0)?OPEN.slice(kind.length+1):'';
   var h='';
+  after=after||{};
   steps.forEach(function(x,i){
     var st=x.s, d=x.data;
     var tone=x.state==='done'?'ok':x.state==='bad'?'bad':x.state==='wait'?'wait':x.now?'now':'na';
@@ -2422,7 +2425,7 @@ function roadProps(rec,steps,kind){
       +'<span class="tag t-'+tone+'">'+esc(word)+'</span>'
       +'<span style="flex:1"></span>'
       +(btns?'<span class="no-print" style="display:flex;gap:6px">'+btns+'</span>':'')
-      +'</div>'+body+'</div>';
+      +'</div>'+body+'</div>'+(after[st.k]||'');
   });
   return h;
 }

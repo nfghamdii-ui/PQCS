@@ -3084,16 +3084,16 @@ var LOG_FORM=[
     ['Mock-up First in Place','text'],
     ['Mock-up Approved by PMC','text'],
     ['Mock-up per Client DLA','text']]],
-  ['Purchasing',[
-    ['Purchase Order Issued (Yes/No)','sel',YN],
-    ['PO Number','text'],
-    ['PO Date','date']]],
   ['Assessment',[
     ['PA Tentative Date','date'],
     ['3rd Party Assessment Done','sel',YN],
     ['Client Assessment Done','sel',YN],
     ['PMC/LDC Assessment Done','sel',YN],
     ['Contractor Assessment Done','sel',YN]]],
+  ['Purchasing',[
+    ['Purchase Order Issued (Yes/No)','sel',YN],
+    ['PO Number','text'],
+    ['PO Date','date']]],
   ['Fabrication',[
     ['MES Incl. ITP (Yes/No)','sel',YN],
     ['3rd Party Assigned (Yes/No)','sel',YN],
@@ -3103,10 +3103,11 @@ var LOG_FORM=[
     ['Fabrication 1st Batch Started Date','date'],
     ['Fabrication Percentage Completion (%)','text'],
     ['FAT Location / City','text']]],
-  ['Delivery and installation',[
+  ['Delivery',[
     ['1st Batch Delivery To Site Planned Date','date'],
     ['1st Batch Delivery To Site Actual Date','date'],
-    ['Storage (Site/Offsite)','sel',['Site','Offsite']],
+    ['Storage (Site/Offsite)','sel',['Site','Offsite']]]],
+  ['Installation',[
     ['Installation Planned Date','date'],
     ['Installation Actual Date','date'],
     ['Installer Name','text']]],
@@ -3117,6 +3118,31 @@ var LOG_FORM=[
     ['WIR Approval Date','date'],
     ['WIR Status','sel',['Approved','Approved as Noted','Under Review','Revise and Resubmit','Rejected','Terminated']]]]
 ];
+/* Where each group sits on the material's page: after the first of its
+   steps the material's road has (a C0 material has no vendor step, a C2
+   no pre-fabrication meeting). '_mat' is the Material group itself. */
+var LOG_ANCHOR={'Package and supply':['_mat'],'Sample and mock-up':['mts'],
+  'Assessment':['mfr','mts'],'Purchasing':['mfr','mts'],
+  'Fabrication':['pfm','itp','pid','mfr','mts'],
+  'Delivery':['del'],'Installation':['del'],'Work inspection (WIR)':['del']};
+window.logGroupsFor=function(m,keys){
+  var raw=m.raw||{}, out={}, have={_mat:1};
+  (keys||[]).forEach(function(k){have[k]=1;});
+  LOG_FORM.forEach(function(g,gi){
+    var at=(LOG_ANCHOR[g[0]]||['del']).filter(function(k){return have[k];})[0]||'_mat';
+    var filled=g[1].filter(function(f){return logShow(f,raw[f[0]]);}).length;
+    out[at]=(out[at]||'')
+      +'<div class="pgroup"><div class="pg-h"><span class="pg-t">'+esc(g[0])+'</span>'
+      +'<span class="tag t-'+(filled===g[1].length?'ok':filled?'wait':'na')+'">'+filled+' of '+g[1].length+'</span>'
+      +'<span style="flex:1"></span>'
+      +'<button class="btn btn-s no-print" onclick="editLog('+m.id+','+gi+')">Edit</button></div>'
+      +'<div class="props">'+g[1].map(function(f){
+        var v=logShow(f,raw[f[0]]);
+        return '<div class="pr"><div class="pr-l">'+esc(f[0])+'</div><div class="pr-v">'+esc(v)+'</div></div>';
+      }).join('')+'</div></div>';
+  });
+  return out;
+};
 function logShow(f,v){
   if(v==null||v==='')return '';
   return f[1]==='date'?(show(v)||String(v)):String(v);
@@ -3146,23 +3172,15 @@ var LOG_WHERE=[
   [/^(Delivered|Remaining)/,'record deliveries']
 ];
 function logWhere(c){
-  if(LOG_FORM.some(function(g){return g[1].some(function(f){return f[0]===c;});}))return 'Main Log details';
+  var g=LOG_FORM.filter(function(g){return g[1].some(function(f){return f[0]===c;});})[0];
+  if(g)return 'the '+g[0]+' group';
   var w=LOG_WHERE.filter(function(x){return x[0].test(c);})[0];
   return w?w[1]:'';
 }
 function logPanel(m){
   var raw=m.raw||{},filled=0,total=0;
   var fill=logFill(m,true), pct=Math.round(fill.n/fill.total*100);
-  var body=LOG_FORM.map(function(g){
-    var lines=g[1].map(function(f){
-      total++;
-      var v=logShow(f,raw[f[0]]);if(!v)return '';
-      filled++;
-      return '<div style="display:flex;gap:12px;padding:3px 0;font-size:13.5px">'
-        +'<span class="dim" style="flex:0 0 46%">'+esc(f[0])+'</span><span>'+esc(v)+'</span></div>';
-    }).join('');
-    return lines?('<div style="margin:8px 0 4px;font-weight:600;font-size:13px">'+esc(g[0])+'</div>'+lines):'';
-  }).join('');
+  var body='';
   /* the empty columns, each with where it is filled */
   var miss=fill.missing.map(function(c){
     var w=logWhere(c);
@@ -3174,7 +3192,7 @@ function logPanel(m){
     +'<div class="panel-t">'+fill.n+' of '+fill.total+' columns filled <span class="dim" style="font-weight:400">· '+pct+'%</span></div>'
     +'<div style="height:6px;border-radius:3px;background:var(--sunk);margin-top:8px;overflow:hidden">'
     +'<div style="height:100%;width:'+pct+'%;background:'+(pct>=80?'var(--ok)':pct>=50?'var(--wait)':'var(--now)')+'"></div></div></div>'
-    +'<button class="btn btn-s no-print" onclick="editLog('+m.id+')">Edit Main Log details</button></div>'
+    +'<button class="btn btn-s no-print" onclick="editLog('+m.id+')">Edit all Main Log fields</button></div>'
     +'<div class="panel-b">'
     +(fill.missing.length?('<details><summary style="cursor:pointer;font-weight:600;font-size:13.5px">'
       +fill.missing.length+' empty column'+(fill.missing.length===1?'':'s')+' — and where each is filled</summary>'
@@ -3183,15 +3201,17 @@ function logPanel(m){
       +'<span class="dim" style="font-weight:400">'+filled+' of '+total+'</span></div>'+body):'')
     +'</div></div>';
 }
-window.editLog=function(id){
+window.editLog=function(id,only){
   var m=mat(id);if(!m)return;
-  var raw=m.raw||{},n=0;
-  sheet('Main Log details \u2014 '+m.name,
+  var raw=m.raw||{};
+  var one=(only!=null&&LOG_FORM[only])?only:null;
+  sheet((one!=null?LOG_FORM[one][0]:'Main Log fields')+' \u2014 '+m.name,
      '<div class="form" style="margin:0;padding:0;border:none">'
-    +LOG_FORM.map(function(g){
-      return '<div class="f wide" style="grid-column:1/-1;margin:14px 0 0;font-weight:650;color:var(--ink)">'+esc(g[0])+'</div>'
-        +g[1].map(function(f){
-          var fid='lg-'+(n++), v=raw[f[0]];
+    +LOG_FORM.map(function(g,gi){
+      if(one!=null&&gi!==one)return '';
+      return (one!=null?'':'<div class="f wide" style="grid-column:1/-1;margin:14px 0 0;font-weight:650;color:var(--ink)">'+esc(g[0])+'</div>')
+        +g[1].map(function(f,fi){
+          var fid='lg-'+gi+'-'+fi, v=raw[f[0]];
           var h='<div class="f'+(f[1]==='text'?' wide':'')+'"><label for="'+fid+'">'+esc(f[0])+'</label>';
           if(f[1]==='sel'){
             var opts=f[2].slice();
@@ -3211,9 +3231,9 @@ window.editLog=function(id){
 };
 window.saveLog=function(id){
   var m=mat(id);if(!m)return;
-  var out={},bad=false,n=0;
-  LOG_FORM.forEach(function(g){g[1].forEach(function(f){
-    var fid='lg-'+(n++), el=document.getElementById(fid);if(!el)return;
+  var out={},bad=false;
+  LOG_FORM.forEach(function(g,gi){g[1].forEach(function(f,fi){
+    var fid='lg-'+gi+'-'+fi, el=document.getElementById(fid);if(!el)return;
     var v=trim(el.value);
     if(f[1]==='date'&&v){
       var iso=parseDate(v);
