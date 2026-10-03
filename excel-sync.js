@@ -3164,8 +3164,9 @@ window.paaPick=function(pid,q){
     +'</div>'
     +'<div class="f" style="margin-bottom:14px"><label for="lk">Search by number or title</label>'
     +'<input id="lk" value="'+attr(q||'')+'" autocomplete="off" '
-    +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();paaPick('+pid+',this.value);}">'
-    +'<span class="dim" style="font-size:12px">Press Enter to search</span></div>'
+    +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();paaPick('+pid+',this.value);}" '
+    +'oninput="searchSoon(function(v){paaPick('+pid+',v);},this.value)">'
+    +'<span class="dim" style="font-size:12px">The list follows as you type</span></div>'
     +'<div class="panel"><div class="panel-b">'
     +(rows.length?rows.slice(0,60).map(function(d){
         var o=paaOwners(d);
@@ -3204,6 +3205,9 @@ window.unlink=function(matId,docId){
   m.docs=(m.docs||[]).filter(function(x){return String(x)!==String(docId);});
   touch();rPane();paintTabs();
 };
+/* a search that redraws a short pause after the last key, not on every one */
+var SEARCH_T=null;
+window.searchSoon=function(fn,v){clearTimeout(SEARCH_T);SEARCH_T=setTimeout(function(){fn(v);},250);};
 window.linkPick=function(matId,q){
   var m=mat(matId);if(!m)return;
   var has={};(m.docs||[]).forEach(function(id){has[String(id)]=1;});
@@ -3223,8 +3227,9 @@ window.linkPick=function(matId,q){
     +'</div>'
     +'<div class="f" style="margin-bottom:14px"><label for="lk">Search by number, title or kind</label>'
     +'<input id="lk" value="'+attr(q||'')+'" autocomplete="off" '
-    +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();linkPick('+matId+',this.value);}">'
-    +'<span class="dim" style="font-size:12px">Press Enter to search</span></div>'
+    +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();linkPick('+matId+',this.value);}" '
+    +'oninput="searchSoon(function(v){linkPick('+matId+',v);},this.value)">'
+    +'<span class="dim" style="font-size:12px">The list follows as you type</span></div>'
     +'<div class="panel"><div class="panel-b">'
     +(rows.length?rows.slice(0,60).map(function(d){
         return '<div class="line row-a" onclick="linkAdd('+matId+','+d.id+')">'
