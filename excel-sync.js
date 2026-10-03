@@ -5761,10 +5761,182 @@ function installNav(){
 }
 window.navBack=function(){window.history.back();};
 
+/* ================================================================
+   THE PAGE'S OWN DROPDOWNS
+   ----------------------------------------------------------------
+   A list opened from a field is drawn by the page, not by the browser:
+   the same card, type and colours as everything else. The field
+   underneath stays a plain <select> or <input>, so everything that
+   reads its value or listens for its change still does — picking an
+   item sets the value and raises the same events the browser would.
+   A text field with suggestions (an inspector, who brought a vendor)
+   shows those that contain what is typed, the ones that start with it
+   first.
+   ================================================================ */
+var DD=null;                     /* {box, field, items, at, kind} */
+function ddClose(){
+  if(!DD)return;
+  DD.box.remove();
+  if(DD.field)DD.field.classList.remove('dd-open');
+  DD=null;
+}
+function ddPlace(box,field){
+  var r=field.getBoundingClientRect();
+  box.style.minWidth=Math.max(r.width,180)+'px';
+  var below=window.innerHeight-r.bottom, h=Math.min(box.scrollHeight,320);
+  box.style.left=Math.max(8,Math.min(r.left,window.innerWidth-box.offsetWidth-8))+'px';
+  if(below<h+12&&r.top>below){box.style.top='';box.style.bottom=(window.innerHeight-r.top+4)+'px';}
+  else{box.style.bottom='';box.style.top=(r.bottom+4)+'px';}
+}
+function ddFire(el){
+  el.dispatchEvent(new Event('input',{bubbles:true}));
+  el.dispatchEvent(new Event('change',{bubbles:true}));
+}
+function ddDraw(){
+  if(!DD)return;
+  var list=DD.box.querySelector('.dd-list');
+  list.innerHTML=DD.items.length?DD.items.map(function(it,i){
+    return '<div class="dd-i'+(i===DD.at?' at':'')+(it.sel?' sel':'')+'" data-i="'+i+'" role="option"'
+      +(it.sel?' aria-selected="true"':'')+'>'
+      +'<span>'+esc(it.text)+'</span>'+(it.note?'<span class="dd-n">'+esc(it.note)+'</span>':'')+'</div>';
+  }).join(''):'<div class="dd-none">Nothing matches</div>';
+  var at=list.querySelector('.dd-i.at');
+  if(at){var t=at.offsetTop,b=t+at.offsetHeight;
+    if(t<list.scrollTop)list.scrollTop=t;else if(b>list.scrollTop+list.clientHeight)list.scrollTop=b-list.clientHeight;}
+}
+function ddPick(i){
+  if(!DD||!DD.items[i])return;
+  var it=DD.items[i], f=DD.field;
+  ddClose();
+  if(f.tagName==='SELECT'){f.selectedIndex=it.idx;}
+  else f.value=it.value;
+  ddFire(f);
+  f.focus();
+}
+/* a <select>: every option, the chosen one marked; a search line
+   when the list is long */
+function ddSelect(sel){
+  ddClose();
+  var opts=[].slice.call(sel.options);
+  var box=document.createElement('div');
+  box.className='dd-menu';box.setAttribute('role','listbox');
+  box.innerHTML=(opts.length>10?'<input class="dd-q" placeholder="Search" autocomplete="off">':'')+'<div class="dd-list"></div>';
+  document.body.appendChild(box);
+  DD={box:box,field:sel,kind:'sel',all:opts.map(function(o,i){
+      return {text:o.text,value:o.value,idx:i,sel:i===sel.selectedIndex,dis:o.disabled};
+    }).filter(function(x){return !x.dis;})};
+  DD.items=DD.all;DD.at=Math.max(0,DD.items.findIndex(function(x){return x.sel;}));
+  sel.classList.add('dd-open');
+  ddDraw();ddPlace(box,sel);
+  var q=box.querySelector('.dd-q');
+  if(q){
+    q.addEventListener('input',function(){
+      var k=q.value.trim().toLowerCase();
+      DD.items=DD.all.filter(function(x){return !k||x.text.toLowerCase().indexOf(k)>=0;});
+      DD.at=0;ddDraw();
+    });
+    q.addEventListener('keydown',ddKeys);
+    setTimeout(function(){q.focus();},0);
+  }
+}
+/* a text field with a list of suggestions */
+function ddSuggest(inp){
+  var id=inp.getAttribute('data-list');
+  var dl=id&&document.getElementById(id);if(!dl)return;
+  var k=inp.value.trim().toLowerCase();
+  var all=[].slice.call(dl.options).map(function(o){return {text:o.value,value:o.value,note:o.label&&o.label!==o.value?o.label:''};});
+  var hits=all.filter(function(x){return !k||x.text.toLowerCase().indexOf(k)>=0;});
+  hits.sort(function(a,b){
+    var A=a.text.toLowerCase().indexOf(k)===0?0:1, B=b.text.toLowerCase().indexOf(k)===0?0:1;
+    return A-B||a.text.localeCompare(b.text);
+  });
+  hits=hits.slice(0,60).map(function(x){x.sel=x.text.toLowerCase()===k;return x;});
+  if(DD&&DD.field===inp){DD.items=hits;DD.at=hits.length?0:-1;ddDraw();ddPlace(DD.box,inp);return;}
+  ddClose();
+  var box=document.createElement('div');
+  box.className='dd-menu';box.setAttribute('role','listbox');
+  box.innerHTML='<div class="dd-list"></div>';
+  document.body.appendChild(box);
+  DD={box:box,field:inp,kind:'text',items:hits,at:-1};
+  inp.classList.add('dd-open');
+  ddDraw();ddPlace(box,inp);
+}
+function ddKeys(e){
+  if(!DD)return;
+  var n=DD.items.length;
+  if(e.key==='ArrowDown'){e.preventDefault();DD.at=n?(DD.at+1)%n:-1;ddDraw();}
+  else if(e.key==='ArrowUp'){e.preventDefault();DD.at=n?(DD.at-1+n)%n:-1;ddDraw();}
+  else if(e.key==='Enter'){if(DD.at>=0){e.preventDefault();ddPick(DD.at);}else ddClose();}
+  else if(e.key==='Escape'){e.preventDefault();var f=DD.field;ddClose();f.focus();}
+  else if(e.key==='Tab')ddClose();
+}
+function installDropdowns(){
+  if(window.__dd)return;window.__dd=true;
+  var css=document.createElement('style');
+  css.textContent=
+   '.dd-menu{position:fixed;z-index:950;background:var(--card);border:1px solid var(--line-2);border-radius:10px;'
+  +'box-shadow:0 12px 32px rgba(0,22,58,.18);padding:5px;display:flex;flex-direction:column;max-width:min(520px,94vw)}'
+  +'.dd-list{max-height:300px;overflow-y:auto;overscroll-behavior:contain}'
+  +'.dd-i{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:8px 11px;border-radius:7px;'
+  +'font-size:14px;color:var(--ink);cursor:pointer;line-height:1.35}'
+  +'.dd-i:hover,.dd-i.at{background:var(--hover)}'
+  +'.dd-i.at{box-shadow:inset 0 0 0 1px var(--line-2)}'
+  +'.dd-i.sel{font-weight:600;box-shadow:inset 3px 0 0 #ffcc3e}'
+  +'.dd-n{font-size:12px;color:var(--ink-4);flex-shrink:0}'
+  +'.dd-none{padding:9px 11px;font-size:13px;color:var(--ink-4)}'
+  +'.dd-q{margin:2px 2px 6px;padding:8px 10px;border:1px solid var(--line-2);border-radius:7px;font:inherit;font-size:13.5px;'
+  +'outline:none;background:var(--card);color:var(--ink)}'
+  +'.dd-q:focus{border-color:var(--wait)}'
+  +'select.dd-open,input.dd-open{border-color:var(--wait)!important;box-shadow:0 0 0 3px var(--wait-b)!important}';
+  document.head.appendChild(css);
+
+  /* a press on a select opens ours instead of the browser's */
+  document.addEventListener('mousedown',function(e){
+    if(DD&&DD.box.contains(e.target)){
+      e.preventDefault();
+      var it=e.target.closest('.dd-i');if(it)ddPick(Number(it.getAttribute('data-i')));
+      return;
+    }
+    var sel=e.target.closest&&e.target.closest('select');
+    if(sel&&!sel.disabled&&!sel.multiple){
+      e.preventDefault();
+      if(DD&&DD.field===sel){ddClose();return;}
+      sel.focus();ddSelect(sel);return;
+    }
+    if(DD&&e.target!==DD.field)ddClose();
+  },true);
+  /* the keyboard opens it too, as the browser's would */
+  document.addEventListener('keydown',function(e){
+    var t=e.target;
+    if(DD&&(t===DD.field))return ddKeys(e);
+    if(t&&t.tagName==='SELECT'&&!t.multiple&&(e.key===' '||e.key==='Enter'||(e.altKey&&e.key==='ArrowDown'))){
+      e.preventDefault();ddSelect(t);
+    }
+  },true);
+  /* a field with suggestions loses the browser's list and gets ours */
+  function takeList(t){
+    if(t&&t.tagName==='INPUT'&&t.hasAttribute('list')){
+      t.setAttribute('data-list',t.getAttribute('list'));t.removeAttribute('list');
+    }
+    return t&&t.tagName==='INPUT'&&t.hasAttribute('data-list');
+  }
+  document.addEventListener('focusin',function(e){if(takeList(e.target))ddSuggest(e.target);});
+  document.addEventListener('input',function(e){if(e.isTrusted&&takeList(e.target))ddSuggest(e.target);});
+  document.addEventListener('focusout',function(e){
+    setTimeout(function(){
+      if(DD&&DD.field===e.target&&!DD.box.contains(document.activeElement))ddClose();
+    },120);
+  });
+  /* the page moving under an open list closes it */
+  window.addEventListener('resize',ddClose);
+  document.addEventListener('scroll',function(e){if(DD&&!DD.box.contains(e.target))ddClose();},true);
+}
+
 function start(){
   install();
   install2();
   installNav();
+  installDropdowns();
   ['enter','refresh','loadAll'].forEach(function(fn){
     var orig=window[fn];
     if(typeof orig!=='function'||orig.__sorted)return;
