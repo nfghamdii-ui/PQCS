@@ -1073,12 +1073,7 @@ function widths(){
 window.excelOut=function(){
   try{
     var name=(DB.project||'Project Materials').replace(/[^\w \-]/g,'').trim();
-    var lr=generalRows();
-    var sheets=[{name:'Main Log',rows:lr,widths:widths(),table:true,bands:logBands(lr[0])},
-                {name:'Summary',rows:summaryRows()}];
-    var loose=looseRows();
-    if(loose.length>1)sheets.push({name:'Not linked',rows:loose,table:true});
-    download(workbook(sheets),name+' — Live Tracking '+today()+'.xlsx');
+    download(sevenLog(),name+' \u2014 Material Live Tracking Sheet '+today()+'.xlsx');
     toast('Workbook written — '+(DB.mats||[]).length+' items');
   }catch(e){toast('Could not write the workbook — '+(e.message||e));}
 };
@@ -4504,7 +4499,8 @@ function sevenRow(m,i){
     g('Installation Planned Date'),g('Installation Actual Date'),g('Installer Name'),
     g('WIR Number'),g('WIR Approval Date'),g('WIR Status'),
     unit('Total Quantity','Total Quantity Unit'),unit('Delivered No','Delivered Unit'),unit('Remaining','Remaining Unit'),
-    (isFinite(tot)&&tot>0&&isFinite(rem))?(rem<=0?'Yes':'No'):''];
+    (isFinite(tot)&&tot>0&&isFinite(rem))?(rem<=0?'Yes':'No'):'']
+    .concat(LOG_EXTRA.map(function(x){return x.read(m)||'';}));
 }
 function sevenCell(ref,v,s){
   if(v==null||v==='')return '<c r="'+ref+'" s="'+s+'"/>';
@@ -4514,9 +4510,57 @@ function sevenCell(ref,v,s){
   t=t.split('\n').map(function(x){return /^\d{4}-\d{2}-\d{2}$/.test(x)?showDate(x):x;}).join('\n');
   return '<c r="'+ref+'" s="'+s+'" t="inlineStr"><is><t xml:space="preserve">'+xml(t)+'</t></is></c>';
 }
-function sevenBook(list){
+/* the Main Log, in SEVEN's format: every material, by discipline */
+function sevenMaterials(){
+  return (DB.mats||[]).filter(function(m){return !isDoc(m);}).sort(function(a,b){
+    var d=String(a.disc||'~').localeCompare(String(b.disc||'~'));
+    return d||String(a.name).localeCompare(String(b.name));
+  });
+}
+function sevenLog(){
+  var loose=looseRows(), more=[{name:'Summary',rows:summaryRows()}];
+  if(loose.length>1)more.push({name:'Not linked',rows:loose});
+  return sevenBook(sevenMaterials(),more);
+}
+/* a plain sheet in the same workbook: grey bold heading, bordered cells */
+function sevenPlain(rows){
+  var wide=rows.reduce(function(a,r){return Math.max(a,r.length);},0);
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +'<cols><col min="1" max="1" width="44" customWidth="1"/><col min="2" max="'+Math.max(2,wide)+'" width="22" customWidth="1"/></cols>'
+    +'<sheetData>'+rows.map(function(row,r){
+      return '<row r="'+(r+1)+'">'+row.map(function(v,c){return sevenCell(colName(c)+(r+1),v,r===0?51:2);}).join('')+'</row>';
+    }).join('')+'</sheetData></worksheet>';
+}
+/* A data cell's style: the template's own, except the green and red its
+   sample rows were filled with, which were somebody's data and not the
+   format — those cells are written plain (bordered, centred, wrapped). */
+var SEVEN_PLAIN={3:2,30:2,31:2};
+function sevenStyle(T,c){
+  var st=c<76?(T.data[c]||0):2;
+  return SEVEN_PLAIN[st]!=null?SEVEN_PLAIN[st]:st;
+}
+function sevenBook(list,more){
   var T=window.SEVEN_TPL;
   if(!T)throw new Error('seven-tpl.js was not found beside the page');
+  more=more||[];
+  /* SEVEN's 76 columns, then the tracker's own, under a heading of their
+     own in the template's styles so the sheet still reads as one */
+  var X=LOG_EXTRA.map(function(x){return x.t;}), x0=76, xl=x0+X.length-1;
+  var rowsHead=T.head.split('</row>');
+  var add=[
+    X.map(function(_,i){return '<c r="'+colName(x0+i)+'1" s="5"/>';}).join(''),
+    X.map(function(_,i){return '<c r="'+colName(x0+i)+'2" s="7"/>';}).join(''),
+    X.map(function(_,i){return i?'<c r="'+colName(x0+i)+'3" s="51"/>'
+      :'<c r="'+colName(x0)+'3" s="51" t="inlineStr"><is><t>From the tracker</t></is></c>';}).join(''),
+    X.map(function(t,i){return '<c r="'+colName(x0+i)+'4" s="14" t="inlineStr"><is><t>'+xml(t)+'</t></is></c>';}).join(''),
+    X.map(function(_,i){return '<c r="'+colName(x0+i)+'5" s="14"/>';}).join(''),
+    X.map(function(_,i){return '<c r="'+colName(x0+i)+'6" s="25"/>';}).join('')];
+  var head0=rowsHead.slice(0,6).map(function(r,i){return r+add[i];}).join('</row>')+'</row>';
+  var merges=T.merges.replace(/<mergeCells count="(\d+)">/,function(_,n){return '<mergeCells count="'+(+n+1+X.length)+'">';})
+    .replace('</mergeCells>','<mergeCell ref="'+colName(x0)+'3:'+colName(xl)+'3"/>'
+      +X.map(function(_,i){return '<mergeCell ref="'+colName(x0+i)+'4:'+colName(x0+i)+'5"/>';}).join('')+'</mergeCells>');
+  var cols=T.cols.replace('</cols>','<col min="'+(x0+1)+'" max="'+(xl+1)+'" width="26" customWidth="1"/></cols>');
   /* one extra style: a terminated material's row, shaded red */
   var st=T.styles;
   var nf=+(/<fills count="(\d+)"/.exec(st)[1]), nx=+(/<cellXfs count="(\d+)"/.exec(st)[1]);
@@ -4531,19 +4575,19 @@ function sevenBook(list){
     var dead=vals.some(function(x){return /terminat/i.test(String(x));});
     var lines=vals.reduce(function(a,x){return Math.max(a,String(x).split('\n').length);},1);
     return '<row r="'+r+'"'+(lines>1?' ht="'+(lines*15)+'" customHeight="1"':'')+'>'
-      +vals.map(function(x,c){return sevenCell(colName(c)+r,x,dead?RED:(T.data[c]||0));}).join('')+'</row>';
+      +vals.map(function(x,c){return sevenCell(colName(c)+r,x,dead?RED:sevenStyle(T,c));}).join('')+'</row>';
   }).join('');
   var last=6+Math.max(list.length,1);
   var name=(DB.project||'Materials').replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,31)||'Materials';
-  var head=T.head.replace('%%PROJECT%%',xml((DB.project||'').toUpperCase()));
+  var head=head0.replace('%%PROJECT%%',xml((DB.project||'').toUpperCase()));
   var sheetXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
     +'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
     +'<sheetViews><sheetView zoomScale="70" zoomScaleNormal="70" workbookViewId="0">'
     +'<pane xSplit="6" ySplit="6" topLeftCell="G7" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>'
     +'<sheetFormatPr defaultColWidth="8.796875" defaultRowHeight="14.25"/>'
-    +T.cols+'<sheetData>'+head+rows+'</sheetData>'
-    +'<autoFilter ref="A6:BX'+last+'"/>'+T.merges
+    +cols+'<sheetData>'+head+rows+'</sheetData>'
+    +'<autoFilter ref="A6:'+colName(xl)+last+'"/>'+merges
     +'<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>';
   var files=[
     {name:'[Content_Types].xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -4552,6 +4596,8 @@ function sevenBook(list){
       +'<Default Extension="xml" ContentType="application/xml"/>'
       +'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
       +'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+      +more.map(function(_,i){return '<Override PartName="/xl/worksheets/sheet'+(i+2)+'.xml" '
+        +'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';}).join('')
       +'<Override PartName="/xl/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>'
       +'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
       +'</Types>'},
@@ -4562,44 +4608,33 @@ function sevenBook(list){
     {name:'xl/workbook.xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       +'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
       +'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
-      +'<sheet name="'+xml(name)+'" sheetId="1" r:id="rId1"/></sheets>'
+      +'<sheet name="'+xml(name)+'" sheetId="1" r:id="rId1"/>'
+      +more.map(function(m,i){return '<sheet name="'+xml(m.name)+'" sheetId="'+(i+2)+'" r:id="rId'+(i+10)+'"/>';}).join('')
+      +'</sheets>'
       +'<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">\''
-      +xml(name.replace(/'/g,"''"))+'\'!$A$6:$BX$'+last+'</definedName></definedNames></workbook>'},
+      +xml(name.replace(/'/g,"''"))+'\'!$A$6:$'+colName(xl)+'$'+last+'</definedName></definedNames></workbook>'},
     {name:'xl/_rels/workbook.xml.rels',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
       +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
       +'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>'
       +'<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+      +more.map(function(m,i){return '<Relationship Id="rId'+(i+10)+'" '
+        +'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+2)+'.xml"/>';}).join('')
       +'</Relationships>'},
     {name:'xl/theme/theme1.xml',text:T.theme},
     {name:'xl/styles.xml',text:st},
     {name:'xl/worksheets/sheet1.xml',text:sheetXml}
-  ];
+  ].concat(more.map(function(m,i){return {name:'xl/worksheets/sheet'+(i+2)+'.xml',text:sevenPlain(m.rows)};}));
   return zipUp(files);
 }
 var REPORTS=[
- {k:'seven',t:'SEVEN Live Tracking Sheet',back:false,
-  d:'The client\u2019s own Material Live Tracking Sheet \u2014 its headings, colours and 76 columns \u2014 '
-    +'with every material on a row, filled from the tracker. The materials the Materials table '
-    +'shows with its filters are the ones written.',
-  go:function(){
-    var prev=TBL;TBL='mat';var list=filtered();TBL=prev;
-    download(sevenBook(list),(DB.project||'Project')+' \u2014 Material Live Tracking Sheet '+today()+'.xlsx');
-  }},
  {k:'log',t:'The general log',back:false,   /* written out only: Aconex is the source */
-  d:'Every material on one row, with its documents folded back into the columns the project '
-    +'already reads — the same seventy-seven columns in the same order, sorted by discipline '
-    +'and no heading rows between them. Documents attached to nothing are written to a second '
-    +'sheet rather than dropped. Edit it and send it back; a row is found by its reference, '
-    +'so renaming one changes it rather than doubling it.',
+  d:'SEVEN\u2019s Material Live Tracking Sheet, in the client\u2019s own format \u2014 its headings, colours '
+    +'and 76 columns \u2014 with every material on a row, by discipline, and the tracker\u2019s own columns '
+    +'after them. A Summary sheet, and the documents linked to nothing, go in the same workbook.',
   go:function(){
     var name=(DB.project||'Project Materials').replace(/[^\w \-]/g,'').trim();
-    var lr=generalRows();
-    var sheets=[{name:'Main Log',rows:lr,widths:widths(),table:true,bands:logBands(lr[0])},
-                {name:'Summary',rows:summaryRows()}];
-    var loose=looseRows();
-    if(loose.length>1)sheets.push({name:'Not linked',rows:loose,table:true});
-    download(workbook(sheets),name+' — '+today()+'.xlsx');
+    download(sevenLog(),name+' \u2014 Material Live Tracking Sheet '+today()+'.xlsx');
   }},
  {k:'ven',t:'Vendors and who brought them',back:true,
   d:'Every company on the project: its kind and category, its pre-qualification, its ISO '
