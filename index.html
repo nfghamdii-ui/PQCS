@@ -2359,8 +2359,6 @@ function venDash(v,r,mine){
     }
     h+='</div>';
   });
-  if(r.some(function(x){return x.s.k==='pqd';}))
-    h+='<div class="vopen">'+checklist(v,'pq',pqList(v),'2.1.14','The pre-qualification file')+'</div>';
   return h;
 }
 
@@ -2590,11 +2588,6 @@ function stepCard(rec,x,i,kind){
       inner+='<div class="sdue d-soon" style="display:flex;align-items:center">'+ICON.clock
         +'<span>'+(rem>today()?'Off the board until your reminder on ':'Your reminder was for ')+'<b>'+show(rem)+'</b></span>'
         +'<button class="btn-q" style="margin-left:auto" onclick="remindClear('+jsq(kind)+','+rec.id+','+jsq(st.k)+')">Clear</button></div>';
-    /* the two dossiers carry a contents list the procedure writes out */
-    if(kind==='mat'&&DOSSIER[st.k]&&!editing)
-      inner+=checklist(rec,st.k+'List',DOSSIER[st.k].items,DOSSIER[st.k].clause,'What it must contain');
-    if(kind==='mfr'&&st.k==='pqd'&&!editing)
-      inner+=checklist(rec,'pq',pqList(rec),'2.1.14','The pre-qualification file');
   }
 
   /* A finished step and one not reached yet are read at a glance: the
