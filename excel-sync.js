@@ -3964,6 +3964,22 @@ var MAT_FIELDS=[
   {c:'PO Number',get:function(m){return (m.raw||{})['PO Number'];},
     set:function(m,x){m.raw=m.raw||{};if(x)m.raw['PO Number']=x;else delete m.raw['PO Number'];}}
 ];
+/* The Main Log's own fields go out and come back too, after the twelve:
+   a blank cell leaves a value alone, "-" clears it, a date is read in any
+   of the ways a sheet writes one, and a choice is matched to its list
+   whatever its capitals. PO Number is already among the twelve. */
+LOG_FORM.forEach(function(g){g[1].forEach(function(f){
+  if(MAT_COLS.indexOf(f[0])>=0)return;
+  MAT_COLS.push(f[0]);
+  MAT_FIELDS.push({c:f[0],log:f,
+    get:function(m){return (m.raw||{})[f[0]]||'';},
+    read:function(x){
+      if(f[1]==='date')return anyDate(x)||trim(x);
+      if(f[1]==='sel'){var k=K(x),hit=f[2].filter(function(o){return K(o)===k;})[0];return hit||trim(x);}
+      return trim(x);
+    },
+    set:function(m,x){m.raw=m.raw||{};if(x)m.raw[f[0]]=x;else delete m.raw[f[0]];}});
+});});
 function matWant(r,fd){
   var raw=trim(r[fd.c]);
   if(raw==='')return '';
@@ -3975,7 +3991,11 @@ function materialRows(list){
   list.forEach(function(m){
     var v=m.mfr?mfr(m.mfr):null;
     rows.push([String(m.id),matNo(m),m.name||'',m.cat||'',m.disc||'',v?v.name:'',v?(pqOf(v).ref||''):'',m.sub||'',
-      m.qty||'',m.unit||'',(m.raw||{})['PO Number']||'',stepOf(m,'mts','status')||(m.raw||{})['MAT Status']||'']);
+      m.qty||'',m.unit||'',(m.raw||{})['PO Number']||'',stepOf(m,'mts','status')||(m.raw||{})['MAT Status']||'']
+      .concat(MAT_FIELDS.filter(function(fd){return fd.log;}).map(function(fd){
+        var x=fd.get(m);
+        return (fd.log[1]==='date'&&/^\d{4}-\d{2}-\d{2}$/.test(String(x)))?{date:String(x)}:x;
+      })));
   });
   return rows;
 }
@@ -4061,10 +4081,20 @@ window.matApply=function(){
   closeSheet();touch();rList();rPane();
   toast(n+' material'+(n===1?'':'s')+' updated');
 };
+/* the edit sheet's columns by group, coloured like the Main Log's */
+function matBands(head){
+  var b=[{t:'Material',from:0,to:11}];
+  LOG_FORM.forEach(function(g){
+    var cols=g[1].map(function(f){return head.indexOf(f[0]);}).filter(function(i){return i>11;});
+    if(cols.length)b.push({t:g[0],from:Math.min.apply(null,cols),to:Math.max.apply(null,cols)});
+  });
+  return b;
+}
 window.matOut=function(){
   var prev=TBL;TBL='mat';
   var list=filtered();TBL=prev;
-  download(workbook([{name:'Materials',rows:materialRows(list)}]),
+  var mr=materialRows(list);
+  download(workbook([{name:'Materials',rows:mr,table:true,bands:matBands(mr[0])}]),
     (DB.project||'Materials')+' — materials to edit '+today()+'.xlsx');
   toast(list.length+' materials written — edit, keep the ID column, then Upload edited');
 };
@@ -5304,8 +5334,19 @@ window.tblOpen=function(id){
   var r=rows.filter(function(x){return String(x.id)===String(id);})[0];
   if(r)d.open(r);
 };
+/* A terminated record is shaded red across its row, as in the exported
+   sheets: a material by its MAT status, a vendor by its pre-qualification,
+   a document by its own status. */
+function rowDead(r){
+  if(!r||r.m)return false;                         /* a row of a visit page */
+  var st;
+  if(TBL==='mfr')st=pqOf(r).status;
+  else if(r.steps&&!isDoc(r))st=stepOf(r,'mts','status')||(r.raw||{})['MAT Status'];
+  else if(isDoc(r))st=rawEnd(r,'Status');
+  return /terminat/i.test(String(st||''));
+}
 function tblRow(r,cols){
-  return '<tr onclick="tblOpen('+r.id+')">'
+  return '<tr'+(rowDead(r)?' class="row-dead"':'')+' onclick="tblOpen('+r.id+')">'
     +cols.map(function(c){
       var v=cellOf(r,c), t=(v!==''&&c.tone)?c.tone(v,r):'';
       var cls=[c.kind==='pick'?'nowrap':'',c.num?'num':''].filter(Boolean).join(' ');
@@ -5409,6 +5450,8 @@ function tableCSS(){
   +'.tbl tbody td{background:var(--card)}'
   +'.tbl tbody tr:nth-child(even) td{background:var(--hover)}'
   +'.tbl tbody tr:hover td{background:var(--sunk)}'
+  +'.tbl tbody tr.row-dead td{background:#fde7e9;color:#8a1c24}'
+  +'.tbl tbody tr.row-dead:hover td{background:#f9d3d7}'
   /* the first column stays put while the rest scroll sideways */
   +'.tbl th:first-child,.tbl td:first-child{position:sticky;left:0;z-index:1;'
   +'box-shadow:1px 0 0 var(--line-2);font-weight:500}'
