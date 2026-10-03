@@ -174,6 +174,7 @@ svg{display:block}
 .pr-l{font-size:12px;color:var(--ink-3)}
 .pr-v{font-size:13.5px;color:var(--ink);font-weight:500;word-break:break-word}
 .pr-v.mono{font-family:var(--mono);font-size:12.5px;font-weight:400}
+.dl-row{display:flex;align-items:center;gap:14px;min-height:0}
 .pg-note{font-size:12.5px;color:var(--now-t);padding-top:8px}
 .pg-note.late{color:var(--bad-t)}
 @media(max-width:700px){.props{grid-template-columns:1fr}}
@@ -2382,6 +2383,23 @@ function roadProps(rec,steps,kind){
         tone=/Passed|Sent/.test(res)?'ok':/Failed/.test(res)?'bad':'wait';
       }else word='No report yet';
       body=window.visitPanel(rec,st.k);
+    }else if(d.fromDocs&&typeof window.stepDocs==='function'&&window.stepDocs(rec,st.k).length){
+      /* filled from linked documents: each one on a line of its own —
+         its number, title, outcome and date — and the tag counts them */
+      var sd=window.stepDocs(rec,st.k);
+      var okN=sd.filter(function(y){return /^Approved/.test(y.status);}).length;
+      word=sd.length===1?(sd[0].status||'Pending'):(okN+' of '+sd.length+' approved');
+      btns='<button class="btn btn-s" onclick="linkPick('+rec.id+',\''+(st.k==='itp'?'ITP':'PID')+'\')">Link another</button>';
+      body='<div class="dlist">'+sd.map(function(y){
+        var t=/^Approved/.test(y.status)?'ok':/Rejected|Resubmit|Terminated/.test(y.status)?'bad':'wait';
+        return '<div class="pr dl-row">'
+          +'<span class="tag t-'+t+'" style="min-width:150px;text-align:center">'+esc(y.status||'Pending')+'</span>'
+          +'<div style="flex:1;min-width:0"><div class="pr-v mono">'+esc(y.no)+'</div>'
+          +'<div class="pr-l">'+esc(y.title)+'</div></div>'
+          +'<span class="pr-l" style="flex-shrink:0">'+(y.date?show(y.date):'')+'</span>'
+          +'<button class="btn-q no-print" onclick="jump(\'mat\','+y.id+')">Open</button>'
+          +'<button class="btn-q no-print" onclick="unlink('+rec.id+','+y.id+')">Unlink</button></div>';
+      }).join('')+'</div>';
     }else{
       btns=(open===st.k?'<button class="btn-q" onclick="openStep(null)">Close</button>'
         :'<button class="btn btn-s'+(x.now?' btn-p':'')+'" onclick="openStep(\''+kind+':'+st.k+'\')">Edit</button>'

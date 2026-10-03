@@ -6157,5 +6157,15 @@ window.__tbl={label:function(){return tdef().label;},count:function(){return tde
     return c?choices(c,tdef().rows()):[];}};
 window.__v={lift:liftVisits,list:visitsOf};
 window.docRef=refOf;
+/* the documents behind a step filled from them, one by one */
+window.stepDocs=function(m,k){
+  var kind=Object.keys(DOC_STEP).filter(function(x){return DOC_STEP[x]===k;})[0];
+  if(!kind)return [];
+  return docsOf(m).filter(function(d){return d.doc===kind;}).map(function(d){
+    var raw=d.raw||{};
+    return {id:d.id,no:refOf(d),title:d.name,status:normStatus(raw[kind+' Status'])||trim(raw[kind+' Status']||'')||'Pending',
+      date:raw[kind+' Submittal Date']||d.acxDate||''};
+  });
+};
 window.EXCEL={cols:COLS,inspectorRows:inspectorRows,readInspectorSheet:readInspectorSheet,planInspectors:planInspectors,applyInspectors:applyInspectors,vendorRows:vendorRows,readVendorSheet:readVendorSheet,planVendors:planVendors,applyVendors:applyVendors,generalRows:generalRows,looseRows:looseRows,vendorRows:vendorRows,isDoc:isDoc,docsOf:docsOf,servedBy:servedBy,labelDocuments:labelDocuments,createFromRegister:createFromRegister,pending:pending,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:generalRows,summary:summaryRows,book:workbook};
 })();
