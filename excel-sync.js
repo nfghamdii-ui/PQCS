@@ -1534,7 +1534,13 @@ function regUnchange(tag){
   });
   return {back:back,kept:kept};
 }
+var applyRegisterBare=function(){};
 function applyRegister(p,alsoEnded,tag){
+  var n=applyRegisterBare(p,alsoEnded,tag);
+  liftDocSteps();
+  return n;
+}
+applyRegisterBare=function(p,alsoEnded,tag){
   if(p.rows)stampDates(p.rows);
   var n=0;
   function write(it){
@@ -3285,6 +3291,7 @@ window.unlink=function(matId,docId){
     if(c.qty||c.note){delete c.fromDoc;return true;}
     return false;
   });
+  syncDocSteps(m);
   touch();rPane();paintTabs();
 };
 /* An inspection request is a consignment arriving: linked to a
@@ -3310,6 +3317,48 @@ function mirToDel(m,d){
   return true;
 }
 /* the requests linked before this, made into their consignments once */
+/* An inspection and test plan or a pre-inspection dossier linked to a
+   material is that material's step: its number, outcome and date come
+   from the documents themselves, read again whenever a link changes or
+   the register brings a new outcome. Several linked (fabrication and
+   erection, say) give every number, the latest date, and the outcome
+   that still holds the step back — all must be approved for it to be. */
+var DOC_STEP={ITP:'itp',PID:'pid'};
+var STEP_RANK={'Rejected':0,'Resubmit':1,'Pending':2,'Approved with comments':3,'Approved':4};
+function syncDocSteps(m){
+  if(!m||isDoc(m))return false;
+  var changed=false, docs=docsOf(m);
+  m.steps=m.steps||{};
+  Object.keys(DOC_STEP).forEach(function(kind){
+    var k=DOC_STEP[kind], list=docs.filter(function(d){return d.doc===kind;});
+    var cur=m.steps[k];
+    if(!list.length){
+      if(cur&&cur.fromDocs){delete m.steps[k];changed=true;}
+      return;
+    }
+    var refs=[],date='',sts=[];
+    list.forEach(function(d){
+      var raw=d.raw||{};
+      var r=refOf(d);if(r)refs.push(r);
+      var dt=raw[kind+' Submittal Date']||d.acxDate||'';
+      if(/^\d{4}-\d{2}-\d{2}$/.test(String(dt))&&dt>date)date=dt;
+      sts.push(normStatus(raw[kind+' Status'])||'Pending');
+    });
+    var live=sts.filter(function(x){return x!=='Terminated';});
+    var status=live.length?live.reduce(function(a,b){return (STEP_RANK[b]<STEP_RANK[a])?b:a;}):'Terminated';
+    var next={ref:refs.join(', '),date:date,status:status,fromDocs:true};
+    if(!cur||cur.ref!==next.ref||cur.date!==next.date||cur.status!==next.status||!cur.fromDocs){
+      m.steps[k]=Object.assign({},cur||{},next);changed=true;
+    }
+  });
+  return changed;
+}
+function liftDocSteps(){
+  var n=0;
+  (DB.mats||[]).forEach(function(m){if(syncDocSteps(m))n++;});
+  if(n)touch();
+  return n;
+}
 function liftMirLinks(){
   var n=0;
   (DB.mats||[]).forEach(function(m){
@@ -3373,6 +3422,7 @@ window.linkAdd=function(matId,docId){
     m.docs.push(docId);
   var d=mat(docId);
   var made=mirToDel(m,d);
+  syncDocSteps(m);
   touch();closeSheet();rPane();paintTabs();
   if(made)return toast('Linked '+refOf(d)+' — it is a consignment under Deliveries now; add its quantity there');
   toast('Linked '+(d?d.doc:'the document')+' — it still serves '
@@ -5812,7 +5862,7 @@ function install(){
    once everything already carries a label. */
 function sortOut(){
   try{
-    var n=labelDocuments()+liftVisits()+liftTerminated()+liftMirLinks();
+    var n=labelDocuments()+liftVisits()+liftTerminated()+liftMirLinks()+liftDocSteps();
     if(n){rList();rPane();}
     else paintTabs();
   }catch(e){}
