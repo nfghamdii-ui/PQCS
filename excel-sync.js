@@ -3014,8 +3014,38 @@ function logShow(f,v){
   if(v==null||v==='')return '';
   return f[1]==='date'?(show(v)||String(v)):String(v);
 }
+/* How much of a material's Main Log row the system fills today, and
+   which of the 77 columns are still empty — worked out from the very
+   row the export writes, so the two never disagree. */
+function logFill(m,fresh){
+  var c=tc();c.fill=c.fill||{};
+  if(c.fill[m.id]&&!fresh)return c.fill[m.id];
+  var row=appRow(m),missing=[];
+  COLS.forEach(function(k){var v=row[k];if(v==null||String(v).trim()==='')missing.push(k);});
+  return (c.fill[m.id]={n:COLS.length-missing.length,total:COLS.length,missing:missing});
+}
+/* where in the system an empty column is filled */
+var LOG_WHERE=[
+  [/^(Item Description|Material Category|Discipline|Sub-contractor Name)$/,'the Material group'],
+  [/^(Manufacturer|Country of Origin|PQD |PA Date|PA Document|Assessment Result)/,'the vendor’s page'],
+  [/^MAT /,'Technical submittal, or Aconex'],
+  [/^(ITP )/,'link the ITP, or the ITP step'],
+  [/^(Method Statement Number|MES Revision|MES Status)$/,'link the method statement'],
+  [/^PID /,'Pre-inspection dossier'],
+  [/^Pre-Fabrication/,'Pre-fabrication meeting'],
+  [/^(FAT Package|FAT Planned|FAT\/TPI)/,'FAT / Final inspection'],
+  [/^MIR /,'link the MIR, or record a delivery'],
+  [/^Total Quantity/,'the quantity at the top'],
+  [/^(Delivered|Remaining)/,'record deliveries']
+];
+function logWhere(c){
+  if(LOG_FORM.some(function(g){return g[1].some(function(f){return f[0]===c;});}))return 'Main Log details';
+  var w=LOG_WHERE.filter(function(x){return x[0].test(c);})[0];
+  return w?w[1]:'';
+}
 function logPanel(m){
   var raw=m.raw||{},filled=0,total=0;
+  var fill=logFill(m,true), pct=Math.round(fill.n/fill.total*100);
   var body=LOG_FORM.map(function(g){
     var lines=g[1].map(function(f){
       total++;
@@ -3026,12 +3056,24 @@ function logPanel(m){
     }).join('');
     return lines?('<div style="margin:8px 0 4px;font-weight:600;font-size:13px">'+esc(g[0])+'</div>'+lines):'';
   }).join('');
-  return '<div class="sec">Main Log details</div><div class="panel">'
-    +'<div class="panel-h"><div class="panel-t">'+filled+' of '+total+' filled</div>'
-    +'<button class="btn btn-s no-print" onclick="editLog('+m.id+')">Edit</button></div>'
+  /* the empty columns, each with where it is filled */
+  var miss=fill.missing.map(function(c){
+    var w=logWhere(c);
+    return '<div style="display:flex;gap:12px;padding:3px 0;font-size:13px;border-top:1px solid var(--line)">'
+      +'<span style="flex:0 0 46%">'+esc(c)+'</span><span class="dim">'+esc(w)+'</span></div>';
+  }).join('');
+  return '<div class="sec">Main Log</div><div class="panel">'
+    +'<div class="panel-h"><div style="flex:1;min-width:220px">'
+    +'<div class="panel-t">'+fill.n+' of '+fill.total+' columns filled <span class="dim" style="font-weight:400">· '+pct+'%</span></div>'
+    +'<div style="height:6px;border-radius:3px;background:var(--sunk);margin-top:8px;overflow:hidden">'
+    +'<div style="height:100%;width:'+pct+'%;background:'+(pct>=80?'var(--ok)':pct>=50?'var(--wait)':'var(--now)')+'"></div></div></div>'
+    +'<button class="btn btn-s no-print" onclick="editLog('+m.id+')">Edit Main Log details</button></div>'
     +'<div class="panel-b">'
-    +(body||'<span class="dim">Nothing yet. The package, samples, purchasing, fabrication, delivery '
-      +'and installation columns of the Main Log are filled here.</span>')
+    +(fill.missing.length?('<details><summary style="cursor:pointer;font-weight:600;font-size:13.5px">'
+      +fill.missing.length+' empty column'+(fill.missing.length===1?'':'s')+' — and where each is filled</summary>'
+      +'<div style="margin-top:8px">'+miss+'</div></details>'):'<span class="dim">Every column is filled.</span>')
+    +(body?('<div style="margin-top:14px;font-weight:600;font-size:13.5px">Main Log details '
+      +'<span class="dim" style="font-weight:400">'+filled+' of '+total+'</span></div>'+body):'')
     +'</div></div>';
 }
 window.editLog=function(id){
@@ -4397,6 +4439,9 @@ var TABLES_DEF={
     asTag(col('Waiting on','who',whoOf,'pick',110),function(v){return WHO_TONE[v]||'';}),
     (function(c){c.sort=function(r){var rd=roadOfRow(r);return rd.steps.length?rd.done/rd.steps.length:0;};return c;})(
       asNum(col('Progress','prog',function(r){var rd=roadOfRow(r);return rd.done+' / '+rd.steps.length;},'text',90))),
+    /* how much of its Main Log row is filled: sort on it to find the gaps */
+    (function(c){c.sort=function(r){var f=logFill(r);return f.n/f.total;};return c;})(
+      asNum(col('Main Log','logp',function(r){var f=logFill(r);return Math.round(f.n/f.total*100)+'%';},'text',100))),
     col('Local / Foreign','loc',function(r){var v=companyOfMat(r);return v?(v.locality||''):'';},'pick',120),
     col('Sub-contractor','sub',function(r){return r.sub;},'pick',150),
     col('MAT Number','matno',function(r){return rawOf(r,'MAT Number')||r.ref;},'text',300),
@@ -4412,7 +4457,7 @@ var TABLES_DEF={
     asNum(col('Delivered','got',function(r){return (r.dels||[]).length?String(received(r)):'';},'text',100)),
     asNum(col('Documents','ndoc',function(r){return String((r.docs||[]).length||'');},'text',100)),
     asNum(col('Consignments','ndel',function(r){return String((r.dels||[]).length||'');},'text',110))],
-   show:['name','cat','disc','ven','vst','stage','who','prog','matst','itpst']},
+   show:['name','cat','disc','ven','vst','stage','who','prog','logp','matst','itpst']},
 
  /* The MIR tab is the work still to do, as Documents is: a request
     leaves it once a material links it, and every request, linked or
