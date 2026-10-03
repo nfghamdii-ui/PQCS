@@ -2228,10 +2228,14 @@ function viewFor(m){
   var p=OTHER_PAGES.filter(function(x){return x[1]===m.doc;})[0];
   return p?p[0]:'odoc';
 }
+/* A material's page is drawn from a set narrowed to materials, so its
+   documents are looked up in the whole record set — or a link just
+   made saved, and the page still said nothing was linked. */
 function docsOf(m){
   var ids=(m&&m.docs)||[];
+  var all=MATS_ALL||DB.mats||[];
   return ids.map(function(id){
-    return (DB.mats||[]).filter(function(x){return String(x.id)===String(id);})[0];
+    return all.filter(function(x){return String(x.id)===String(id);})[0];
   }).filter(Boolean);
 }
 /* inspection requests that no material has linked yet */
@@ -3148,7 +3152,7 @@ function paaPanel(p){
       :'<span class="dim">No PAA linked yet. Link the approval Aconex holds for this person.</span>')
     +'</div></div>';
 }
-window.paaPick=function(pid,q){
+window.paaPick=function(pid,q,go){
   var p=insp(pid);if(!p)return;
   var need=K(q||'');
   var all=(DB.mats||[]).filter(function(d){return d.doc==='PAA';});
@@ -3157,6 +3161,7 @@ window.paaPick=function(pid,q){
     if(!need)return !paaOwners(d).length;            /* start with the ones nobody has */
     return K(d.name+' '+refOf(d)).indexOf(need)>=0;
   });
+  if(go&&need&&rows.length===1)return paaLink(pid,rows[0].id);
   sheet('Link a PAA to '+p.name,
      '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'
     +(need?('Searching all '+all.length+' PAA files.')
@@ -3164,7 +3169,7 @@ window.paaPick=function(pid,q){
     +'</div>'
     +'<div class="f" style="margin-bottom:14px"><label for="lk">Search by number or title</label>'
     +'<input id="lk" value="'+attr(q||'')+'" autocomplete="off" '
-    +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();paaPick('+pid+',this.value);}" '
+    +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();paaPick('+pid+',this.value,true);}" '
     +'oninput="searchSoon(function(v){paaPick('+pid+',v);},this.value)">'
     +'<span class="dim" style="font-size:12px">The list follows as you type</span></div>'
     +'<div class="panel"><div class="panel-b">'
@@ -3208,7 +3213,7 @@ window.unlink=function(matId,docId){
 /* a search that redraws a short pause after the last key, not on every one */
 var SEARCH_T=null;
 window.searchSoon=function(fn,v){clearTimeout(SEARCH_T);SEARCH_T=setTimeout(function(){fn(v);},250);};
-window.linkPick=function(matId,q){
+window.linkPick=function(matId,q,go){
   var m=mat(matId);if(!m)return;
   var has={};(m.docs||[]).forEach(function(id){has[String(id)]=1;});
   var need=K(q||'');
@@ -3218,6 +3223,10 @@ window.linkPick=function(matId,q){
     if(!need)return K(d.disc||'')===K(m.disc||'');   /* start with its own trade */
     return K(d.name+' '+refOf(d)+' '+(d.doc||'')).indexOf(need)>=0;
   });
+  /* Enter on a search that leaves one document links it there and then */
+  if(go&&need&&rows.length===1)return linkAdd(matId,rows[0].id);
+  var already=need?all.filter(function(d){
+    return has[String(d.id)]&&K(d.name+' '+refOf(d)+' '+(d.doc||'')).indexOf(need)>=0;}):[];
   sheet('Link a document to '+m.name,
      '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'
     +(need?('Searching all '+all.length+' documents.')
@@ -3227,9 +3236,10 @@ window.linkPick=function(matId,q){
     +'</div>'
     +'<div class="f" style="margin-bottom:14px"><label for="lk">Search by number, title or kind</label>'
     +'<input id="lk" value="'+attr(q||'')+'" autocomplete="off" '
-    +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();linkPick('+matId+',this.value);}" '
+    +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();linkPick('+matId+',this.value,true);}" '
     +'oninput="searchSoon(function(v){linkPick('+matId+',v);},this.value)">'
-    +'<span class="dim" style="font-size:12px">The list follows as you type</span></div>'
+    +'<span class="dim" style="font-size:12px">The list follows as you type. Press a document to link it — '
+    +'or Enter, when the search leaves only one.</span></div>'
     +'<div class="panel"><div class="panel-b">'
     +(rows.length?rows.slice(0,60).map(function(d){
         return '<div class="line row-a" onclick="linkAdd('+matId+','+d.id+')">'
@@ -3239,7 +3249,10 @@ window.linkPick=function(matId,q){
           +'</div>';}).join('')
         +(rows.length>60?('<div class="dim" style="font-size:13px;padding-top:10px">and '
           +(rows.length-60)+' more — narrow the search</div>'):'')
-      :'<span class="dim">Nothing matches.</span>')
+      :(already.length
+        ?'<span class="dim">Already linked to this material: <b>'+esc(already.map(function(d){return refOf(d)||d.name;}).join(', '))+'</b>.</span>'
+        :'<span class="dim">Not in the tracker. If it is in Aconex, upload the latest register '
+         +'(More → Upload the register) and it comes in; then link it here.</span>'))
     +'</div></div>');
   var f=document.getElementById('lk');
   if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
