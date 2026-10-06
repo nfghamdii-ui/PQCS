@@ -7082,5 +7082,335 @@ window.stepDocs=function(m,k){
       date:raw[kind+' Submittal Date']||d.acxDate||''};
   });
 };
+/* ---------------------------------------------------------------
+   THE DASHBOARD — the Today page. What the procedure asks of every
+   material and vendor, read off the records: where the work stands,
+   what breaks a clause, what is late, what is coming. Nothing on it
+   is typed; every number opens the records behind it.
+   --------------------------------------------------------------- */
+var DASH_SHOW={};
+function dIso(v){return /^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?String(v):'';}
+function dGap(a,b){return Math.round((new Date(b)-new Date(a))/864e5);}
+function dBar(parts){
+  var t=parts.reduce(function(a,p){return a+p[0];},0);
+  if(!t)return '<div class="d-bar"></div>';
+  return '<div class="d-bar">'+parts.filter(function(p){return p[0];}).map(function(p){
+    return '<i style="width:'+(p[0]/t*100)+'%;background:'+p[1]+'" title="'+attr(p[2]+': '+p[0])+'"></i>';}).join('')+'</div>';
+}
+function dKey(parts){
+  return '<div class="d-key">'+parts.filter(function(p){return p[0];}).map(function(p){
+    return '<span><i style="background:'+p[1]+'"></i>'+esc(p[2])+' <b>'+p[0]+'</b></span>';}).join('')+'</div>';
+}
+function dKpi(v,label,sub,parts,go,tone){
+  return '<div class="d-kpi'+(go?' row-a':'')+(tone?' d-'+tone:'')+'"'+(go?(' onclick="'+go+'"'):'')+'>'
+    +'<div class="d-kl">'+esc(label)+'</div><div class="d-kv">'+v+'</div>'
+    +(parts?dBar(parts):'')+'<div class="d-ks">'+sub+'</div></div>';
+}
+function dPanel(title,note,body,extra){
+  return '<section class="d-panel"><div class="d-ph"><span class="d-pt">'+esc(title)+'</span>'
+    +(note?'<span class="d-pn">'+note+'</span>':'')+'<span style="flex:1"></span>'+(extra||'')+'</div>'+body+'</section>';
+}
+var C_OK='var(--ok)',C_WAIT='var(--wait)',C_BAD='var(--bad)',C_NOW='var(--now)',C_NONE='var(--line-2)';
+
+/* the procedure's clauses, checked against every record */
+function dashChecks(mats,roads){
+  var out=[];
+  function rule(cl,t,why,tone,items){out.push({cl:cl,t:t,why:why,tone:tone,items:items});}
+  function it(m,note,tab){return {id:m.id,name:m.name,note:note,tab:tab||'mat'};}
+  var approved={};(DB.people||[]).forEach(function(p){if(p.name&&(p.status||'Pending')==='Approved')approved[key(p.name)]=1;});
+  var hi=function(m){return /^C[123]$/.test(m.cat||'');};
+  var c23=function(m){return m.cat==='C2'||m.cat==='C3';};
+  function state(m,k){var x=roads[m.id].steps.filter(function(y){return y.s.k===k;})[0];return x?x.state:'';}
+  function poOf(m){var r=m.raw||{};
+    return dIso(r['PO Date'])||(r['Purchase Order Issued (Yes/No)']==='Yes'||trim(r['PO Number'])?'yes':'');}
+  var fatOf=function(m){
+    var d=(m.visits||[]).filter(function(v){return v.step==='fat'&&v.date;}).map(function(v){return v.date;}).sort()[0];
+    return d||dIso(stepOf(m,'fat','date'));};
+
+  rule('2.1.4 · 2.2.2','Purchase order before the technical submittal was approved',
+    'Material technical approval is secured before any purchase order.','bad',
+    mats.filter(function(m){return poOf(m)&&state(m,'mts')!=='done';}).map(function(m){
+      return it(m,'PO '+(poOf(m)==='yes'?'issued':show(poOf(m)))+' — submittal '+(stepOf(m,'mts','status')||'not submitted').toLowerCase());}));
+  rule('2.1.5','Purchase order before the vendor was approved',
+    'Category 1–3 materials need the manufacturer approved before the PO.','bad',
+    mats.filter(function(m){if(!hi(m)||!poOf(m))return false;var v=mfrOf(m);return !v||!mfrState(v).ok;}).map(function(m){
+      var v=mfrOf(m);return it(m,v?(v.name+' — '+mfrState(v).word):'no vendor named');}));
+  var isoL=[];
+  (DB.mfrs||[]).forEach(function(v){
+    if(!needsQual(v)||!matsOf(v).length)return;
+    var d=((v.steps||{}).iso||{}).date;if(!d)return;var n=daysTo(d);
+    if(n<=60)isoL.push({id:v.id,name:v.name,tab:'mfr',note:n<0?('expired '+show(d)):('expires in '+n+' days — '+show(d))});
+  });
+  rule('2.1.8','ISO 9001 expired or expiring within 60 days','Vendors supplying the project keep a live quality system.','now',isoL);
+  var paL=[];
+  (DB.mfrs||[]).forEach(function(v){
+    if(!/^C[123]$/.test(v.cat||'')||!roadFor(v).some(function(s){return s.k==='pa';}))return;
+    var pa=(v.steps||{}).pa||{}, st=pa.status||'';
+    if(st==='Waived'&&v.cat==='C3')paL.push({id:v.id,name:v.name,tab:'mfr',note:'waived on a C3 vendor — allowed for C1 and C2 only'});
+    else if(!/Passed|Waived/.test(st))paL.push({id:v.id,name:v.name,tab:'mfr',
+      note:(st?st.toLowerCase():'not recorded')+((v.logf||{})['PA Tentative Date']?(' — tentative '+show(v.logf['PA Tentative Date'])):'')});
+  });
+  rule('2.1.9','Vendor without a physical assessment','A survey by a lead auditor and a technical expert for categories 1–3.','now',paL);
+  rule('2.2.10','Category 3 inspected without an approved ITP','The vendor ITP is approved before fabrication is inspected.','bad',
+    mats.filter(function(m){return m.cat==='C3'&&((m.visits||[]).length||fatOf(m))&&state(m,'itp')!=='done';})
+      .map(function(m){return it(m,'ITP '+(stepOf(m,'itp','status')||'not submitted').toLowerCase());}));
+  rule('2.2.15','Pre-inspection dossier too late','Due 21 days before the pre-fabrication meeting and 14 days before the final inspection.','now',
+    mats.filter(c23).map(function(m){
+      var pid=dIso(stepOf(m,'pid','date')), pfm=dIso(stepOf(m,'pfm','date')), fat=fatOf(m), why='';
+      if(pfm&&(!pid||dGap(pid,pfm)<21))why=pid?('submitted '+dGap(pid,pfm)+' days before the meeting'):'meeting '+show(pfm)+' with no dossier';
+      else if(fat&&(!pid||dGap(pid,fat)<14))why=pid?('submitted '+dGap(pid,fat)+' days before the final inspection'):'final inspection '+show(fat)+' with no dossier';
+      return why?it(m,why):null;}).filter(Boolean));
+  var who=[];
+  mats.forEach(function(m){
+    var names={};
+    (m.visits||[]).forEach(function(v){if(v.by)names[v.by]=1;});
+    ['ipi','fat'].forEach(function(k){var b=stepOf(m,k,'by');if(b)names[b]=1;});
+    var bad=Object.keys(names).filter(function(n){return !approved[key(n)];});
+    if(bad.length)who.push(it(m,bad.join(', ')+' — not approved in Personnel Approval'));
+  });
+  (DB.mfrs||[]).forEach(function(v){
+    var pa=(v.steps||{}).pa||{};
+    var bad=[pa.by,pa.by2].filter(function(n){return n&&!approved[key(n)];});
+    if(bad.length)who.push({id:v.id,name:v.name,tab:'mfr',note:bad.join(', ')+' — survey team not approved'});
+  });
+  rule('2.2.17','Inspector not approved','Every inspector is approved by SEVEN/PMC for the discipline.','now',who);
+  var late7=addDays(today(),-7);
+  rule('2.2.19','Inspection report not in after seven days','Visit reports are due within seven calendar days.','bad',
+    mats.map(function(m){
+      var v=(m.visits||[]).filter(function(x){return x.date&&x.date<=late7&&!x.ref&&!/Passed|Failed|Sent/.test(x.result||'');});
+      return v.length?it(m,v.length+' visit'+(v.length===1?'':'s')+' since '+show(v[0].date)+' without a report'):null;
+    }).filter(Boolean));
+  rule('2.2.20','Delivered without an inspection release note','The release note travels with category 2–3 goods.','bad',
+    mats.filter(function(m){return c23(m)&&(m.dels||[]).length&&!stepOf(m,'irn','ref')&&state(m,'irn')!=='done';})
+      .map(function(m){var n=(m.dels||[]).length;return it(m,n+' consignment'+(n===1?'':'s')+' on site, no release note');}));
+  rule('2.2.3','Delivered before the final inspection passed','Category 2–3 is inspected at the factory before shipping.','bad',
+    mats.filter(function(m){return c23(m)&&(m.dels||[]).length&&state(m,'fat')!=='done';})
+      .map(function(m){return it(m,'final inspection '+(stepOf(m,'fat','status')||'not recorded').toLowerCase());}));
+  rule('2.2.21','Post-inspection dossier overdue','Due one week after the last purchase-order quantity is accepted.','bad',
+    mats.filter(function(m){
+      if(!c23(m)||state(m,'post')==='done')return false;
+      var ord=num(m.qty), l=lastAccepted(m);
+      return ord&&l&&received(m)>=ord&&daysTo(addDays(l,7))<0;})
+      .map(function(m){return it(m,'last quantity accepted '+show(lastAccepted(m)));}));
+  rule('2.2.3 · 2.1.5','Category or vendor missing','A material without a category has no road; above C0 it needs a vendor.','now',
+    mats.filter(function(m){return !m.cat||(hi(m)&&!m.mfr);})
+      .map(function(m){return it(m,!m.cat?'no category':'no vendor named');}));
+  rule('2.2.21','Open non-conformances','Every NCR is closed before the closing dossier.','bad',
+    mats.filter(function(m){return openNCR(m);}).map(function(m){return it(m,openNCR(m)+' open');}));
+  return out;
+}
+
+/* a check opens where it is, so the page keeps its place */
+window.dashToggle=function(el,id){
+  var c=el.parentNode, on=!c.classList.contains('d-on');
+  c.classList.toggle('d-on',on);DASH_SHOW[id]=on;
+  var a=el.querySelector('.d-car');if(a)a.textContent=on?'▴':'▾';
+};
+
+function dashPane(){
+  var mats=(DB.mats||[]).filter(function(m){return !isDoc(m);});
+  var roads={};mats.forEach(function(m){roads[m.id]=matRoad(m);});
+  var all=findings(), f=awake(all);
+  var late=f.filter(function(x){return x.tone==='bad';}), mine=f.filter(function(x){return x.tone==='now';});
+
+  /* --- the figures --- */
+  var cat={C0:0,C1:0,C2:0,C3:0,'':0};mats.forEach(function(m){cat[/^C[0-3]$/.test(m.cat||'')?m.cat:'']++;});
+  var mts={ok:0,wait:0,bad:0,none:0};
+  mats.forEach(function(m){var x=roads[m.id].steps.filter(function(y){return y.s.k==='mts';})[0];
+    var s=x?x.state:'open';mts[s==='done'?'ok':s==='bad'?'bad':s==='wait'?'wait':'none']++;});
+  var vq=(DB.mfrs||[]).filter(function(v){return needsQual(v)&&(kindOf(v)!=='agency');});
+  var vs={ok:0,wait:0,bad:0};vq.forEach(function(v){var s=mfrState(v);vs[s.ok?'ok':s.tone==='bad'?'bad':'wait']++;});
+  var from=addDays(today(),-90), vis={ok:0,bad:0,wait:0};
+  mats.forEach(function(m){(m.visits||[]).forEach(function(v){if(!v.date||v.date<from)return;
+    vis[/Passed/.test(v.result||'')?'ok':/Failed/.test(v.result||'')?'bad':'wait']++;});});
+  var dl={ok:0,bad:0,wait:0};
+  mats.forEach(function(m){(m.dels||[]).forEach(function(d){dl[settled(d.status)?'ok':failed(d.status)?'bad':'wait']++;});});
+  var ncr=mats.reduce(function(a,m){return a+openNCR(m);},0);
+  var checks=dashChecks(mats,roads), broken=checks.filter(function(c){return c.items.length;});
+  var hits=broken.reduce(function(a,c){return a+c.items.length;},0);
+
+  var head='<div class="head"><div class="wrap"><div class="head-t">Dashboard</div><div class="head-m">'
+    +(DB.project?('<span class="chip flat">'+esc(DB.project)+'</span>'):'')
+    +'<span class="chip flat">'+new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</span>'
+    +(late.length?'<span class="chip warn">'+late.length+' late</span>':'<span class="chip set">nothing late</span>')
+    +(hits?'<span class="chip warn">'+hits+' against the procedure</span>':'<span class="chip set">procedure clear</span>')
+    +'</div></div></div>';
+
+  var kpi='<div class="d-kpis">'
+    +dKpi(mats.length,'Materials','C0 '+cat.C0+' · C1 '+cat.C1+' · C2 '+cat.C2+' · C3 '+cat.C3+(cat['']?(' · <b>'+cat['']+' none</b>'):''),
+      [[cat.C0,'var(--line-3)','C0'],[cat.C1,C_WAIT,'C1'],[cat.C2,C_NOW,'C2'],[cat.C3,C_BAD,'C3'],[cat[''],C_NONE,'none']],"setTab('mat')")
+    +dKpi(mats.length?Math.round(mts.ok/mats.length*100)+'%':'—','Submittals approved',
+      mts.ok+' approved · '+mts.wait+' in review · '+mts.bad+' returned · '+mts.none+' not sent',
+      [[mts.ok,C_OK,'approved'],[mts.wait,C_WAIT,'in review'],[mts.bad,C_BAD,'returned'],[mts.none,C_NONE,'not sent']],"setTab('mat')")
+    +dKpi(vs.ok+'<small> / '+vq.length+'</small>','Vendors qualified',vs.wait+' in qualification · '+vs.bad+' blocked',
+      [[vs.ok,C_OK,'qualified'],[vs.wait,C_WAIT,'in qualification'],[vs.bad,C_BAD,'blocked']],"setTab('mfr')")
+    +dKpi((vis.ok+vis.bad)?Math.round(vis.ok/(vis.ok+vis.bad)*100)+'%':'—','Factory pass rate · 90 days',
+      vis.ok+' passed · '+vis.bad+' failed · '+vis.wait+' open',[[vis.ok,C_OK,'passed'],[vis.bad,C_BAD,'failed'],[vis.wait,C_WAIT,'open']],"setTab('fat')")
+    +dKpi(dl.ok+dl.bad+dl.wait,'Consignments',dl.ok+' accepted · '+dl.bad+' rejected · '+dl.wait+' pending',
+      [[dl.ok,C_OK,'accepted'],[dl.bad,C_BAD,'rejected'],[dl.wait,C_WAIT,'pending']],"setTab('mir')")
+    +dKpi(late.length,'Late',mine.length+' waiting on you · '+ncr+' open NCR',null,late.length?"showBucket('now')":'',late.length?'hot':'')
+    +'</div>';
+
+  /* --- what to do, and what is coming --- */
+  var act=late.concat(mine).slice(0,8);
+  var todo=dPanel('Deal with these first',(late.length+mine.length)?(late.length+mine.length)+' in all':'',
+    act.length?act.map(feedRow).join(''):'<div class="d-empty">Nothing is late and nothing is waiting on you.</div>',
+    (late.length+mine.length>8)?'<button class="btn-q" onclick="showDue()">See all</button>':'');
+  var t0=today(), up=calItems(t0,addDays(t0,13)).filter(function(x){return !/^a/.test(x.c||'');})
+    .sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0;});
+  var lastD='', ahead=up.slice(0,14).map(function(x){
+    var dh='';
+    if(x.d!==lastD){lastD=x.d;var n=daysTo(x.d);
+      dh='<div class="d-day">'+(n===0?'Today':n===1?'Tomorrow':new Date(x.d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short'}))+'</div>';}
+    return dh+'<div class="d-up'+((x.go||x.own)?' row-a':'')+'"'
+      +(x.own?(' onclick="editEvent('+x.id+')"'):(x.go?(' onclick="'+attr(x.go)+'"'):''))+'>'
+      +'<span class="tag t-'+(x.k||'na')+'">'+esc(x.own?'Event':(x.kind||'—'))+'</span>'
+      +'<span class="d-upt">'+esc(x.own?x.t:(x.name||x.t))+'</span>'
+      +(x.st?'<span class="d-ups">'+esc(x.st)+'</span>':'')+'</div>';
+  }).join('');
+  var next=dPanel('The next 14 days',up.length?up.length+' planned':'',
+    ahead||'<div class="d-empty">Nothing planned for the next two weeks.</div>',
+    '<button class="btn-q" onclick="setTab(\'cal\')">Calendar</button>');
+
+  /* --- the procedure --- */
+  checks.sort(function(a,b){return (b.items.length?1:0)-(a.items.length?1:0)||(a.tone==='bad'?-1:1)-(b.tone==='bad'?-1:1);});
+  var proc=dPanel('Compliance with the procedure','0DMQL00-DLVR-00-SEV-QM-PRO-00015 · '+broken.length+' of '+checks.length+' checks open',
+    '<div class="d-checks">'+checks.map(function(c,i){
+      var n=c.items.length, id=c.cl+c.t, open=DASH_SHOW[id];
+      return '<div class="d-chk'+(n?'':' d-clear')+(open?' d-on':'')+'">'
+        +'<div class="d-ch'+(n?' row-a':'')+'"'+(n?(' onclick="dashToggle(this,'+jsq(id)+')"'):'')+'>'
+        +'<span class="d-dot" style="background:'+(n?(c.tone==='bad'?C_BAD:C_NOW):C_OK)+'"></span>'
+        +'<span class="d-cl mono">'+esc(c.cl)+'</span>'
+        +'<span class="d-ct">'+esc(c.t)+'<span class="d-cw">'+esc(c.why)+'</span></span>'
+        +(n?'<span class="tag t-'+(c.tone==='bad'?'bad':'now')+'">'+n+'</span><span class="d-car">'+(open?'▴':'▾')+'</span>'
+           :'<span class="tag t-ok">clear</span>')+'</div>'
+        +(n?'<div class="d-items">'+c.items.slice(0,60).map(function(x){
+            return '<div class="d-item row-a" onclick="jump(\''+x.tab+'\','+x.id+')"><span class="d-in">'+esc(x.name)+'</span>'
+              +'<span class="d-is">'+esc(x.note)+'</span></div>';}).join('')
+            +(n>60?'<div class="d-is" style="padding:8px 12px">and '+(n-60)+' more</div>':'')+'</div>':'')
+        +'</div>';
+    }).join('')+'</div>');
+
+  /* --- the road, step by step --- */
+  var pipe=MAT_ROAD.map(function(s){
+    var c={done:0,wait:0,bad:0,open:0}, on=0;
+    mats.forEach(function(m){var x=roads[m.id].steps.filter(function(y){return y.s.k===s.k;})[0];if(!x)return;on++;c[x.state]=(c[x.state]||0)+1;});
+    if(!on)return '';
+    var parts=[[c.done,C_OK,'done'],[c.wait,C_WAIT,'in progress'],[c.bad,C_BAD,'returned'],[c.open||0,C_NONE,'not started']];
+    return '<div class="d-pipe row-a" onclick="setTab(\'mat\')"><div class="d-pl"><b>'+esc(s.n)+'</b><span class="mono">'+esc(s.clause)+' · '+esc(s.cats.split('').map(function(x){return 'C'+x;}).join(' '))+'</span></div>'
+      +'<div class="d-pb">'+dBar(parts)+'</div>'
+      +'<div class="d-pv"><b>'+Math.round(c.done/on*100)+'%</b> '+c.done+'/'+on+(c.bad?' · <span style="color:var(--bad)">'+c.bad+' returned</span>':'')+'</div></div>';
+  }).join('');
+  var road=dPanel('The road, step by step','share of materials that cleared each step',
+    '<div class="d-pipes">'+pipe+'</div>'+dKey([[1,C_OK,'done'],[1,C_WAIT,'in progress'],[1,C_BAD,'returned'],[1,C_NONE,'not started']]).replace(/ <b>1<\/b>/g,''));
+
+  /* --- by discipline --- */
+  var disc={};
+  mats.forEach(function(m){
+    var d=twDisc('',m.disc)||'—', r=roads[m.id], o=disc[d]=disc[d]||{n:0,hi:0,mts:0,ven:0,venN:0,del:0,bad:0};
+    o.n++;if(m.cat==='C2'||m.cat==='C3')o.hi++;
+    if(r.steps.some(function(x){return x.s.k==='mts'&&x.state==='done';}))o.mts++;
+    if(/^C[123]$/.test(m.cat||'')){o.venN++;var v=mfrOf(m);if(v&&mfrState(v).ok)o.ven++;}
+    if((m.dels||[]).length)o.del++;
+    if(r.steps.some(function(x){return x.state==='bad';}))o.bad++;
+  });
+  function cell(a,b){var p=b?Math.round(a/b*100):0;
+    return '<td>'+(b?'<div class="d-mini"><i style="width:'+p+'%"></i></div><span>'+p+'%</span>':'<span class="dim">—</span>')+'</td>';}
+  var dtab='<div class="d-tw"><table class="d-t"><thead><tr><th>Discipline</th><th>Materials</th><th>C2 / C3</th><th>Submittal approved</th><th>Vendor qualified</th><th>Delivered</th><th>Blocked</th></tr></thead><tbody>'
+    +Object.keys(disc).sort(function(a,b){return disc[b].n-disc[a].n;}).map(function(k){var o=disc[k];
+      return '<tr><td><b>'+esc(k)+'</b></td><td class="mono">'+o.n+'</td><td class="mono">'+o.hi+'</td>'
+        +cell(o.mts,o.n)+cell(o.ven,o.venN)+cell(o.del,o.n)
+        +'<td class="mono"'+(o.bad?' style="color:var(--bad);font-weight:600"':'')+'>'+o.bad+'</td></tr>';}).join('')
+    +'</tbody></table></div>';
+  var discP=dPanel('By discipline','',mats.length?dtab:'<div class="d-empty">No materials yet.</div>');
+
+  /* --- vendors holding the most up --- */
+  var hold=vq.map(function(v){var s=mfrState(v);if(s.ok)return null;
+      var n=matsOf(v).filter(function(m){return /^C[123]$/.test(m.cat||'');}).length;
+      return n?{v:v,s:s,n:n}:null;}).filter(Boolean).sort(function(a,b){return b.n-a.n;}).slice(0,8);
+  var venP=dPanel('Vendors holding up the most','not yet qualified, by the materials waiting on them',
+    hold.length?hold.map(function(h){
+      return '<div class="d-item row-a" onclick="jump(\'mfr\','+h.v.id+')"><span class="d-in">'+esc(h.v.name)
+        +' <span class="tag t-'+(h.s.tone==='bad'?'bad':'wait')+'">'+esc(h.s.word)+'</span></span>'
+        +'<span class="d-is">'+esc(h.s.short[0]||'')+'</span><span class="d-n mono">'+h.n+'</span></div>';}).join('')
+    :'<div class="d-empty">Every vendor with materials above C0 is qualified.</div>');
+
+  /* --- inspections on site, from Aconex --- */
+  var mir={ok:0,bad:0,wait:0,n:0};
+  (MATS_ALL||DB.mats||[]).forEach(function(m){if(m.doc!=='MIR')return;mir.n++;
+    var t=statusTone(rawEnd(m,'Status'));mir[t==='ok'?'ok':t==='bad'?'bad':'wait']++;});
+  var mirP=dPanel('Material inspection requests','all in Aconex',
+    '<div class="d-big"><b>'+(mir.ok+mir.bad?Math.round(mir.ok/(mir.ok+mir.bad)*100)+'%':'—')+'</b> of the decided requests approved</div>'
+    +dBar([[mir.ok,C_OK,'approved'],[mir.bad,C_BAD,'rejected / resubmit'],[mir.wait,C_WAIT,'open']])
+    +dKey([[mir.ok,C_OK,'approved'],[mir.bad,C_BAD,'rejected / resubmit'],[mir.wait,C_WAIT,'open']]),
+    '<button class="btn-q" onclick="setTab(\'allmir\')">All MIR</button>');
+
+  var body=kpi
+    +'<div class="d-two">'+todo+next+'</div>'
+    +proc+road
+    +'<div class="d-two">'+discP+'<div>'+venP+mirP+'</div></div>';
+  dashCSS();
+  return head+'<div class="body"><div class="wrap d-wrap">'+body+'</div></div>';
+}
+function dashCSS(){
+  if(document.getElementById('dash-css'))return;
+  var s=document.createElement('style');s.id='dash-css';
+  s.textContent=
+   '.d-wrap{max-width:1280px}'
+  +'.d-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px}'
+  +'.d-kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 16px;box-shadow:var(--sh)}'
+  +'.d-kpi.row-a{cursor:pointer}.d-kpi.row-a:hover{box-shadow:var(--sh-md)}'
+  +'.d-kpi.d-hot{border-color:var(--bad);background:var(--bad-b)}'
+  +'.d-kl{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;font-weight:600}'
+  +'.d-kv{font-size:30px;font-weight:650;line-height:1.15;margin:4px 0 8px;font-variant-numeric:tabular-nums}'
+  +'.d-kv small{font-size:16px;color:var(--ink-4);font-weight:500}'
+  +'.d-ks{font-size:12px;color:var(--ink-3);margin-top:7px;line-height:1.4}'
+  +'.d-bar{display:flex;height:8px;border-radius:5px;overflow:hidden;background:var(--sunk);gap:1px}'
+  +'.d-bar i{display:block;height:100%}'
+  +'.d-key{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:12px;color:var(--ink-3)}'
+  +'.d-key span{display:flex;align-items:center;gap:6px}.d-key i{width:10px;height:10px;border-radius:3px;display:inline-block}'
+  +'.d-two{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}'
+  +'@media(max-width:980px){.d-two{grid-template-columns:1fr}}'
+  +'.d-panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px;margin-bottom:16px;box-shadow:var(--sh)}'
+  +'.d-ph{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap}'
+  +'.d-pt{font-size:15px;font-weight:650}.d-pn{font-size:12px;color:var(--ink-4)}'
+  +'.d-empty{color:var(--ink-3);font-size:13.5px;padding:18px 0;text-align:center}'
+  +'.d-day{font-size:11.5px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 4px}'
+  +'.d-day:first-child{margin-top:0}'
+  +'.d-up{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px}'
+  +'.d-up.row-a{cursor:pointer}.d-up.row-a:hover,.d-item.row-a:hover,.d-ch.row-a:hover,.d-pipe.row-a:hover{background:var(--hover)}'
+  +'.d-up .tag{min-width:58px;text-align:center;flex-shrink:0}'
+  +'.d-upt{flex:1;min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+  +'.d-ups{font-size:12px;color:var(--ink-3);flex-shrink:0}'
+  +'.d-checks{border-top:1px solid var(--line)}'
+  +'.d-chk{border-bottom:1px solid var(--line)}'
+  +'.d-ch{display:flex;align-items:center;gap:12px;padding:10px 8px}.d-ch.row-a{cursor:pointer}'
+  +'.d-clear .d-ct{color:var(--ink-3)}'
+  +'.d-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}'
+  +'.d-cl{font-size:11.5px;color:var(--ink-3);min-width:96px;flex-shrink:0}'
+  +'.d-ct{flex:1;min-width:0;font-size:14px;font-weight:550}'
+  +'.d-cw{display:block;font-size:12px;font-weight:400;color:var(--ink-4);margin-top:1px}'
+  +'.d-car{color:var(--ink-4);width:12px}'
+  +'.d-items{padding:0 0 10px 30px;display:none}.d-on .d-items{display:block}'
+  +'.d-item{display:flex;align-items:center;gap:12px;padding:7px 12px;border-radius:7px}.d-item.row-a{cursor:pointer}'
+  +'.d-in{font-size:13.5px;flex:0 1 45%;min-width:0}'
+  +'.d-is{font-size:12.5px;color:var(--ink-3);flex:1;min-width:0}'
+  +'.d-n{font-weight:600;font-size:13px}'
+  +'.d-pipe{display:grid;grid-template-columns:minmax(180px,260px) 1fr 150px;gap:16px;align-items:center;padding:8px;border-radius:7px;cursor:pointer}'
+  +'.d-pl b{display:block;font-size:13.5px;font-weight:550}.d-pl span{font-size:11px;color:var(--ink-4)}'
+  +'.d-pipe .d-bar{height:12px}'
+  +'.d-pv{font-size:12.5px;color:var(--ink-3);text-align:right}.d-pv b{color:var(--ink);font-size:14px}'
+  +'@media(max-width:700px){.d-pipe{grid-template-columns:1fr}.d-pv{text-align:left}.d-cl{display:none}}'
+  +'.d-tw{overflow-x:auto}'
+  +'.d-t{width:100%;border-collapse:collapse;font-size:13px}'
+  +'.d-t th{text-align:left;font-size:11.5px;color:var(--ink-3);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}'
+  +'.d-t td{padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}'
+  +'.d-t td span{font-size:12px;color:var(--ink-3);margin-left:6px}'
+  +'.d-mini{display:inline-block;width:60px;height:6px;border-radius:4px;background:var(--sunk);overflow:hidden;vertical-align:middle}'
+  +'.d-mini i{display:block;height:100%;background:var(--ok)}'
+  +'.d-big{font-size:13px;color:var(--ink-3);margin-bottom:10px}.d-big b{font-size:26px;color:var(--ink);margin-right:6px}';
+  document.head.appendChild(s);
+}
+window.homePane=dashPane;
 window.EXCEL={cols:COLS,inspectorRows:inspectorRows,readInspectorSheet:readInspectorSheet,planInspectors:planInspectors,applyInspectors:applyInspectors,vendorRows:vendorRows,readVendorSheet:readVendorSheet,planVendors:planVendors,applyVendors:applyVendors,generalRows:generalRows,looseRows:looseRows,vendorRows:vendorRows,isDoc:isDoc,docsOf:docsOf,servedBy:servedBy,labelDocuments:labelDocuments,createFromRegister:createFromRegister,pending:pending,read:readMainLog,openBook:openBook,readRegister:readRegister,planRegister:planRegister,applyRegister:applyRegister,plan:planFrom,apply:applyPlan,rows:generalRows,summary:summaryRows,book:workbook};
 })();
