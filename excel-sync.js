@@ -4440,6 +4440,13 @@ function twItems(t0,end){
       if(c.date)put('10',m.name+(c.ref?' — '+c.ref:''),code,[c.date]);
     });
   });
+  /* and every inspection request from Aconex not linked to a material
+     yet, by its own title and number, on the day it went in */
+  (DB.mats||[]).forEach(function(d){
+    if(d.doc!=='MIR'||isLinked(d))return;
+    var no=refOf(d);
+    put('10',d.name+(no?' — '+no:''),twDisc(no,d.disc),[acxDateOf(d)]);
+  });
   return sec;
 }
 function twlasBook(){
