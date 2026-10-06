@@ -2113,22 +2113,24 @@ window.acxCal=function(put){
   /* a vendor's tentative physical assessment, on its day */
   (DB.mfrs||[]).forEach(function(v){
     var t=(v.logf||{})['PA Tentative Date'];
-    if(t)put(t,'PA (tentative) \u00b7 '+v.name,'wait',"jump('mfr',"+v.id+")",{c:'visit'});
+    if(t)put(t,'PA (tentative) \u00b7 '+v.name,'wait',"jump('mfr',"+v.id+")",{c:'visit',kind:'PA',name:v.name,st:'Tentative'});
   });
   (DB.mats||[]).forEach(function(m){
     var on=acxDateOf(m);if(!on)return;
+    /* a request linked to a material shows there, as its consignment */
+    if(m.doc==='MIR'&&isLinked(m))return;
     var mat=!isDoc(m);
     var st=mat?(stepOf(m,'mts','status')||(m.raw||{})['MAT Status']||''):rawEnd(m,'Status');
     /* the number from its kind code on (MAT-00010), which says the kind too */
     var no=refOf(m).replace(/^.*?-(?=[A-Z]{3}-)/,'');
     put(on,(no||(mat?'MAT':m.doc))+' \u00b7 '+m.name
       +(st?(' \u00b7 '+st):''),statusTone(st)||'na',"jump('mat',"+m.id+")",
-      {c:mat?'amat':m.doc==='MIR'?'amir':'adoc'});
+      {c:mat?'amat':m.doc==='MIR'?'amir':'adoc',kind:mat?'MAT':m.doc,name:m.name,no:refOf(m),st:st});
   });
   (DB.mfrs||[]).forEach(function(v){
     var pq=pqOf(v);if(!pq.date)return;
     put(pq.date,'PQD \u00b7 '+v.name+(pq.status?(' \u00b7 '+pq.status):''),statusTone(pq.status)||'na',
-      "jump('mfr',"+v.id+")",{c:'apqd'});
+      "jump('mfr',"+v.id+")",{c:'apqd',kind:'PQD',name:v.name,no:pq.ref||'',st:pq.status||''});
   });
 };
 

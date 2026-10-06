@@ -175,6 +175,16 @@ svg{display:block}
 .pr-v{font-size:13.5px;color:var(--ink);font-weight:500;word-break:break-word}
 .pr-v.mono{font-family:var(--mono);font-size:12.5px;font-weight:400}
 /* the material page's side index */
+.dg-h{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);margin:14px 0 6px;display:flex;gap:6px}
+.dg-h:first-child{margin-top:0}
+.dg-h span{color:var(--ink-4);font-family:var(--mono)}
+.dg-row{display:flex;align-items:center;gap:12px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;margin-bottom:6px;background:var(--card)}
+.dg-row.row-a{cursor:pointer}.dg-row.row-a:hover{background:var(--hover)}
+.dg-row .tag{min-width:64px;text-align:center;flex-shrink:0}
+.dg-m{flex:1;min-width:0}
+.dg-n{font-size:14px;line-height:1.35}
+.dg-s{font-size:12.5px;color:var(--ink-3);margin-top:2px}
+.dg-s .mono{font-size:12px}
 .mat-wrap{display:grid;grid-template-columns:230px minmax(0,1fr);gap:22px;align-items:start}
 .mat-nav{position:sticky;top:0;display:flex;flex-direction:column;gap:1px;padding:10px 6px;background:var(--card);
   border:1px solid var(--line);border-radius:var(--r-lg);max-height:calc(100vh - 220px);overflow-y:auto}
@@ -2033,22 +2043,22 @@ function calItems(from,to){
      narrowed to the kinds wanted */
   (DB.mfrs||[]).forEach(function(v){
     var st=v.steps||{}, go="jump('mfr',"+v.id+")";
-    if(st.pa&&st.pa.date&&st.pa.status==='Scheduled')put(st.pa.date,'Survey · '+v.name,'wait',go,{c:'visit'});
+    if(st.pa&&st.pa.date&&st.pa.status==='Scheduled')put(st.pa.date,'Survey · '+v.name,'wait',go,{c:'visit',kind:'Survey',name:v.name,st:'Scheduled'});
     if(st.iso&&st.iso.date)put(st.iso.date,'ISO expires · '+v.name,'bad',go,{c:'exp'});
     if(st.scope&&st.scope.date)put(st.scope.date,'Accreditation expires · '+v.name,'bad',go,{c:'exp'});
   });
   (DB.mats||[]).forEach(function(m){
     var st=m.steps||{}, go="jump('mat',"+m.id+")";
-    if(st.pfm&&st.pfm.date&&st.pfm.status!=='Approved')put(st.pfm.date,'Pre-fab meeting · '+m.name,'na',go,{c:'visit'});
-    if(st.fat&&st.fat.date)put(st.fat.date,(st.fat.status==='Scheduled'?'FAT · ':'FAT held · ')+m.name,'wait',go,{c:'visit'});
-    if(st.ipi&&st.ipi.date)put(st.ipi.date,'In-process visit · '+m.name,'wait',go,{c:'visit'});
+    if(st.pfm&&st.pfm.date&&st.pfm.status!=='Approved')put(st.pfm.date,'Pre-fab meeting · '+m.name,'na',go,{c:'visit',kind:'Pre-fab',name:m.name,st:st.pfm.status||''});
+    if(st.fat&&st.fat.date)put(st.fat.date,(st.fat.status==='Scheduled'?'FAT · ':'FAT held · ')+m.name,'wait',go,{c:'visit',kind:'FAT',name:m.name,st:st.fat.status||'',no:st.fat.ref||''});
+    if(st.ipi&&st.ipi.date)put(st.ipi.date,'In-process visit · '+m.name,'wait',go,{c:'visit',kind:'IPI',name:m.name,st:st.ipi.status||'',no:st.ipi.ref||''});
     matRoad(m).steps.forEach(function(x){
       var due=x.s.due?x.s.due(m,x.data):null;
-      if(due&&!due.soft)put(due.on,x.s.n+' due · '+m.name,daysTo(due.on)<0?'bad':'now',go,{c:'due'});
+      if(due&&!due.soft)put(due.on,x.s.n+' due · '+m.name,daysTo(due.on)<0?'bad':'now',go,{c:'due',kind:'Due',name:m.name,st:x.s.n+' — '+due.t});
     });
-    (m.dels||[]).forEach(function(d){
+    if(!m.doc)(m.dels||[]).forEach(function(d){
       if(d.date)put(d.date,(d.status==='Pending'?'Inspect delivery · ':'Delivered · ')+m.name,
-        d.status==='Pending'?'now':'ok',go,{c:'del'});
+        d.status==='Pending'?'now':'ok',go,{c:'del',kind:'MIR',name:m.name,no:d.ref||'',st:d.status||'Pending'});
     });
   });
   /* what the Aconex register brought in, on the day it went in */
@@ -2172,17 +2182,27 @@ window.calToday=function(){CAL=new Date();CAL.setDate(1);rPane();};
 window.daySheet=function(ds){
   var ev=calItems(ds,ds);
   var dt=new Date(ds);
+  /* by kind, in the order the switches above the month run, each with
+     its count; a line says what it is, whose, its number and outcome */
+  var order=CAL_KINDS.map(function(k){return k[0];});
+  var groups={};ev.forEach(function(x){(groups[x.c]=groups[x.c]||[]).push(x);});
+  var body=order.filter(function(c){return groups[c];}).map(function(c){
+    var lab=(CAL_KINDS.filter(function(k){return k[0]===c;})[0]||['',''])[1];
+    return '<div class="dg-h">'+esc(lab)+' <span>'+groups[c].length+'</span></div>'
+      +groups[c].map(function(x){
+        var name=x.own?x.t:(x.name||x.t);
+        var sub=x.own?[evKind((evOf(x.id)||{}).type).l,(x.ends&&x.ends!==x.d?('until '+show(x.ends)):''),(x.rep?'repeats':'')]
+          :[x.no?'<span class="mono">'+esc(x.no)+'</span>':'',x.st?esc(x.st):''];
+        sub=sub.filter(Boolean);
+        return '<div class="dg-row'+((x.go||x.own)?' row-a':'')+'"'
+          +(x.own?(' onclick="editEvent('+x.id+')"'):(x.go?(' onclick="closeSheet();'+x.go+'"'):''))+'>'
+          +'<span class="tag t-'+x.k+'">'+esc(x.own?'Event':(x.kind||lab.replace(/^Aconex /,'').split(/[ ,]/)[0]))+'</span>'
+          +'<div class="dg-m"><div class="dg-n">'+esc(name)+'</div>'
+          +(sub.length?'<div class="dg-s">'+(x.own?esc(sub.join(' · ')):sub.join(' · '))+'</div>':'')+'</div></div>';
+      }).join('');
+  }).join('');
   sheet(dt.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}),
-     (ev.length
-       ? ev.map(function(x){
-           var extra=x.own?(x.ends&&x.ends!==x.d?('until '+show(x.ends)):'')+(x.rep?' \u00b7 repeats':''):'from your records';
-           return '<div class="row'+((x.go||x.own)?' row-a':'')+'"'
-             +(x.own?(' onclick="editEvent('+x.id+')"'):(x.go?(' onclick="closeSheet();'+x.go+'"'):''))+'>'
-             +'<span class="tag t-'+x.k+'" style="min-width:104px;text-align:center;flex-shrink:0">'
-               +esc(x.own?evKind((evOf(x.id)||{}).type).l:'from a step')+'</span>'
-             +'<div style="flex:1;min-width:0"><div>'+esc(x.t)+'</div>'
-             +(extra?'<div class="dim" style="font-size:13px;margin-top:2px">'+esc(extra)+'</div>':'')+'</div></div>';
-         }).join('')
+     (ev.length?body
        : '<div class="dim" style="padding:22px 0;text-align:center">Nothing on this day.</div>')
     +'<div class="f-act" style="margin-top:18px"><button class="btn btn-p" onclick="editEvent(null,\''+ds+'\')">Add an event here</button>'
     +'</div>');
