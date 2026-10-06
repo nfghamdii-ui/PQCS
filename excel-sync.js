@@ -2043,7 +2043,7 @@ function createFromRegister(p,tag,opts){
          number sitting in a field nothing reads. */
       var slot=(v.kind==='agency')?'appr':'pqd';
       if(!(v.steps[slot]&&v.steps[slot].ref)){
-        v.steps[slot]={ref:d.no,date:d.date||'',
+        v.steps[slot]={ref:d.no,date:d.date||'',rev:d.rev||'',
           status:d.want==='Approved as Noted'?'Approved with comments':(d.want||'Pending')};
       }else if(K(v.steps[slot].ref)!==K(d.no)){
         /* the same company qualified twice. The page holds one
@@ -2080,8 +2080,19 @@ function createFromRegister(p,tag,opts){
 function stampDates(rows){
   var idx=refIndex(),n=0;
   rows.forEach(function(d){
-    if(!d.date)return;
+    if(!d.date&&!d.rev)return;
     (idx[K(d.no)]||[]).forEach(function(h){
+      /* a vendor's pre-qualification keeps its revision and the date of
+         that revision, so a resubmission can be told from a first one */
+      if(h.v&&!h.second){
+        var pq=(h.v.steps||{})[(h.v.kind==='agency')?'appr':'pqd'];
+        if(pq&&K(pq.ref)===K(d.no)){
+          if(d.rev&&pq.rev!==d.rev){pq.rev=d.rev;n++;}
+          if(d.date&&pq.date!==d.date){pq.date=d.date;n++;}
+        }
+        return;
+      }
+      if(!d.date)return;
       if(!h.m||h.del||h.ncr)return;
       if(!isDoc(h.m)&&h.col!=='MAT Number')return;
       if(h.m.acxDate!==d.date){h.m.acxDate=d.date;n++;}
@@ -4392,18 +4403,18 @@ function twItems(t0,end){
   /* the day of the thing itself, and a real deadline after it — not a
      day something merely becomes allowed (a purchase order may follow,
      fabrication may start), which is no activity on the schedule */
+  /* the day it went in, and nothing after it */
   function stepDates(rec,st,d){
-    var out=[d.date];
-    var due=st&&st.due?st.due(rec,d):null;
-    if(due&&!due.soft)out.push(due.on);
-    return out;
+    return [d.date];
   }
   (DB.mfrs||[]).forEach(function(v){
     var stp=v.steps||{}, pq=pqOf(v), code=twDisc(pq.ref,'');
     var pa=stp.pa||{};
     if(pa.date)put('1',v.name+(pa.date>=today()?' ( upcoming )':''),code,[pa.date]);
     var pqs=MFR_ROAD.filter(function(x){return x.k==='pqd';})[0];
-    if(pq.date||pq.ref)put('2',v.name+(pq.status?' — '+pq.status:''),code,stepDates(v,pqs,pq));
+    /* a first submission only: a resubmission (revision 1 and on) is not new */
+    var first=pq.rev==null||pq.rev===''||/^0*$/.test(String(pq.rev).trim());
+    if(first&&(pq.date||pq.ref))put('2',v.name+(pq.status?' — '+pq.status:''),code,stepDates(v,pqs,pq));
   });
   (DB.mats||[]).forEach(function(m){
     if(isDoc(m))return;
