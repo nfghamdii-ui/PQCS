@@ -2125,7 +2125,10 @@ window.acxCal=function(put){
     var no=refOf(m).replace(/^.*?-(?=[A-Z]{3}-)/,'');
     put(on,(no||(mat?'MAT':m.doc))+' \u00b7 '+m.name
       +(st?(' \u00b7 '+st):''),statusTone(st)||'na',"jump('mat',"+m.id+")",
-      {c:mat?'amat':m.doc==='MIR'?'amir':'adoc',kind:mat?'MAT':m.doc,name:m.name,no:refOf(m),st:st});
+      {c:mat?'amat':m.doc==='MIR'?'amir':'adoc',kind:mat?'MAT':m.doc,name:m.name,no:refOf(m),st:st,
+       disc:m.disc||'',cat:m.cat||'',docId:mat?null:m.id,
+       unlinked:!mat&&!NOT_FOR_MAT[m.doc]&&!SITE_KIND[m.doc]&&!m.site&&!isLinked(m),
+       linkedTo:(!mat&&isLinked(m))?servedBy(m).map(function(x){return x.name;}).join(', '):''});
   });
   (DB.mfrs||[]).forEach(function(v){
     var pq=pqOf(v);if(!pq.date)return;
@@ -6824,6 +6827,40 @@ window.__tbl={label:function(){return tdef().label;},count:function(){return tde
   choices:function(k){var c=tdef().cols.filter(function(x){return x.k===k;})[0];
     return c?choices(c,tdef().rows()):[];}};
 window.__v={lift:liftVisits,list:visitsOf};
+/* from a day of the calendar: link a document to the material it
+   serves, then come back to that day for the next one */
+window.docLinkPick=function(docId,q,ds){
+  var d=mat(docId);if(!d)return;
+  var need=K(q||'');
+  var all=(DB.mats||[]).filter(function(m){return !isDoc(m);});
+  var rows=all.filter(function(m){
+    if(!need)return d.disc?K(m.disc||'')===K(d.disc):true;
+    return K(m.name+' '+matNo(m)+' '+(m.disc||'')).indexOf(need)>=0;
+  });
+  sheet('Link '+(d.doc||'document')+' to a material',
+     '<div style="font-size:13.5px;margin-bottom:12px"><b>'+esc(d.name)+'</b>'
+    +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'+esc(refOf(d))+(d.disc?' · '+esc(d.disc):'')+'</div></div>'
+    +'<div class="f" style="margin-bottom:12px"><label for="lk">Search the materials by name, MAT number or discipline</label>'
+    +'<input id="lk" value="'+attr(q||'')+'" autocomplete="off" '
+    +'oninput="searchSoon(function(v){docLinkPick('+docId+',v,\''+ds+'\');},this.value)">'
+    +'<span class="dim" style="font-size:12px">'+(need?('Searching all '+all.length+' materials.')
+      :('Showing the '+rows.length+(d.disc?' in '+esc(d.disc):'')+' — type to search them all.'))+'</span></div>'
+    +'<div class="panel"><div class="panel-b">'
+    +(rows.length?rows.slice(0,60).map(function(m){
+        return '<div class="line row-a" onclick="docLinkDo('+m.id+','+docId+',\''+ds+'\')">'
+          +'<span class="tag t-na" style="min-width:40px;text-align:center">'+esc(m.cat||'—')+'</span>'
+          +'<div class="line-m"><div>'+esc(m.name)+'</div>'
+          +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'+esc(matNo(m))+'</div></div></div>';}).join('')
+        +(rows.length>60?('<div class="dim" style="font-size:13px;padding-top:10px">and '+(rows.length-60)+' more — narrow the search</div>'):'')
+      :'<span class="dim">No material matches.</span>')
+    +'</div></div>'
+    +'<div class="f-act" style="margin-top:14px"><button class="btn-q" onclick="daySheet(\''+ds+'\')">← Back to the day</button></div>');
+  var f=document.getElementById('lk');if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
+};
+window.docLinkDo=function(matId,docId,ds){
+  window.linkAdd(matId,docId);
+  if(ds)setTimeout(function(){daySheet(ds);},60);
+};
 window.docRef=refOf;
 /* the documents behind a step filled from them, one by one */
 window.stepDocs=function(m,k){

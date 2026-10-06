@@ -2192,13 +2192,18 @@ window.daySheet=function(ds){
       +groups[c].map(function(x){
         var name=x.own?x.t:(x.name||x.t);
         var sub=x.own?[evKind((evOf(x.id)||{}).type).l,(x.ends&&x.ends!==x.d?('until '+show(x.ends)):''),(x.rep?'repeats':'')]
-          :[x.no?'<span class="mono">'+esc(x.no)+'</span>':'',x.st?esc(x.st):''];
+          :[x.no?'<span class="mono">'+esc(x.no)+'</span>':'',x.st?esc(x.st):'',x.disc?esc(x.disc):'',x.cat?esc(x.cat):''];
         sub=sub.filter(Boolean);
+        /* a document no material has yet is linked from here, and the day
+           comes back so the next can be done */
+        var act=(x.docId&&x.unlinked)
+          ?'<button class="btn btn-s no-print" onclick="event.stopPropagation();docLinkPick('+x.docId+',\'\',\''+ds+'\')">Link to material</button>'
+          :(x.docId&&x.linkedTo?'<span class="dim" style="font-size:12px;flex-shrink:0">linked · '+esc(x.linkedTo)+'</span>':'');
         return '<div class="dg-row'+((x.go||x.own)?' row-a':'')+'"'
           +(x.own?(' onclick="editEvent('+x.id+')"'):(x.go?(' onclick="closeSheet();'+x.go+'"'):''))+'>'
           +'<span class="tag t-'+x.k+'">'+esc(x.own?'Event':(x.kind||lab.replace(/^Aconex /,'').split(/[ ,]/)[0]))+'</span>'
           +'<div class="dg-m"><div class="dg-n">'+esc(name)+'</div>'
-          +(sub.length?'<div class="dg-s">'+(x.own?esc(sub.join(' · ')):sub.join(' · '))+'</div>':'')+'</div></div>';
+          +(sub.length?'<div class="dg-s">'+(x.own?esc(sub.join(' · ')):sub.join(' · '))+'</div>':'')+'</div>'+act+'</div>';
       }).join('');
   }).join('');
   sheet(dt.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}),
