@@ -4389,10 +4389,13 @@ function twItems(t0,end){
     dates=dates.filter(inWin);
     if(dates.length)sec[k].push({label:label,disc:disc,dates:dates});
   }
+  /* the day of the thing itself, and a real deadline after it — not a
+     day something merely becomes allowed (a purchase order may follow,
+     fabrication may start), which is no activity on the schedule */
   function stepDates(rec,st,d){
     var out=[d.date];
     var due=st&&st.due?st.due(rec,d):null;
-    if(due)out.push(due.on);
+    if(due&&!due.soft)out.push(due.on);
     return out;
   }
   (DB.mfrs||[]).forEach(function(v){
