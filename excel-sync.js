@@ -4357,6 +4357,171 @@ function applyVendors(p){
   return {changed:p.change.length,added:p.add.length};
 }
 
+/* ================================================================
+   TWO WEEK LOOK-AHEAD SCHEDULE (TWLAS)
+   ----------------------------------------------------------------
+   The project's own layout: this week and next, Saturday to Friday, a
+   column a day; each section a grey band, each item a row with its
+   discipline, and a document mark on every day something falls due or
+   is planned. A section with nothing in the fortnight says "No update".
+   ================================================================ */
+var TW_SECTIONS=[['1','Physical Assessment'],['2','Pre-Qualification (PQD)'],['6','Pre-inspection Dossier'],
+  ['7','Pre-inspection Meeting'],['8','Post-inspection Dossier'],['9','FAT/Final Inspection'],['10','Materials Release']];
+var TW_MARK='🗎';            /* the document mark */
+/* the discipline as the project writes it: the code in the document
+   number (…-MBL-ST-MAT-…), or the first letters of the discipline */
+function twDisc(no,disc){
+  var m=/-([A-Z]{2,3})-(?:MAT|PRQ|ITP|PID|MIR|MES|MAS|IRN|WIR)-/.exec(String(no||'').toUpperCase());
+  if(m)return m[1];
+  var d=trim(disc);
+  var c=/^([A-Z]{2,3})\s*-/.exec(d);
+  return c?c[1]:d.slice(0,2).toUpperCase();
+}
+function twStart(){
+  var d=new Date(today()+'T00:00:00');
+  d.setDate(d.getDate()-((d.getDay()+1)%7));              /* back to Saturday */
+  return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+}
+function twItems(t0,end){
+  var sec={};TW_SECTIONS.forEach(function(x){sec[x[0]]=[];});
+  function inWin(d){return d&&d>=t0&&d<=end;}
+  function put(k,label,disc,dates){
+    dates=dates.filter(inWin);
+    if(dates.length)sec[k].push({label:label,disc:disc,dates:dates});
+  }
+  function stepDates(rec,st,d){
+    var out=[d.date];
+    var due=st&&st.due?st.due(rec,d):null;
+    if(due)out.push(due.on);
+    return out;
+  }
+  (DB.mfrs||[]).forEach(function(v){
+    var stp=v.steps||{}, pq=pqOf(v), code=twDisc(pq.ref,'');
+    var pa=stp.pa||{};
+    if(pa.date)put('1',v.name+(pa.date>=today()?' ( upcoming )':''),code,[pa.date]);
+    var pqs=MFR_ROAD.filter(function(x){return x.k==='pqd';})[0];
+    if(pq.date||pq.ref)put('2',v.name+(pq.status?' — '+pq.status:''),code,stepDates(v,pqs,pq));
+  });
+  (DB.mats||[]).forEach(function(m){
+    if(isDoc(m))return;
+    var code=twDisc(matNo(m),m.disc), road=matRoad(m).steps;
+    var step=function(k){return road.filter(function(x){return x.s.k===k;})[0];};
+    [['pid','6'],['pfm','7'],['post','8']].forEach(function(p){
+      var x=step(p[0]);if(!x)return;
+      put(p[1],m.name,code,stepDates(m,x.s,x.data));
+    });
+    var vs=function(k){return (m.visits||[]).filter(function(y){return y.step===k;}).map(function(y){return y.date;});};
+    if(step('fat'))put('9',m.name,code,vs('fat').concat(stepDates(m,step('fat').s,step('fat').data)));
+    if(step('irn'))put('10',m.name,code,vs('irn').concat(stepDates(m,step('irn').s,step('irn').data)));
+  });
+  return sec;
+}
+function twlasBook(){
+  var t0=twStart(), days=[];
+  for(var i=0;i<14;i++)days.push(addDays(t0,i));
+  var end=days[13], sec=twItems(t0,end);
+  var DAY=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  var styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +'<fonts count="4"><font><sz val="11"/><name val="Calibri"/></font>'
+    +'<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>'
+    +'<font><b/><sz val="11"/><name val="Calibri"/></font>'
+    +'<font><sz val="14"/><name val="Segoe UI Symbol"/></font></fonts>'
+    +'<fills count="8"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+    +['FF808080','FFC6E0B4','FFDDEBF7','FFFFC000','FFA6A6A6','FFBFBFBF'].map(function(c){
+      return '<fill><patternFill patternType="solid"><fgColor rgb="'+c+'"/><bgColor indexed="64"/></patternFill></fill>';}).join('')
+    +'</fills>'
+    +'<borders count="2"><border/><border><left style="thin"><color rgb="FF595959"/></left><right style="thin"><color rgb="FF595959"/></right>'
+    +'<top style="thin"><color rgb="FF595959"/></top><bottom style="thin"><color rgb="FF595959"/></bottom></border></borders>'
+    +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    +'<cellXfs count="13">'
+    +'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+    /* 1 heading, dark */      +'<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+    /* 2 week 1 */             +'<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    /* 3 week 2 */             +'<xf numFmtId="0" fontId="2" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    /* 4 day, yellow */        +'<xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    /* 5 Friday, grey */       +'<xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    /* 6 section number */     +'<xf numFmtId="0" fontId="2" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    /* 7 section title */      +'<xf numFmtId="0" fontId="2" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>'
+    /* 8 item number */        +'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    /* 9 item text */          +'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>'
+    /* 10 discipline */        +'<xf numFmtId="0" fontId="0" fillId="7" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>'
+    /* 11 a day */             +'<xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    /* 12 a Friday */          +'<xf numFmtId="0" fontId="3" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    +'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  var rows=[], merges=[], r=0;
+  function txt(ref,v,st){return v===''||v==null?'<c r="'+ref+'" s="'+st+'"/>'
+    :'<c r="'+ref+'" s="'+st+'" t="inlineStr"><is><t xml:space="preserve">'+xml(String(v))+'</t></is></c>';}
+  function dayCol(i){return colName(3+i);}
+  /* the three heading rows */
+  r=1;
+  rows.push('<row r="1" ht="20" customHeight="1">'+txt('A1','S No',1)+txt('B1','DOCUMENT DESCRIPTION',1)+txt('C1','Discipline',1)
+    +days.map(function(_,i){return i===0?txt(dayCol(0)+'1','Week 1',2):i===7?txt(dayCol(7)+'1','Week 2',3):txt(dayCol(i)+'1','',i<7?2:3);}).join('')+'</row>');
+  rows.push('<row r="2" ht="18" customHeight="1">'+txt('A2','',1)+txt('B2','',1)+txt('C2','',1)
+    +days.map(function(d,i){var fri=new Date(d+'T00:00:00').getDay()===5;
+      return txt(dayCol(i)+'2',DAY[new Date(d+'T00:00:00').getDay()],fri?5:4);}).join('')+'</row>');
+  rows.push('<row r="3" ht="18" customHeight="1">'+txt('A3','',1)+txt('B3','',1)+txt('C3','',1)
+    +days.map(function(d,i){var fri=new Date(d+'T00:00:00').getDay()===5;
+      return '<c r="'+dayCol(i)+'3" s="'+(fri?5:4)+'"><v>'+(+d.slice(8,10))+'</v></c>';}).join('')+'</row>');
+  merges.push('A1:A3','B1:B3','C1:C3',dayCol(0)+'1:'+dayCol(6)+'1',dayCol(7)+'1:'+dayCol(13)+'1');
+  r=3;
+  TW_SECTIONS.forEach(function(x){
+    r++;
+    rows.push('<row r="'+r+'" ht="18" customHeight="1">'+txt('A'+r,x[0],6)+txt('B'+r,x[1],7)+txt('C'+r,'',7)
+      +days.map(function(_,i){return txt(dayCol(i)+r,'',7);}).join('')+'</row>');
+    merges.push('B'+r+':'+dayCol(13)+r);
+    var items=sec[x[0]];
+    if(!items.length)items=[{label:'No update',disc:'',dates:[]}];
+    items.forEach(function(it,j){
+      r++;
+      var no=x[0]+'.'+('0'+(j+1)).slice(-2);
+      rows.push('<row r="'+r+'" ht="20" customHeight="1">'+txt('A'+r,no,8)+txt('B'+r,it.label,9)+txt('C'+r,it.disc,10)
+        +days.map(function(d,i){var fri=new Date(d+'T00:00:00').getDay()===5;
+          return txt(dayCol(i)+r,it.dates.indexOf(d)>=0?TW_MARK:'',fri?12:11);}).join('')+'</row>');
+    });
+  });
+  /* the period, at the foot, as the project's sheet has it */
+  r++;
+  var fmt=function(d){var x=new Date(d+'T00:00:00');
+    return ('0'+x.getDate()).slice(-2)+'-'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][x.getMonth()]+'-'+x.getFullYear();};
+  rows.push('<row r="'+r+'" ht="22" customHeight="1">'+txt('A'+r,'',1)+txt('B'+r,'',1)+txt('C'+r,'',1)
+    +days.map(function(_,i){return txt(dayCol(i)+r,i===0?fmt(t0)+' to '+fmt(end):'',1);}).join('')+'</row>');
+  merges.push('A'+r+':C'+r,dayCol(0)+r+':'+dayCol(13)+r);
+  var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +'<sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane xSplit="3" ySplit="3" topLeftCell="D4" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>'
+    +'<cols><col min="1" max="1" width="8" customWidth="1"/><col min="2" max="2" width="70" customWidth="1"/>'
+    +'<col min="3" max="3" width="11" customWidth="1"/><col min="4" max="17" width="9" customWidth="1"/></cols>'
+    +'<sheetData>'+rows.join('')+'</sheetData>'
+    +'<mergeCells count="'+merges.length+'">'+merges.map(function(m){return '<mergeCell ref="'+m+'"/>';}).join('')+'</mergeCells>'
+    +'<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>'
+    +'<pageSetup orientation="landscape" fitToHeight="0"/></worksheet>';
+  return zipUp([
+    {name:'[Content_Types].xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      +'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      +'<Default Extension="xml" ContentType="application/xml"/>'
+      +'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      +'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+      +'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+      +'</Types>'},
+    {name:'_rels/.rels',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+      +'</Relationships>'},
+    {name:'xl/workbook.xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+      +'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
+      +'<sheet name="TWLAS" sheetId="1" r:id="rId1"/></sheets></workbook>'},
+    {name:'xl/_rels/workbook.xml.rels',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+      +'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+      +'</Relationships>'},
+    {name:'xl/styles.xml',text:styles},
+    {name:'xl/worksheets/sheet1.xml',text:sheet}
+  ]);
+}
 function aheadRows(){
   var t0=today(),end=addDays(t0,14),out=[];
   function add(date,what,who){if(date&&date>=t0&&date<=end)out.push([{date:date},what,who||'']);}
@@ -4649,12 +4814,12 @@ var REPORTS=[
     download(workbook([{name:'Vendors',rows:vendorRows()}]),
       (DB.project||'Vendors')+' — vendors '+today()+'.xlsx');
   }},
- {k:'ahead',t:'Two-week look-ahead',
-  d:'Everything falling due in the next fourteen days, drawn from the dates the steps '
-    +'already carry. Submitted weekly under clause 2.2.6.',
+ {k:'ahead',t:'Two-week look-ahead (TWLAS)',
+  d:'This week and next, Saturday to Friday, in the project\u2019s TWLAS layout: physical assessments, '
+    +'pre-qualifications, pre-inspection dossiers and meetings, post-inspection dossiers, FAT and '
+    +'materials release, each marked on the day it is planned or falls due. Submitted weekly under clause 2.2.6.',
   go:function(){
-    download(workbook([{name:'Look-ahead',rows:aheadRows()}]),
-      (DB.project||'Look-ahead')+' — look-ahead '+today()+'.xlsx');
+    download(twlasBook(),(DB.project||'Project')+' \u2014 TWLAS '+twStart()+'.xlsx');
   }},
  {k:'insp',t:'Inspectors',back:true,
   d:'Everyone approved to inspect on this project, their agency and the reference SEVEN '
