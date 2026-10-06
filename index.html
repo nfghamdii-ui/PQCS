@@ -2112,6 +2112,8 @@ function calPane(){
     +'<span class="chip'+(CALV==='list'?' set':' flat')+'" onclick="calView(\'list\')">List</span>'
     +'<span style="flex:1"></span>'
     +'<button class="btn btn-p btn-s no-print" onclick="editEvent(null,\''+t0+'\')">Add an event</button>'
+    +(typeof window.calAddPA==='function'?'<button class="btn btn-s no-print" onclick="calAddPA()">PA tentative date</button>'
+      +'<button class="btn btn-s no-print" onclick="calAddPFM()">Pre-fabrication meeting</button>':'')
     +'<button class="btn-q no-print" onclick="window.print()">Print</button></div></div></div>';
 
   /* the kinds, each switched on or off, with how many fall this month */
@@ -2183,7 +2185,9 @@ window.daySheet=function(ds){
              +(extra?'<div class="dim" style="font-size:13px;margin-top:2px">'+esc(extra)+'</div>':'')+'</div></div>';
          }).join('')
        : '<div class="dim" style="padding:22px 0;text-align:center">Nothing on this day.</div>')
-    +'<div class="f-act" style="margin-top:18px"><button class="btn btn-p" onclick="editEvent(null,\''+ds+'\')">Add an event here</button></div>');
+    +'<div class="f-act" style="margin-top:18px"><button class="btn btn-p" onclick="editEvent(null,\''+ds+'\')">Add an event here</button>'
+    +(typeof window.calAddPA==='function'?'<button class="btn" onclick="calAddPA(\''+ds+'\')">PA tentative date</button>'
+      +'<button class="btn" onclick="calAddPFM(\''+ds+'\')">Pre-fabrication meeting</button>':'')+'</div>');
 };
 
 /* your own event */
