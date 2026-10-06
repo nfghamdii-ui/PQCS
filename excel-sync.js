@@ -4436,14 +4436,14 @@ function twItems(t0,end){
     if(step('fat'))put('9',m.name,code,vs('fat').concat(stepDates(m,step('fat').s,step('fat').data)));
     /* materials released on site: each inspection request (consignment)
        on its day, its number beside the material */
-    (m.dels||[]).forEach(function(c){
+    if(m.cat==='C2'||m.cat==='C3')(m.dels||[]).forEach(function(c){
       if(c.date)put('10',m.name+(c.ref?' — '+c.ref:''),code,[c.date]);
     });
   });
   /* and every inspection request from Aconex not linked to a material
      yet, by its own title and number, on the day it went in */
   (DB.mats||[]).forEach(function(d){
-    if(d.doc!=='MIR'||isLinked(d))return;
+    if(d.doc!=='MIR'||isLinked(d)||(d.cat!=='C2'&&d.cat!=='C3'))return;          /* C2 and C3 only */
     var no=refOf(d);
     put('10',d.name+(no?' — '+no:''),twDisc(no,d.disc),[acxDateOf(d)]);
   });
