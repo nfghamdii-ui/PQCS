@@ -6300,7 +6300,17 @@ function sortOut(){
    and the same row. The filters and the sort already stay with each
    table; the scroll and the page are what this keeps.
    ================================================================ */
-var NAVING=false, NAVDEPTH=0, LISTPOS={};
+var NAVING=false, NAVDEPTH=0, LISTPOS={}, TABLAST={};
+/* the top-row tab a place belongs to: Materials, MIR, Documents… are
+   views of one tab underneath, but each is its own tab on the row */
+function navTabKey(x){return x.tab==='mat'?x.view:x.tab;}
+function navStillThere(x){
+  var id=x.sel&&x.sel[x.tab];
+  if(x.tab==='mat')return !!mat(id);
+  if(x.tab==='mfr')return !!mfr(id);
+  if(x.tab==='insp')return !!insp(id);
+  return false;
+}
 /* what actually scrolls: the page's body on a wide screen, the whole
    document on a narrow one */
 function navScroller(){
@@ -6351,11 +6361,37 @@ function installNav(){
   /* Choosing a record anywhere opens that record, over its list, and is
      a step Back returns from — never the list it sits in. */
   window.pick=function(id){return window.jump(TAB,id);};
+  /* Each tab of the top row remembers where it was left: a material
+     open on Materials is still open when Materials is pressed again
+     from another tab. Pressed while already on it, a tab shows its list,
+     as "All …" does. */
+  window.tabGo=function(k){
+    var here=navTabKey(navSnap()), was=TABLAST[k];
+    if(k!==here&&was&&was.record&&navStillThere(was)){
+      var before=navSnap();
+      TABLAST[here]=before;
+      try{window.history.replaceState(before,'');}catch(e){}
+      navRestore(was);
+      try{window.history.pushState(navSnap(),'');}catch(e){}
+      return;
+    }
+    window.setTab(k);
+  };
+  /* the top row's tabs go through it */
+  setTimeout(function(){
+    [].forEach.call(document.querySelectorAll('.topbar .tab'),function(b){
+      var k=b.id==='tab-today'?'home':b.id.replace(/^tab-/,'');
+      if(!k||b.id==='tab-other')return;
+      b.removeAttribute('onclick');
+      b.onclick=function(){window.tabGo(k);};
+    });
+  },0);
   ['setTab','jump','listBack'].forEach(function(fn){
     var orig=window[fn];if(typeof orig!=='function')return;
     window[fn]=function(){
       if(NAVING||NAVDEPTH||!DB)return orig.apply(this,arguments);
       var before=navSnap();
+      TABLAST[navTabKey(before)]=before;
       if(!before.record&&before.tbl)LISTPOS[before.tbl]=before.scroll.b;
       try{window.history.replaceState(before,'');}catch(e){}
       NAVDEPTH++;
