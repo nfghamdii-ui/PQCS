@@ -2108,57 +2108,6 @@ function acxDateOf(m){
   var v=raw[{MIR:'MIR Approval Date',ITP:'ITP Submittal Date'}[m.doc]||'MAT Submittal Date'];
   return /^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?String(v):'';
 }
-/* ----------------------------------------------------------------
-   From the calendar, two dates that belong to a record, not to the
-   calendar: a vendor's tentative physical assessment, and a material's
-   pre-fabrication meeting. Each is written where its record keeps it,
-   so the vendor or material page, the TWLAS and the Main Log all
-   carry it.
-   ---------------------------------------------------------------- */
-function calPickSheet(title,label,listId,names,date,save){
-  sheet(title,
-     '<div class="form" style="margin:0;padding:0;border:none">'
-    +'<div class="f wide"><label for="ca-who">'+esc(label)+'</label>'
-    +'<input id="ca-who" list="'+listId+'" autocomplete="off" placeholder="type to search">'
-    +'<datalist id="'+listId+'">'+names.map(function(n){return '<option value="'+attr(n)+'">';}).join('')+'</datalist>'
-    +'<span class="err" id="e-ca-who"></span></div>'
-    +'<div class="f"><label for="ca-date">Date</label>'
-    +'<input id="ca-date" class="mono" value="'+attr(show(date||today()))+'" placeholder="dd/mm/yyyy" autocomplete="off">'
-    +'<span class="err" id="e-ca-date"></span></div>'
-    +'<div class="f-act"><button class="btn btn-p" onclick="'+save+'()">Save</button>'
-    +'<button class="btn-q" onclick="closeSheet()">Cancel</button></div></div>');
-  var f=document.getElementById('ca-who');if(f)f.focus();
-}
-function calPickRead(){
-  var who=trim(document.getElementById('ca-who').value), d=parseDate(document.getElementById('ca-date').value);
-  if(!d){document.getElementById('e-ca-date').textContent='Use dd/mm/yyyy';return null;}
-  return {who:who,date:d};
-}
-window.calAddPA=function(date){
-  var names=(DB.mfrs||[]).filter(function(v){return kindOf(v)!=='agency';}).map(function(v){return v.name;}).sort();
-  calPickSheet('PA tentative date','Vendor','ca-ven',names,date,'calSavePA');
-};
-window.calSavePA=function(){
-  var x=calPickRead();if(!x)return;
-  var v=(DB.mfrs||[]).filter(function(y){return K(y.name)===K(x.who);})[0];
-  if(!v){document.getElementById('e-ca-who').textContent='Choose a vendor from the list';return;}
-  v.logf=Object.assign({},v.logf||{});v.logf['PA Tentative Date']=x.date;
-  touch();closeSheet();rPane();
-  toast('PA tentative date for '+v.name+' \u2014 '+show(x.date));
-};
-window.calAddPFM=function(date){
-  var names=(DB.mats||[]).filter(function(m){return !isDoc(m);}).map(function(m){return m.name;}).sort();
-  calPickSheet('Pre-fabrication meeting','Material','ca-mat',names,date,'calSavePFM');
-};
-window.calSavePFM=function(){
-  var x=calPickRead();if(!x)return;
-  var m=(DB.mats||[]).filter(function(y){return !isDoc(y)&&K(y.name)===K(x.who);})[0];
-  if(!m){document.getElementById('e-ca-who').textContent='Choose a material from the list';return;}
-  m.steps=m.steps||{};
-  m.steps.pfm=Object.assign({status:'Pending'},m.steps.pfm||{},{date:x.date});
-  touch();closeSheet();rPane();
-  toast('Pre-fabrication meeting for '+m.name+' \u2014 '+show(x.date));
-};
 /* everything the register brought in, on the calendar */
 window.acxCal=function(put){
   /* a vendor's tentative physical assessment, on its day */

@@ -2112,8 +2112,7 @@ function calPane(){
     +'<span class="chip'+(CALV==='list'?' set':' flat')+'" onclick="calView(\'list\')">List</span>'
     +'<span style="flex:1"></span>'
     +'<button class="btn btn-p btn-s no-print" onclick="editEvent(null,\''+t0+'\')">Add an event</button>'
-    +(typeof window.calAddPA==='function'?'<button class="btn btn-s no-print" onclick="calAddPA()">PA tentative date</button>'
-      +'<button class="btn btn-s no-print" onclick="calAddPFM()">Pre-fabrication meeting</button>':'')
+
     +'<button class="btn-q no-print" onclick="window.print()">Print</button></div></div></div>';
 
   /* the kinds, each switched on or off, with how many fall this month */
@@ -2186,8 +2185,7 @@ window.daySheet=function(ds){
          }).join('')
        : '<div class="dim" style="padding:22px 0;text-align:center">Nothing on this day.</div>')
     +'<div class="f-act" style="margin-top:18px"><button class="btn btn-p" onclick="editEvent(null,\''+ds+'\')">Add an event here</button>'
-    +(typeof window.calAddPA==='function'?'<button class="btn" onclick="calAddPA(\''+ds+'\')">PA tentative date</button>'
-      +'<button class="btn" onclick="calAddPFM(\''+ds+'\')">Pre-fabrication meeting</button>':'')+'</div>');
+    +'</div>');
 };
 
 /* your own event */
@@ -2198,31 +2196,75 @@ window.editEvent=function(id,preset){
     .concat((DB.mfrs||[]).map(function(v){return {v:'mfr:'+v.id,l:'Vendor \u00b7 '+v.name};}));
   sheet(id?'Edit the event':'Add an event',
      '<div class="form" style="margin:0;padding:0;border:none">'
-    +'<div class="f wide"><label for="e-title">What is it</label>'
+    +'<div class="f wide" id="w-e-title"><label for="e-title">What is it</label>'
       +'<input id="e-title" value="'+attr(e.title||'')+'" placeholder="Fabrication of the chillers, meeting with SEVEN\u2026" autocomplete="off"></div>'
-    +'<div class="f"><label for="e-type">Kind</label><select id="e-type">'
+    +'<div class="f"><label for="e-type">Kind</label><select id="e-type" onchange="evKindChange(this.value)">'
       +EV_OPTS.map(function(o){return '<option value="'+o.v+'"'+((e.type||'fab')===o.v?' selected':'')+'>'+esc(o.l)+'</option>';}).join('')
+      /* not an event of the calendar's own: the date is written onto the
+         vendor or the material, where its page and the reports read it */
+      +(id?'':'<option value="pa">PA tentative date — a vendor</option><option value="pfm">Pre-fabrication meeting — a material</option>')
       +'</select></div>'
-    +'<div class="f"><label for="e-rep">Repeat</label><select id="e-rep">'
+    +'<div class="f" id="w-e-rep"><label for="e-rep">Repeat</label><select id="e-rep">'
       +Object.keys(REP).map(function(k){return '<option value="'+k+'"'+((e.rep||'')===k?' selected':'')+'>'+esc(REP[k])+'</option>';}).join('')
       +'</select></div>'
     +'<div class="f"><label for="e-from">From</label>'
       +'<input id="e-from" class="mono" value="'+attr(show(e.date||preset||today()))+'" placeholder="dd/mm/yyyy" autocomplete="off">'
       +'<span class="err" id="err-e-from"></span></div>'
-    +'<div class="f"><label for="e-to">To <span class="dim">\u2014 leave empty for one day</span></label>'
+    +'<div class="f" id="w-e-to"><label for="e-to">To <span class="dim">\u2014 leave empty for one day</span></label>'
       +'<input id="e-to" class="mono" value="'+attr(show(e.end||''))+'" placeholder="dd/mm/yyyy" autocomplete="off">'
       +'<span class="err" id="err-e-to"></span></div>'
     +'<div class="f wide"><label for="e-link">Belongs to</label><select id="e-link">'
       +links.map(function(o){return '<option value="'+attr(o.v)+'"'+((e.link||'')===o.v?' selected':'')+'>'+esc(o.l)+'</option>';}).join('')
       +'</select></div>'
-    +'<div class="f wide"><label for="e-note">Note</label>'
+    +'<div class="f wide" id="w-e-note"><label for="e-note">Note</label>'
       +'<input id="e-note" value="'+attr(e.note||'')+'" autocomplete="off"></div>'
     +'<div class="f-act"><button class="btn btn-p" onclick="saveEvent('+(id||'null')+')">Save</button>'
     +'<button class="btn-q" onclick="closeSheet()">Cancel</button>'
     +(id?'<span style="flex:1"></span><button class="btn btn-d btn-s" data-pop onclick="delEvent(event,'+id+')">Delete</button>':'')
     +'</div></div>');
 };
+/* the record kinds keep only who and when, and list only their records */
+window.evKindChange=function(k){
+  var rec=(k==='pa'||k==='pfm');
+  ['w-e-title','w-e-rep','w-e-to','w-e-note'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.style.display=rec?'none':'';});
+  var sel=document.getElementById('e-link');if(!sel)return;
+  var opts=k==='pa'
+    ?(DB.mfrs||[]).filter(function(v){return kindOf(v)!=='agency';}).map(function(v){return {v:'mfr:'+v.id,l:v.name};})
+    :k==='pfm'
+    ?(DB.mats||[]).filter(function(m){return !m.doc;}).map(function(m){return {v:'mat:'+m.id,l:m.name};})
+    :[{v:'',l:'Not linked'}]
+      .concat((DB.mats||[]).map(function(m){return {v:'mat:'+m.id,l:'Material · '+m.name};}))
+      .concat((DB.mfrs||[]).map(function(v){return {v:'mfr:'+v.id,l:'Vendor · '+v.name};}));
+  if(rec)opts.sort(function(a,b){return String(a.l).localeCompare(String(b.l));});
+  sel.innerHTML=(rec?'<option value="">— choose '+(k==='pa'?'the vendor':'the material')+' —</option>':'')
+    +opts.map(function(o){return '<option value="'+attr(o.v)+'">'+esc(o.l)+'</option>';}).join('');
+  var lab=document.querySelector('label[for="e-link"]');
+  if(lab)lab.textContent=k==='pa'?'Vendor':k==='pfm'?'Material':'Belongs to';
+  var fl=document.querySelector('label[for="e-from"]');
+  if(fl)fl.textContent=rec?'Date':'From';
+};
 window.saveEvent=function(id){
+  var kind=document.getElementById('e-type').value;
+  if(kind==='pa'||kind==='pfm'){
+    var d=parseDate(document.getElementById('e-from').value);
+    if(!d){document.getElementById('err-e-from').textContent='Use dd/mm/yyyy';return;}
+    var lk=document.getElementById('e-link').value;
+    if(!lk)return toast(kind==='pa'?'Choose the vendor':'Choose the material');
+    var rid=lk.split(':')[1];
+    if(kind==='pa'){
+      var v=mfr(rid);if(!v)return;
+      v.logf=Object.assign({},v.logf||{});v.logf['PA Tentative Date']=d;
+      toast('PA tentative date for '+v.name+' — '+show(d));
+    }else{
+      var m=mat(rid);if(!m)return;
+      m.steps=m.steps||{};
+      m.steps.pfm=Object.assign({status:'Pending'},m.steps.pfm||{},{date:d});
+      toast('Pre-fabrication meeting for '+m.name+' — '+show(d));
+    }
+    touch();closeSheet();CAL=new Date(d);CAL.setDate(1);rPane();
+    return;
+  }
   var title=document.getElementById('e-title').value.trim();
   if(!title){document.getElementById('e-title').focus();return toast('Give it a name');}
   var from=parseDate(document.getElementById('e-from').value);
