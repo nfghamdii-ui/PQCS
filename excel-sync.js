@@ -7222,12 +7222,11 @@ function dashPane(){
     return '<div class="d-tile'+(tone?' d-'+tone:'')+(go?' row-a':'')+'"'+(go?(' onclick="'+go+'"'):'')+'>'
       +'<div class="d-tv">'+v+'</div><div class="d-tl">'+esc(l)+'</div><div class="d-ts">'+s+'</div></div>';
   }
-  var tiles='<div class="d-tiles">'
+  var tiles=''
     +tile(mats.length,'Materials',cleared+' fully cleared','',"setTab('mat')")
     +tile(vok+'<small>/'+vq.length+'</small>','Vendors qualified',(vq.length-vok)+' still in qualification','',"setTab('mfr')")
     +tile(late.length,'Late',late.length?'past a deadline or returned':'nothing late',late.length?'bad':'ok',"dashTab('late')")
-    +tile(hits,'Against the procedure',checks.length?(checks.length+' clause'+(checks.length===1?'':'s')+' not met'):'every clause met',hits?'now':'ok',"dashTab('proc')")
-    +'</div>';
+    +tile(hits,'Against the procedure',checks.length?(checks.length+' clause'+(checks.length===1?'':'s')+' not met'):'every clause met',hits?'now':'ok',"dashTab('proc')");
 
   /* one list, three views */
   function list(k,rows,empty){
@@ -7253,7 +7252,7 @@ function dashPane(){
     return '<button data-k="'+k+'" aria-pressed="'+(DASH_TAB===k)+'" onclick="dashTab(\''+k+'\')">'+esc(l)
       +'<span class="d-sn'+(n&&tone?' d-'+tone:'')+'">'+n+'</span></button>';
   }
-  var attention='<section class="d-panel"><div class="d-ph"><span class="d-pt">Needs your attention</span><span style="flex:1"></span>'
+  var attention='<section class="d-panel d-w3"><div class="d-ph"><span class="d-pt">Needs your attention</span><span style="flex:1"></span>'
     +'<div class="d-seg">'+seg('late','Late',late.length,'bad')+seg('proc','Procedure',hits,'now')+seg('mine','Your move',mine.length,'')+'</div></div>'
     +list('late',lateRows,'Nothing is late.')
     +list('proc',procRows,'Every check against the procedure is clear.')
@@ -7268,10 +7267,10 @@ function dashPane(){
       dh='<div class="d-day">'+(n===0?'Today':n===1?'Tomorrow':new Date(x.d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short'}))+'</div>';}
     return dh+'<div class="d-up'+((x.go||x.own)?' row-a':'')+'"'
       +(x.own?(' onclick="editEvent('+x.id+')"'):(x.go?(' onclick="'+attr(x.go)+'"'):''))+'>'
-      +'<span class="tag t-'+(x.k||'na')+'">'+esc(x.own?'Event':(x.kind||'—'))+'</span>'
-      +'<span class="d-upt">'+esc(x.own?x.t:(x.name||x.t))+'</span></div>';
+      +'<span class="tag t-'+(x.k||'na')+'">'+esc(x.own?'Event':(x.kind||String(x.t||'').split(' · ')[0]||'Event'))+'</span>'
+      +'<span class="d-upt">'+esc(x.own?x.t:(x.name||(x.kind?x.t:String(x.t||'').split(' · ').slice(1).join(' · ')||x.t)))+'</span></div>';
   }).join('');
-  var coming='<section class="d-panel"><div class="d-ph"><span class="d-pt">Coming up</span><span class="d-pn">next 14 days</span>'
+  var coming='<section class="d-panel d-w1"><div class="d-ph"><span class="d-pt">Coming up</span><span class="d-pn">next 14 days</span>'
     +'<span style="flex:1"></span><button class="btn-q" onclick="setTab(\'cal\')">Calendar</button></div>'
     +(ahead||'<div class="d-empty">Nothing planned.</div>')
     +(up.length>12?'<div class="d-pn" style="margin-top:8px">and '+(up.length-12)+' more on the calendar</div>':'')+'</section>';
@@ -7287,7 +7286,7 @@ function dashPane(){
         return '<i style="width:'+(q[0]/on*100)+'%;background:var(--'+q[1]+')"></i>';}).join('')+'</div>'
       +'<span class="d-sp"><b>'+p+'%</b><span>'+c.done+' of '+on+'</span></span></div>';
   }).join('');
-  var progress='<section class="d-panel"><div class="d-ph"><span class="d-pt">Progress</span><span class="d-pn">materials that cleared each step</span><span style="flex:1"></span>'
+  var progress='<section class="d-panel d-w2"><div class="d-ph"><span class="d-pt">Progress</span><span class="d-pn">materials that cleared each step</span><span style="flex:1"></span>'
     +'<span class="d-key"><span><i style="background:var(--ok)"></i>done</span><span><i style="background:var(--wait)"></i>in progress</span>'
     +'<span><i style="background:var(--bad)"></i>returned</span></span></div>'+steps+'</section>';
 
@@ -7307,21 +7306,22 @@ function dashPane(){
       return '<tr><td><b>'+esc(k)+'</b></td><td>'+o.n+'</td>'+pc(o.mts,o.n)+pc(o.del,o.n)+pc(o.done,o.n)
         +'<td'+(o.bad?' style="color:var(--bad);font-weight:600"':' class="dim"')+'>'+o.bad+'</td></tr>';}).join('')
     +'</tbody></table></div>';
-  var byDisc='<section class="d-panel"><div class="d-ph"><span class="d-pt">By discipline</span></div>'
+  var byDisc='<section class="d-panel d-w2"><div class="d-ph"><span class="d-pt">By discipline</span></div>'
     +(mats.length?dtab:'<div class="d-empty">No materials yet.</div>')+'</section>';
 
   dashCSS();
-  return head+'<div class="body"><div class="wrap d-wrap">'+tiles
-    +'<div class="d-two">'+attention+coming+'</div>'
-    +'<div class="d-two d-even">'+progress+byDisc+'</div></div></div>';
+  /* one four-column grid: every panel edge lines up with a figure above */
+  return head+'<div class="body"><div class="wrap d-wrap"><div class="d-grid">'+tiles
+    +attention+coming+progress+byDisc+'</div></div></div>';
 }
 function dashCSS(){
   if(document.getElementById('dash-css'))return;
   var s=document.createElement('style');s.id='dash-css';
   s.textContent=
    '.d-wrap{max-width:1240px}'
-  +'.d-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}'
-  +'@media(max-width:900px){.d-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}'
+  +'.d-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}'
+  +'.d-w1{grid-column:span 1}.d-w2{grid-column:span 2}.d-w3{grid-column:span 3}'
+  +'@media(max-width:1100px){.d-w1,.d-w2,.d-w3{grid-column:1/-1}.d-tile{grid-column:span 2}}'
   +'.d-tile{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line-2);border-radius:var(--r-lg);padding:16px 18px;box-shadow:var(--sh)}'
   +'.d-tile.row-a{cursor:pointer}.d-tile.row-a:hover{box-shadow:var(--sh-md)}'
   +'.d-tile.d-bad{border-left-color:var(--bad)}.d-tile.d-bad .d-tv{color:var(--bad)}'
@@ -7331,10 +7331,7 @@ function dashCSS(){
   +'.d-tv small{font-size:18px;color:var(--ink-4);font-weight:500;margin-left:2px}'
   +'.d-tl{font-size:14px;font-weight:600;margin-top:8px}'
   +'.d-ts{font-size:12.5px;color:var(--ink-3);margin-top:2px}'
-  +'.d-two{display:grid;grid-template-columns:3fr 2fr;gap:16px;align-items:start}'
-  +'.d-two.d-even{grid-template-columns:1fr 1fr}'
-  +'@media(max-width:980px){.d-two,.d-two.d-even{grid-template-columns:1fr}}'
-  +'.d-panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px;margin-bottom:16px;box-shadow:var(--sh)}'
+  +'.d-panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px;box-shadow:var(--sh);min-width:0}'
   +'.d-ph{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}'
   +'.d-pt{font-size:15px;font-weight:650}.d-pn{font-size:12px;color:var(--ink-4)}'
   +'.d-seg{display:inline-flex;background:var(--sunk);border-radius:9px;padding:3px;gap:2px}'
@@ -7342,14 +7339,14 @@ function dashCSS(){
   +'.d-seg button[aria-pressed=true]{background:var(--card);color:var(--ink);font-weight:600;box-shadow:var(--sh)}'
   +'.d-sn{font-size:11.5px;font-family:var(--mono);color:var(--ink-4)}'
   +'.d-sn.d-bad{color:var(--bad);font-weight:700}.d-sn.d-now{color:var(--now);font-weight:700}'
-  +'.d-list{max-height:460px;overflow-y:auto;overflow-x:hidden;border-top:1px solid var(--line)}'
+  +'.d-list{height:440px;overflow-y:auto;overflow-x:hidden;border-top:1px solid var(--line)}'
   +'.d-row{display:flex;align-items:center;gap:10px;padding:9px 8px;border-bottom:1px solid var(--line)}'
   +'.d-row.row-a,.d-ch.row-a,.d-item.row-a,.d-up.row-a{cursor:pointer}'
   +'.d-row.row-a:hover,.d-ch.row-a:hover,.d-item.row-a:hover,.d-up.row-a:hover{background:var(--hover)}'
   +'.d-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}'
   +'.d-rn{font-size:13.5px;font-weight:550;flex:0 0 36%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
   +'.d-rl{font-size:12.5px;color:var(--ink-3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
-  +'.d-row .tag{flex-shrink:0}'
+  +'.d-row .tag{flex-shrink:0;min-width:86px;text-align:center}'
   +'.d-empty{color:var(--ink-3);font-size:13.5px;padding:22px 0;text-align:center}'
   +'.d-chk{border-bottom:1px solid var(--line)}'
   +'.d-ch{display:flex;align-items:center;gap:10px;padding:10px 8px}'
@@ -7362,12 +7359,12 @@ function dashCSS(){
   +'.d-day{font-size:11.5px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 4px}'
   +'.d-day:first-of-type{margin-top:0}'
   +'.d-up{display:flex;align-items:center;gap:10px;padding:6px 6px;border-radius:7px}'
-  +'.d-up .tag{min-width:52px;text-align:center;flex-shrink:0}'
+  +'.d-up .tag{min-width:70px;text-align:center;flex-shrink:0}'
   +'.d-upt{flex:1;min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
-  +'.d-step{display:grid;grid-template-columns:190px 1fr 92px;gap:12px;align-items:center;padding:7px 0}'
+  +'.d-step{display:grid;grid-template-columns:170px 1fr 120px;gap:12px;align-items:center;padding:7px 0}'
   +'.d-sl{font-size:13px}'
   +'.d-bar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--sunk)}.d-bar i{display:block;height:100%}'
-  +'.d-sp{text-align:right;font-size:12px;color:var(--ink-4)}.d-sp b{color:var(--ink);font-size:13.5px;margin-right:6px}'
+  +'.d-sp{text-align:right;white-space:nowrap;font-size:12px;color:var(--ink-4)}.d-sp b{color:var(--ink);font-size:13.5px;margin-right:6px}'
   +'.d-key{display:flex;gap:12px;font-size:11.5px;color:var(--ink-3)}.d-key span{display:flex;align-items:center;gap:5px}'
   +'.d-key i{width:9px;height:9px;border-radius:2px;display:inline-block}'
   +'.d-tw{overflow-x:auto}.d-t{width:100%;border-collapse:collapse;font-size:13px}'
