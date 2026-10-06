@@ -4704,8 +4704,9 @@ function fatTrackerBook(){
 function paSummaryBook(){
   var list=(DB.mfrs||[]).filter(function(v){
     var k=kindOf(v);if(k!=='maker'&&k!=='makesub')return false;
+    /* only a survey that has taken place: passed or failed */
     var pa=(v.steps||{}).pa||{};
-    return !!(pa.date||pa.status||pa.ref||pqOf(v).ref);
+    return /Passed|Failed/.test(pa.status||'');
   }).sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
   var S={
     title:{fill:'F8CBAD',sz:14,color:'843C0C',border:false},grp:{fill:'B4C6E7',b:true,sz:9},
