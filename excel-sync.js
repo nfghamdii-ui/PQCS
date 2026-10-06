@@ -7339,7 +7339,7 @@ function dashCSS(){
   +'.d-seg button[aria-pressed=true]{background:var(--card);color:var(--ink);font-weight:600;box-shadow:var(--sh)}'
   +'.d-sn{font-size:11.5px;font-family:var(--mono);color:var(--ink-4)}'
   +'.d-sn.d-bad{color:var(--bad);font-weight:700}.d-sn.d-now{color:var(--now);font-weight:700}'
-  +'.d-list{height:440px;overflow-y:auto;overflow-x:hidden;border-top:1px solid var(--line)}'
+  +'.d-list{height:440px;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;padding-right:10px;border-top:1px solid var(--line)}'
   +'.d-row{display:flex;align-items:center;gap:10px;padding:9px 8px;border-bottom:1px solid var(--line)}'
   +'.d-row.row-a,.d-ch.row-a,.d-item.row-a,.d-up.row-a{cursor:pointer}'
   +'.d-row.row-a:hover,.d-ch.row-a:hover,.d-item.row-a:hover,.d-up.row-a:hover{background:var(--hover)}'
