@@ -1391,6 +1391,8 @@ var MFR_ROAD=[
      ['by','QMS auditor','person'],['by2','Technical expert','person'],
      ['ref','Report reference','text'],
      ['ref2','Technical expert’s own report','text','optional'],
+     ['tres','Technical report','sel',['','Pass','Failed']],
+     ['qres','QMS report','sel',['','Pass','Failed']],
      ['status','Result','sel',['Pending','Scheduled','Passed','Failed','Waived']]],
   warn:function(v,s){return (v.cat==='C3'&&s.status==='Waived')?'A waiver is allowed for C1 and C2 only. This manufacturer is C3.':'';}},
 

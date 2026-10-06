@@ -4560,6 +4560,184 @@ function twlasBook(){
     {name:'xl/worksheets/sheet1.xml',text:sheet}
   ]);
 }
+/* ================================================================
+   A WORKBOOK OF ONE STYLED SHEET
+   ----------------------------------------------------------------
+   The project's own sheets carry their own colours. A style is named
+   once ({fill, color, b, sz, u, i, align, wrap, border}) and the
+   fonts, fills and formats Excel needs are made from the names used.
+   ================================================================ */
+function styledBook(spec){
+  var fonts=['<font><sz val="10"/><name val="Calibri"/></font>'], fills=['<fill><patternFill patternType="none"/></fill>','<fill><patternFill patternType="gray125"/></fill>'];
+  var xfs=['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'], idx={};
+  Object.keys(spec.styles).forEach(function(k){
+    var s=spec.styles[k];
+    var f='<font>'+(s.b?'<b/>':'')+(s.i?'<i/>':'')+(s.u?'<u/>':'')+'<sz val="'+(s.sz||10)+'"/>'
+      +(s.color?'<color rgb="FF'+s.color+'"/>':'')+'<name val="Calibri"/></font>';
+    var fi=fonts.indexOf(f);if(fi<0){fonts.push(f);fi=fonts.length-1;}
+    var fl=0;
+    if(s.fill){var x='<fill><patternFill patternType="solid"><fgColor rgb="FF'+s.fill+'"/><bgColor indexed="64"/></patternFill></fill>';
+      fl=fills.indexOf(x);if(fl<0){fills.push(x);fl=fills.length-1;}}
+    xfs.push('<xf numFmtId="0" fontId="'+fi+'" fillId="'+fl+'" borderId="'+(s.border===false?0:1)+'" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">'
+      +'<alignment horizontal="'+(s.align||'center')+'" vertical="center"'+(s.wrap===false?'':' wrapText="1"')+'/></xf>');
+    idx[k]=xfs.length-1;
+  });
+  var styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +'<fonts count="'+fonts.length+'">'+fonts.join('')+'</fonts><fills count="'+fills.length+'">'+fills.join('')+'</fills>'
+    +'<borders count="2"><border/><border><left style="thin"><color rgb="FF8EA9C1"/></left><right style="thin"><color rgb="FF8EA9C1"/></right>'
+    +'<top style="thin"><color rgb="FF8EA9C1"/></top><bottom style="thin"><color rgb="FF8EA9C1"/></bottom></border></borders>'
+    +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    +'<cellXfs count="'+xfs.length+'">'+xfs.join('')+'</cellXfs>'
+    +'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  var rows=spec.rows.map(function(row,r){
+    var ht=(spec.heights||{})[r+1];
+    return '<row r="'+(r+1)+'"'+(ht?' ht="'+ht+'" customHeight="1"':'')+'>'+row.map(function(c,j){
+      if(!c)return '';
+      var ref=colName(j)+(r+1), s=idx[c.st]||0, v=c.v;
+      if(v==null||v==='')return '<c r="'+ref+'" s="'+s+'"/>';
+      if(typeof v==='number')return '<c r="'+ref+'" s="'+s+'"><v>'+v+'</v></c>';
+      return '<c r="'+ref+'" s="'+s+'" t="inlineStr"><is><t xml:space="preserve">'+xml(String(v))+'</t></is></c>';
+    }).join('')+'</row>';
+  }).join('');
+  var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    +'<sheetViews><sheetView workbookViewId="0" showGridLines="0">'
+    +(spec.freeze?'<pane xSplit="'+(spec.freeze.x||0)+'" ySplit="'+spec.freeze.y+'" topLeftCell="'+colName(spec.freeze.x||0)+(spec.freeze.y+1)+'" activePane="bottomRight" state="frozen"/>':'')
+    +'</sheetView></sheetViews>'
+    +'<cols>'+spec.cols.map(function(w,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>';}).join('')+'</cols>'
+    +'<sheetData>'+rows+'</sheetData>'
+    +(spec.filter?'<autoFilter ref="'+spec.filter+'"/>':'')
+    +(spec.merges&&spec.merges.length?'<mergeCells count="'+spec.merges.length+'">'+spec.merges.map(function(m){return '<mergeCell ref="'+m+'"/>';}).join('')+'</mergeCells>':'')
+    +'<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>'
+    +'<pageSetup orientation="landscape"/></worksheet>';
+  return zipUp([
+    {name:'[Content_Types].xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      +'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      +'<Default Extension="xml" ContentType="application/xml"/>'
+      +'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      +'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+      +'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+      +'</Types>'},
+    {name:'_rels/.rels',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+      +'</Relationships>'},
+    {name:'xl/workbook.xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+      +'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'
+      +'<sheet name="'+xml(spec.name)+'" sheetId="1" r:id="rId1"/></sheets>'
+      +(spec.filter?'<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">\''
+        +xml(spec.name)+'\'!'+spec.filter.replace(/([A-Z]+)(\d+)/g,'$$$1$$$2')+'</definedName></definedNames>':'')
+      +'</workbook>'},
+    {name:'xl/_rels/workbook.xml.rels',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+      +'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+      +'</Relationships>'},
+    {name:'xl/styles.xml',text:styles},
+    {name:'xl/worksheets/sheet1.xml',text:sheet}
+  ]);
+}
+/* 12-Jan-26, as the project's trackers write a date */
+function dShort(iso){
+  var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||''));if(!m)return iso||'';
+  return (+m[3])+'-'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m[2]-1]+'-'+m[1].slice(2);
+}
+
+/* ---------------- Final Inspection / FAT Schedule Tracker ---------------- */
+function fatTrackerBook(){
+  var list=(DB.mats||[]).filter(function(m){
+    if(isDoc(m))return false;
+    var has=(m.visits||[]).some(function(v){return v.step==='fat';})||((m.steps||{}).fat&&((m.steps.fat.date)||(m.steps.fat.status)));
+    return has;
+  });
+  var rowsData=list.map(function(m){
+    var v=m.mfr?mfr(m.mfr):null, raw=appRow(m);
+    var fats=(m.visits||[]).filter(function(x){return x.step==='fat';}).sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''));});
+    var last=fats[0]||(m.steps||{}).fat||{};
+    var res=last.result||last.status||'';
+    var by=last.by||'', who=by?(DB.people||[]).filter(function(p){return K(p.name)===K(by);})[0]:null;
+    var remark=/Failed/.test(res)?'Re-FAT is required'
+      :/Passed/.test(res)?(m.cat==='C2'?'Final inspection done':'FAT done'):'upcoming';
+    var first=raw['1st Batch Delivery To Site Actual Date']||raw['1st Batch Delivery To Site Planned Date']||'';
+    first=String(first).split('\n')[0];
+    var fab=raw['Fabrication 1st Batch Started Date']||raw['Fabrication Planned Date']||'';
+    var pfm=((m.steps||{}).pfm||{}).date||'';
+    return {m:m,date:last.date||'',remark:remark,cells:[
+      m.name,v?v.name:'',m.cat||'',v?[v.site,v.country].filter(Boolean).join(' / '):'',v?v.name:'',
+      who?(who.agency||'TBA'):(remark==='upcoming'?'TBA':'N/A'),by||(remark==='upcoming'?'TBA':'N/A'),
+      who?(who.status||'Pending'):(remark==='upcoming'?'TBA':'N/A'),
+      pfm?dShort(pfm):'',fab?dShort(fab):'',last.date?dShort(last.date):'',first?dShort(first):'',remark]};
+  }).sort(function(a,b){
+    var A=a.remark==='upcoming'?1:0,B=b.remark==='upcoming'?1:0;
+    return A-B||String(a.date).localeCompare(String(b.date));
+  });
+  var S={
+    title:{fill:'9BC2E6',b:true,sz:13,color:'1F1F1F'},sub:{fill:'BDD7EE',b:true,u:true,sz:11,color:'1F1F1F'},
+    head:{fill:'1F4E78',b:true,color:'FFFFFF',sz:9},cell:{fill:'F2F2F2'},name:{fill:'F2F2F2'},
+    done:{fill:'92D050'},refat:{fill:'F8CBAD'},up:{fill:'FFFF00'},
+    note:{color:'FF0000',align:'left',border:false,wrap:false,sz:11},note2:{align:'left',border:false,wrap:false,sz:8}};
+  var head=['S#','Material','Manufacturer / Supplier Name','Material Category','Country / Location','Manufacturer / Supplier Assessment',
+    'Third Party Inspection Agency','Third Party Inspection Name','TPIA Approval','Pre-fabrication Dates (Kick-off meeting)',
+    'Fabrication Dates (Start of Fabrication)','Factory Acceptance Test (FAT) / Final Inspection Date','First Delivery Date','Remark/Comments'];
+  var rows=[
+    [{v:'Project:   '+(DB.project||''),st:'title'}].concat(head.slice(1).map(function(){return {v:'',st:'title'};})),
+    [{v:'Final Inspection  /  FAT Schedule Tracker',st:'sub'}].concat(head.slice(1).map(function(){return {v:'',st:'sub'};})),
+    head.map(function(h){return {v:h,st:'head'};})
+  ];
+  rowsData.forEach(function(x,i){
+    rows.push([{v:i+1,st:'cell'}].concat(x.cells.map(function(c,j){
+      return {v:c,st:j===x.cells.length-1?(x.remark==='upcoming'?'up':x.remark==='Re-FAT is required'?'refat':'done'):'cell'};})));
+  });
+  rows.push([{v:'* Proposed dates are tentative dates, actual dates will be updated regularly based on manufacturing progress.',st:'note'}]);
+  rows.push([{v:'TBA- To Be Assigned; TBD- To Be Determined',st:'note2'}]);
+  var heights={1:22,2:18,3:52};
+  for(var i=4;i<4+rowsData.length;i++)heights[i]=30;
+  return styledBook({name:'FAT Schedule',styles:S,rows:rows,heights:heights,
+    cols:[5,26,16,10,16,20,18,18,11,13,13,18,12,18],
+    merges:['A1:N1','A2:N2'],freeze:{x:2,y:3}});
+}
+
+/* ---------------- Physical Assessment Summary ---------------- */
+function paSummaryBook(){
+  var list=(DB.mfrs||[]).filter(function(v){
+    var k=kindOf(v);if(k!=='maker'&&k!=='makesub')return false;
+    var pa=(v.steps||{}).pa||{};
+    return !!(pa.date||pa.status||pa.ref||pqOf(v).ref);
+  }).sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
+  var S={
+    title:{fill:'F8CBAD',sz:14,color:'843C0C',border:false},grp:{fill:'B4C6E7',b:true,sz:9},
+    head:{fill:'B4C6E7',b:true,sz:9},cell:{},left:{align:'left'},bad:{align:'left',color:'FF0000'},
+    scope:{fill:'DDEBF7',color:'C00000'},done:{fill:'548235',color:'FFFFFF'},fail:{fill:'F4B6C2'},none:{fill:'FF0000'}};
+  var head=['S#','Suppliers proposed for participation','Status','Ref Document No','Scope','Location',
+    'Assessment Performed','Technical Assessor','Technical report','QMS Assessor','QMS Report','Status','Ref Document No'];
+  var rows=[
+    head.map(function(_,i){return {v:i===0?'Physical Assessment Summary':'',st:'title'};}),
+    head.map(function(_,i){return {v:i===2?'PQD':i===6?'Physical Assessment':'',st:'grp'};}),
+    head.map(function(h){return {v:h,st:'head'};})];
+  var word=function(s){return /Pass/.test(s||'')?'Pass':/Fail/.test(s||'')?'Failed':(s||'');};
+  list.forEach(function(v,i){
+    var pq=pqOf(v), pa=(v.steps||{}).pa||{};
+    var done=/Passed|Failed|Waived/.test(pa.status||'');
+    var overall=word(pa.status);
+    var tech=pa.tres||overall, qms=pa.qres||overall;
+    var rejected=/Rejected|Terminated/.test(pq.status||'');
+    rows.push([
+      {v:i+1,st:'cell'},{v:v.name,st:rejected?'bad':'left'},
+      {v:pq.status||'',st:pq.ref?'cell':'none'},{v:pq.ref||'',st:pq.ref?'cell':'none'},
+      {v:v.scope||'',st:'scope'},{v:[v.site,v.country].filter(Boolean).join(' - '),st:'cell'},
+      {v:done?'Done':(pa.status==='Scheduled'?'Scheduled':''),st:done?'done':'cell'},
+      {v:pa.by2||'',st:'cell'},{v:tech,st:/Failed/.test(tech)?'fail':'cell'},
+      {v:pa.by||'',st:'cell'},{v:qms,st:/Failed/.test(qms)?'fail':'cell'},
+      {v:done?overall:'',st:/Failed/.test(overall)?'fail':'cell'},{v:pa.ref||'',st:'cell'}]);
+  });
+  var heights={1:24,2:16,3:30};
+  return styledBook({name:'Physical Assessment',styles:S,rows:rows,heights:heights,
+    cols:[4,30,18,34,16,16,12,16,13,16,13,9,32],
+    merges:['A1:M1','C2:D2','G2:M2'],freeze:{x:2,y:3},filter:'A3:M'+(3+list.length)});
+}
 function aheadRows(){
   var t0=today(),end=addDays(t0,14),out=[];
   function add(date,what,who){if(date&&date>=t0&&date<=end)out.push([{date:date},what,who||'']);}
@@ -4852,6 +5030,16 @@ var REPORTS=[
     download(workbook([{name:'Vendors',rows:vendorRows()}]),
       (DB.project||'Vendors')+' — vendors '+today()+'.xlsx');
   }},
+ {k:'fatx',t:'Final Inspection / FAT Schedule Tracker',
+  d:'Every material with a final inspection or FAT recorded: its maker, category and place, the '
+    +'third-party agency and inspector and their approval, the pre-fabrication, fabrication, FAT and '
+    +'first delivery dates, and whether the FAT is done, upcoming or to be repeated.',
+  go:function(){download(fatTrackerBook(),(DB.project||'Project')+' — FAT Schedule Tracker '+today()+'.xlsx');}},
+ {k:'pasum',t:'Physical Assessment Summary',
+  d:'Every vendor whose factory is surveyed: its pre-qualification and number, scope and location, '
+    +'then the physical assessment — done or not, the technical and QMS assessors and their '
+    +'reports, the result and the report’s number.',
+  go:function(){download(paSummaryBook(),(DB.project||'Project')+' — Physical Assessment Summary '+today()+'.xlsx');}},
  {k:'ahead',t:'Two-week look-ahead (TWLAS)',
   d:'This week and next, Saturday to Friday, in the project\u2019s TWLAS layout: physical assessments, '
     +'pre-qualifications, pre-inspection dossiers and meetings, post-inspection dossiers, FAT and '
