@@ -4711,11 +4711,11 @@ function paSummaryBook(){
     title:{fill:'F8CBAD',sz:14,color:'843C0C',border:false},grp:{fill:'B4C6E7',b:true,sz:9},
     head:{fill:'B4C6E7',b:true,sz:9},cell:{},left:{align:'left'},bad:{align:'left',color:'FF0000'},
     scope:{fill:'DDEBF7',color:'C00000'},done:{fill:'548235',color:'FFFFFF'},fail:{fill:'F4B6C2'},none:{fill:'FF0000'}};
-  var head=['S#','Suppliers proposed for participation','Status','Ref Document No','Scope','Location',
+  var head=['S#','Suppliers proposed for participation','Material Category','Status','Ref Document No','Scope','Location',
     'Assessment Performed','Technical Assessor','Technical report','QMS Assessor','QMS Report','Status','Ref Document No'];
   var rows=[
     head.map(function(_,i){return {v:i===0?'Physical Assessment Summary':'',st:'title'};}),
-    head.map(function(_,i){return {v:i===2?'PQD':i===6?'Physical Assessment':'',st:'grp'};}),
+    head.map(function(_,i){return {v:i===3?'PQD':i===7?'Physical Assessment':'',st:'grp'};}),
     head.map(function(h){return {v:h,st:'head'};})];
   var word=function(s){return /Pass/.test(s||'')?'Pass':/Fail/.test(s||'')?'Failed':(s||'');};
   list.forEach(function(v,i){
@@ -4724,8 +4724,10 @@ function paSummaryBook(){
     var overall=word(pa.status);
     var tech=pa.tres||overall, qms=pa.qres||overall;
     var rejected=/Rejected|Terminated/.test(pq.status||'');
+    /* the vendor's category, or the highest among its materials */
+    var cat=v.cat||matsOf(v).map(function(m){return m.cat||'';}).filter(Boolean).sort().pop()||'';
     rows.push([
-      {v:i+1,st:'cell'},{v:v.name,st:rejected?'bad':'left'},
+      {v:i+1,st:'cell'},{v:v.name,st:rejected?'bad':'left'},{v:cat,st:'cell'},
       {v:pq.status||'',st:pq.ref?'cell':'none'},{v:pq.ref||'',st:pq.ref?'cell':'none'},
       {v:v.scope||'',st:'scope'},{v:[v.site,v.country].filter(Boolean).join(' - '),st:'cell'},
       {v:done?'Done':(pa.status==='Scheduled'?'Scheduled':''),st:done?'done':'cell'},
@@ -4735,8 +4737,8 @@ function paSummaryBook(){
   });
   var heights={1:24,2:16,3:30};
   return styledBook({name:'Physical Assessment',styles:S,rows:rows,heights:heights,
-    cols:[4,30,18,34,16,16,12,16,13,16,13,9,32],
-    merges:['A1:M1','C2:D2','G2:M2'],freeze:{x:2,y:3},filter:'A3:M'+(3+list.length)});
+    cols:[4,30,10,18,34,16,16,12,16,13,16,13,9,32],
+    merges:['A1:N1','D2:E2','H2:N2'],freeze:{x:2,y:3},filter:'A3:N'+(3+list.length)});
 }
 function aheadRows(){
   var t0=today(),end=addDays(t0,14),out=[];
