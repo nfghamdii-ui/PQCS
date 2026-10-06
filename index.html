@@ -2341,7 +2341,7 @@ function mfrPane(v){
     +(mine.length
       ? mine.map(function(m){
           var rr=matRoad(m), cur=rr.at>=0?rr.steps[rr.at]:null;
-          return '<div class="line row-a" onclick="setTab(\'mat\');pick('+m.id+')">'
+          return '<div class="line row-a" onclick="jump(\'mat\','+m.id+')">'
             +'<span class="tag t-'+(rr.at<0?'ok':'na')+'">'+esc(m.cat||'—')+'</span>'
             +'<div class="line-m"><div>'+esc(m.name)+'</div>'
             +'<div class="dim" style="font-size:12.5px;margin-top:2px">'+(cur?esc(cur.s.n):'all steps cleared')+'</div></div>'

@@ -6348,6 +6348,9 @@ function navRestore(x){
 }
 function installNav(){
   if(window.__nav)return;window.__nav=true;
+  /* Choosing a record anywhere opens that record, over its list, and is
+     a step Back returns from — never the list it sits in. */
+  window.pick=function(id){return window.jump(TAB,id);};
   ['setTab','jump','listBack'].forEach(function(fn){
     var orig=window[fn];if(typeof orig!=='function')return;
     window[fn]=function(){
