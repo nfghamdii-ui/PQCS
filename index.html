@@ -1392,6 +1392,9 @@ var MFR_ROAD=[
   /* in pairs: the survey and its report, then each assessor beside the
      result of their report, then the result of it all */
   cols:2,
+  /* with it, in the same card, the Main Log's assessment columns,
+     kept on the vendor's own log fields */
+  logf:true,
   f:[['date','Survey date','date'],['ref','Report reference','text'],
      ['by','QMS auditor','person'],['qres','QMS report','sel',['','Pass','Failed']],
      ['by2','Technical expert','person'],['tres','Technical report','sel',['','Pass','Failed']],
@@ -2517,7 +2520,13 @@ function roadProps(rec,steps,kind,after){
          +(x.state!=='done'?'<button class="btn-q" onclick="quickDone(\''+kind+'\',\''+st.k+'\')">Mark done</button>':''));
       if(open===st.k)body=stepCard(rec,x,i,kind);
       else{
-        body='<div class="props">'+(st.f||[]).map(function(f){
+        var lfv=rec.logf||{};
+        body='<div class="props">'+(st.logf&&window.VEN_LOG?
+          window.VEN_LOG.filter(function(f){return f[1]==='date';}).map(function(f){
+            return pr(f[0],lfv[f[0]]?show(lfv[f[0]]):'');}).join('')
+          +pr('Assessment done',window.VEN_LOG.filter(function(f){return lfv[f[0]]==='Yes';})
+            .map(function(f){return esc(f[0].replace(/ Assessment Done$/,''));}).join(' · ')):'')
+          +(st.f||[]).map(function(f){
           var val=d[f[0]];
           if(f[2]==='date')return pr(f[1],val?show(val):'');
           return pr(f[1],val?esc(val):'',/^ref/.test(f[0])?'mono':'');
@@ -2528,7 +2537,7 @@ function roadProps(rec,steps,kind,after){
         if(warn)body+='<div class="pg-note late">'+esc(warn)+'</div>';
       }
     }
-    h+=(after['^'+st.k]||'')+'<div class="pgroup'+(open===st.k?' on':'')+'"'+navAttr(st.n,tone,'pg-'+st.k)+'><div class="pg-h">'
+    h+='<div class="pgroup'+(open===st.k?' on':'')+'"'+navAttr(st.n,tone,'pg-'+st.k)+'><div class="pg-h">'
       +'<span class="pg-t">'+esc(st.n)+'</span><span class="sclause">'+esc(st.clause)+'</span>'
       +'<span class="tag t-'+tone+'">'+esc(word)+'</span>'
       +'<span style="flex:1"></span>'
@@ -2794,6 +2803,20 @@ function dateLabel(st){
 function form(rec,st,d,kind){
   var two=st.cols===2;
   var h='<div class="form'+(two?' form-2':'')+'">';
+  if(st.logf&&window.VEN_LOG){
+    var lf=rec.logf||{}, ticks='';
+    window.VEN_LOG.forEach(function(f,i){
+      var val=lf[f[0]];
+      if(f[1]==='date')h+='<div class="f"><label for="lf-'+i+'">'+esc(f[0])+'</label>'
+        +'<input class="mono" id="lf-'+i+'" value="'+attr(show(val))+'" placeholder="dd/mm/yyyy" autocomplete="off">'
+        +'<span class="err" id="e-lf-'+i+'"></span></div>';
+      else ticks+='<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px">'
+        +'<input type="checkbox" id="lf-'+i+'"'+(val==='Yes'?' checked':'')+' style="width:18px;height:18px;margin:0;flex:none">'
+        +esc(f[0])+'</label>';
+    });
+    if(ticks)h+='<div class="f" style="grid-column:1/-1"><label>Assessment done</label>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:10px 22px;padding-top:4px">'+ticks+'</div></div>';
+  }
   /* the fields always asked first; a seldom one, and the line that opens
      it, after them, so the row of the usual ones is not broken */
   var fs=st.f.filter(function(f){return f[3]!=='optional';})
@@ -2912,7 +2935,19 @@ window.saveStep=function(kind,k){
       out[f[0]]=iso;
     }else out[f[0]]=v;
   });
+  var lf=null;
+  if(st.logf&&window.VEN_LOG){
+    lf=Object.assign({},rec.logf||{});
+    window.VEN_LOG.forEach(function(f,i){
+      var el=document.getElementById('lf-'+i);if(!el)return;
+      var x=el.type==='checkbox'?(el.checked?'Yes':'No'):el.value.trim();
+      if(f[1]==='date'&&x){var iso=parseDate(x);
+        if(iso===null){bad=bad||'lf';document.getElementById('e-lf-'+i).textContent='Use dd/mm/yyyy';return;}x=iso;}
+      if(x)lf[f[0]]=x;else delete lf[f[0]];
+    });
+  }
   if(bad)return;
+  if(lf)rec.logf=lf;
   /* the same number typed twice is one report, not two */
   if(out.ref2&&out.ref2===out.ref)out.ref2='';
   rec.steps=rec.steps||{};rec.steps[k]=out;

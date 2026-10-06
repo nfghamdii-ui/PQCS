@@ -3188,8 +3188,11 @@ var VEN_LOG=[
   ['Client Assessment Done','sel',YN],
   ['PMC/LDC Assessment Done','sel',YN],
   ['Contractor Assessment Done','sel',YN]];
+window.VEN_LOG=VEN_LOG;
 window.venLogFor=function(v,keys){
   var o=v.logf||{}, at=(keys||[]).indexOf('pa')>=0?'pa':(keys||[])[(keys||[]).length-1]||'';
+  /* a vendor with a physical assessment keeps them in that card */
+  if(at==='pa')return {};
   var filled=VEN_LOG.filter(function(f){return logShow(f,o[f[0]]);}).length;
   var h='<div class="pgroup"><div class="pg-h"><span class="pg-t">Assessment</span>'
     +'<span class="tag t-'+(filled===VEN_LOG.length?'ok':filled?'wait':'na')+'">'+filled+' of '+VEN_LOG.length+'</span>'
@@ -3199,8 +3202,7 @@ window.venLogFor=function(v,keys){
       return '<div class="pr"><div class="pr-l">'+esc(f[0])+'</div><div class="pr-v">'+esc(logShow(f,o[f[0]]))+'</div></div>';
     }).join('')+'</div>'
     +'<div class="pg-note" style="color:var(--ink-3)">Carried into the Main Log of every material from this vendor.</div></div>';
-  /* it comes before the physical assessment itself */
-  var out={};out[at==='pa'?'^pa':at]=h;return out;
+  var out={};out[at]=h;return out;
 };
 window.editVenLog=function(id){
   var v=mfr(id);if(!v)return;
