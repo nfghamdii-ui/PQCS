@@ -2202,7 +2202,8 @@ window.editEvent=function(id,preset){
       +EV_OPTS.map(function(o){return '<option value="'+o.v+'"'+((e.type||'fab')===o.v?' selected':'')+'>'+esc(o.l)+'</option>';}).join('')
       /* not an event of the calendar's own: the date is written onto the
          vendor or the material, where its page and the reports read it */
-      +(id?'':'<option value="pa">PA tentative date — a vendor</option><option value="pfm">Pre-fabrication meeting — a material</option>')
+      +(id?'':'<option value="pa">PA tentative date — a vendor</option><option value="pfm">Pre-fabrication meeting — a material</option>'
+        +'<option value="fat">FAT / Final inspection — a material</option>')
       +'</select></div>'
     +'<div class="f" id="w-e-rep"><label for="e-rep">Repeat</label><select id="e-rep">'
       +Object.keys(REP).map(function(k){return '<option value="'+k+'"'+((e.rep||'')===k?' selected':'')+'>'+esc(REP[k])+'</option>';}).join('')
@@ -2225,13 +2226,13 @@ window.editEvent=function(id,preset){
 };
 /* the record kinds keep only who and when, and list only their records */
 window.evKindChange=function(k){
-  var rec=(k==='pa'||k==='pfm');
+  var rec=(k==='pa'||k==='pfm'||k==='fat');
   ['w-e-title','w-e-rep','w-e-to','w-e-note'].forEach(function(id){
     var el=document.getElementById(id);if(el)el.style.display=rec?'none':'';});
   var sel=document.getElementById('e-link');if(!sel)return;
   var opts=k==='pa'
     ?(DB.mfrs||[]).filter(function(v){return kindOf(v)!=='agency';}).map(function(v){return {v:'mfr:'+v.id,l:v.name};})
-    :k==='pfm'
+    :(k==='pfm'||k==='fat')
     ?(DB.mats||[]).filter(function(m){return !m.doc;}).map(function(m){return {v:'mat:'+m.id,l:m.name};})
     :[{v:'',l:'Not linked'}]
       .concat((DB.mats||[]).map(function(m){return {v:'mat:'+m.id,l:'Material · '+m.name};}))
@@ -2240,13 +2241,13 @@ window.evKindChange=function(k){
   sel.innerHTML=(rec?'<option value="">— choose '+(k==='pa'?'the vendor':'the material')+' —</option>':'')
     +opts.map(function(o){return '<option value="'+attr(o.v)+'">'+esc(o.l)+'</option>';}).join('');
   var lab=document.querySelector('label[for="e-link"]');
-  if(lab)lab.textContent=k==='pa'?'Vendor':k==='pfm'?'Material':'Belongs to';
+  if(lab)lab.textContent=k==='pa'?'Vendor':(k==='pfm'||k==='fat')?'Material':'Belongs to';
   var fl=document.querySelector('label[for="e-from"]');
   if(fl)fl.textContent=rec?'Date':'From';
 };
 window.saveEvent=function(id){
   var kind=document.getElementById('e-type').value;
-  if(kind==='pa'||kind==='pfm'){
+  if(kind==='pa'||kind==='pfm'||kind==='fat'){
     var d=parseDate(document.getElementById('e-from').value);
     if(!d){document.getElementById('err-e-from').textContent='Use dd/mm/yyyy';return;}
     var lk=document.getElementById('e-link').value;
@@ -2256,6 +2257,11 @@ window.saveEvent=function(id){
       var v=mfr(rid);if(!v)return;
       v.logf=Object.assign({},v.logf||{});v.logf['PA Tentative Date']=d;
       toast('PA tentative date for '+v.name+' — '+show(d));
+    }else if(kind==='fat'){
+      var mf=mat(rid);if(!mf)return;
+      /* a visit planned, in the material's list of FAT visits */
+      if(typeof window.addVisit==='function')window.addVisit(mf,'fat',d,'Scheduled');
+      toast('FAT for '+mf.name+' — '+show(d));
     }else{
       var m=mat(rid);if(!m)return;
       m.steps=m.steps||{};

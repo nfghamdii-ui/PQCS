@@ -4434,7 +4434,11 @@ function twItems(t0,end){
     });
     var vs=function(k){return (m.visits||[]).filter(function(y){return y.step===k;}).map(function(y){return y.date;});};
     if(step('fat'))put('9',m.name,code,vs('fat').concat(stepDates(m,step('fat').s,step('fat').data)));
-    if(step('irn'))put('10',m.name,code,vs('irn').concat(stepDates(m,step('irn').s,step('irn').data)));
+    /* materials released on site: each inspection request (consignment)
+       on its day, its number beside the material */
+    (m.dels||[]).forEach(function(c){
+      if(c.date)put('10',m.name+(c.ref?' — '+c.ref:''),code,[c.date]);
+    });
   });
   return sec;
 }
@@ -5998,6 +6002,12 @@ function visitPanel(m,k){
     +'</div></div></div>';
 }
 
+/* a visit added from elsewhere (the calendar): planned, the step brought up to date */
+window.addVisit=function(m,k,date,result){
+  m.visits=m.visits||[];
+  m.visits.push({id:idMaker()(),step:k,date:date,by:'',ref:'',result:result||'Pending',note:''});
+  restep(m,k);
+};
 window.editVisit=function(matId,k,id){
   var m=mat(matId);if(!m)return;
   var w=VISIT_TEXT[k];
