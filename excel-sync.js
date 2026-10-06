@@ -4410,7 +4410,10 @@ function twItems(t0,end){
   (DB.mfrs||[]).forEach(function(v){
     var stp=v.steps||{}, pq=pqOf(v), code=twDisc(pq.ref,'');
     var pa=stp.pa||{};
-    if(pa.date)put('1',v.name+(pa.date>=today()?' ( upcoming )':''),code,[pa.date]);
+    /* the tentative date — the visit as planned, before the official one
+       and its report; failing that, a survey recorded as Scheduled */
+    var tent=(v.logf||{})['PA Tentative Date']||(pa.status==='Scheduled'?pa.date:'');
+    if(tent)put('1',v.name+(tent>=today()?' ( upcoming )':''),code,[tent]);
     var pqs=MFR_ROAD.filter(function(x){return x.k==='pqd';})[0];
     /* a first submission only: a resubmission (revision 1 and on) is not new */
     var first=pq.rev==null||pq.rev===''||/^0*$/.test(String(pq.rev).trim());
