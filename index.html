@@ -1350,6 +1350,9 @@ function matsOf(v){return (DB.mats||[]).filter(function(m){return String(m.mfr)=
 var KINDS={
   maker:{l:'Manufacturer',d:'Makes the material in its own plant.',steps:['pqd','iso','pa']},
   sub:{l:'Subcontractor',d:'Carries out work on the project rather than supplying goods.',steps:['pqd','iso','qms']},
+  /* one company, one PQD number: it makes the material in its own plant
+     and installs it here, so it clears both roads */
+  makesub:{l:'Manufacturer & Subcontractor',d:'Makes the material in its own plant and installs it on the project.',steps:['pqd','iso','pa','qms']},
   supplier:{l:'Supplier',d:'Trades or distributes; the material is made by someone else.',steps:['pqd','origin']},
   agency:{l:'Inspection agency',d:'Performs third-party inspection on your behalf.',steps:['appr','scope','iso']}
 };
@@ -2312,7 +2315,7 @@ function mfrPane(v){
     +(kindOf(v)==='agency'?''
       :'<button class="chip '+(v.cat?'set':'warn')+'" data-pop onclick="editMfrCat(event)">'+(v.cat?esc(v.cat):'set the category')+'</button>')
     +'<button class="chip" data-pop onclick="editText(event,\'country\',\'Country\')">'+(v.country?esc(v.country):'country')+'</button>'
-    +(kindOf(v)==='maker'
+    +(kindOf(v)==='maker'||kindOf(v)==='makesub'
       ?'<button class="chip" data-pop onclick="editText(event,\'site\',\'Production site\',\'Clause 2.1.6 qualifies the manufacturer and its specific production site.\')">'+(v.site?esc(v.site):'production site')+'</button>'
       :'')
     +'<button class="chip" data-pop onclick="editText(event,\'scope\',\'Scope of work\')">'+(v.scope?esc(v.scope):'scope')+'</button>'
@@ -2320,7 +2323,7 @@ function mfrPane(v){
     +'<span style="flex:1"></span>'
     +'<button class="btn-q no-print" data-pop onclick="remove(event)">Delete</button>'
     +'</div>'
-    +((kindOf(v)==='maker'&&!v.site)
+    +(((kindOf(v)==='maker'||kindOf(v)==='makesub')&&!v.site)
       ?'<div class="swhy" style="margin-top:10px">Clause 2.1.6 qualifies the manufacturer <b>and its specific production site</b>. Name the site.</div>'
       :'<div class="swhy" style="margin-top:10px">'+esc(KINDS[kindOf(v)].d)+'</div>')
     +'</div></div>';

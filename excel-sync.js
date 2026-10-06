@@ -935,6 +935,8 @@ function rawOut(m){
   if(v){
     if(v.kind==='sub'){if(!raw['Sub-contractor Name'])set('Sub-contractor Name',v.name);}
     else set('Manufacturer',v.name);
+    /* a maker that also installs is the subcontractor too, unless another is named */
+    if(v.kind==='makesub'&&!raw['Sub-contractor Name'])set('Sub-contractor Name',v.name);
     if(v.country)set('Country of Origin of Manufacture',v.country);
     var pq=pqOf(v);
     if(pq.ref)set('PQD Number',pq.ref);
@@ -3607,7 +3609,7 @@ window.pickBroughtBy=function(id,q){
   var subs=(DB.mfrs||[]).filter(function(x){
     return String(x.id)!==String(v.id)&&(!need||K(x.name).indexOf(need)>=0);
   }).sort(function(a,b){
-    var A=(a.kind==='sub')?0:1,B=(b.kind==='sub')?0:1;
+    var A=(a.kind==='sub'||a.kind==='makesub')?0:1,B=(b.kind==='sub'||b.kind==='makesub')?0:1;
     return A-B||String(a.name).localeCompare(String(b.name));
   });
   sheet('Who brought '+v.name+'?',
@@ -3884,6 +3886,7 @@ function visitWordIn(s){
   return hit||s;
 }
 var VEN_KINDS={'manufacturer':'maker','maker':'maker','subcontractor':'sub','sub':'sub',
+  'manufacturer & subcontractor':'makesub','manufacturer and subcontractor':'makesub','makesub':'makesub',
   'supplier':'supplier','inspection agency':'agency','agency':'agency'};
 
 /* ---------------------------------------------------------------
@@ -6031,7 +6034,7 @@ function editMatSheet(){
       +'<datalist id="sub-list">'
       +(function(){
         var seen={},out=[];
-        (DB.mfrs||[]).forEach(function(x){if(kindOf(x)==='sub'&&x.name&&!seen[K(x.name)]){seen[K(x.name)]=1;out.push(x.name);}});
+        (DB.mfrs||[]).forEach(function(x){if((kindOf(x)==='sub'||kindOf(x)==='makesub')&&x.name&&!seen[K(x.name)]){seen[K(x.name)]=1;out.push(x.name);}});
         (DB.mats||[]).forEach(function(x){if(x.sub&&!seen[K(x.sub)]){seen[K(x.sub)]=1;out.push(x.sub);}});
         return out.sort().map(function(n){return '<option value="'+attr(n)+'">';}).join('');
       })()
@@ -6083,7 +6086,7 @@ function editVendorSheet(){
   var st=v.steps||{}, pq=pqOf(v), iso=st.iso||{};
   var subs=(DB.mfrs||[]).filter(function(x){return String(x.id)!==String(v.id);})
     .sort(function(a,b){
-      var A=(a.kind==='sub')?0:1,B=(b.kind==='sub')?0:1;
+      var A=(a.kind==='sub'||a.kind==='makesub')?0:1,B=(b.kind==='sub'||b.kind==='makesub')?0:1;
       return A-B||String(a.name).localeCompare(String(b.name));});
   sheet('Edit — vendor',
      '<div class="form" style="margin:0;padding:0;border:none">'
