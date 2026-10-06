@@ -2410,6 +2410,8 @@ function liftTabs(){
     var b=document.createElement('button');
     b.className='tab';b.id='tab-'+pair[0];b.setAttribute('role','tab');
     b.setAttribute('aria-selected','false');
+    /* reached from Other now; the button stays, out of sight, for its count */
+    b.style.display='none';
     b.appendChild(document.createTextNode(pair[1]+' '));
     var cnt=document.createElement('span');
     cnt.className='n';cnt.id='n-'+pair[0];cnt.textContent='0';
@@ -2457,7 +2459,8 @@ function paintTabs(){
     else if(waitsForLink(m))n.doc++;
   });
   var ot=document.getElementById('tab-other');
-  if(ot)ot.setAttribute('aria-selected',String(TAB==='mat'&&isOtherView(VIEW)&&VIEW!=='paa'&&VIEW!=='pqd'&&VIEW!=='allmir'));
+  if(ot)ot.setAttribute('aria-selected',String(TAB==='mat'&&(OTHER_TABS.some(function(p){return p[0]===VIEW;})
+    ||(isOtherView(VIEW)&&VIEW!=='paa'&&VIEW!=='pqd'))));
   var mt=document.getElementById('tab-mir');
   if(mt&&TAB==='mat'&&VIEW==='allmir')mt.setAttribute('aria-selected','true');
   /* the PQD page is the Vendors tab's second page */
@@ -2567,6 +2570,9 @@ function kindChips(){
   });
   box.innerHTML=html+box.innerHTML;
 }
+/* the inspection pages and Documents, first in Other */
+var OTHER_TABS=[['ipi','In-Process Inspection'],['fat','FAT/Final Inspection'],
+  ['mir','Material Inspection Request'],['irn','Inspection Release Note'],['doc','Documents']];
 function otherMenu(btn){
   var old=document.getElementById('other-menu');
   if(old){old.remove();return;}
@@ -2581,7 +2587,14 @@ function otherMenu(btn){
     .concat(n.odoc?[['odoc','Other kinds']]:[]).concat([['alldoc','All documents']]);
   var box=document.createElement('div');
   box.id='other-menu';box.className='other-menu';box.setAttribute('role','menu');
-  box.innerHTML=items.map(function(it){
+  box.innerHTML=OTHER_TABS.map(function(it){
+    var c=document.getElementById('n-'+it[0]);
+    return '<button role="menuitem"'+(TAB==='mat'&&(VIEW===it[0]||(it[0]==='mir'&&VIEW==='allmir'))?' aria-current="true"':'')
+      +' onclick="otherGo(\''+it[0]+'\')"><span>'+esc(it[1])+'</span>'
+      +'<span class="n">'+(c?c.textContent:'')+'</span></button>';
+  }).join('')
+    +'<div style="border-top:1px solid var(--line);margin:4px 0"></div>'
+    +items.map(function(it){
     var c=it[0]==='alldoc'?all:(n[it[0]]||0);
     return '<button role="menuitem"'+(TAB==='mat'&&VIEW===it[0]?' aria-current="true"':'')
       +' onclick="otherGo(\''+it[0]+'\')"><span>'+esc(it[1])+'</span>'
