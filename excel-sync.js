@@ -7091,26 +7091,6 @@ window.stepDocs=function(m,k){
 var DASH_SHOW={};
 function dIso(v){return /^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?String(v):'';}
 function dGap(a,b){return Math.round((new Date(b)-new Date(a))/864e5);}
-function dBar(parts){
-  var t=parts.reduce(function(a,p){return a+p[0];},0);
-  if(!t)return '<div class="d-bar"></div>';
-  return '<div class="d-bar">'+parts.filter(function(p){return p[0];}).map(function(p){
-    return '<i style="width:'+(p[0]/t*100)+'%;background:'+p[1]+'" title="'+attr(p[2]+': '+p[0])+'"></i>';}).join('')+'</div>';
-}
-function dKey(parts){
-  return '<div class="d-key">'+parts.filter(function(p){return p[0];}).map(function(p){
-    return '<span><i style="background:'+p[1]+'"></i>'+esc(p[2])+' <b>'+p[0]+'</b></span>';}).join('')+'</div>';
-}
-function dKpi(v,label,sub,parts,go,tone){
-  return '<div class="d-kpi'+(go?' row-a':'')+(tone?' d-'+tone:'')+'"'+(go?(' onclick="'+go+'"'):'')+'>'
-    +'<div class="d-kl">'+esc(label)+'</div><div class="d-kv">'+v+'</div>'
-    +(parts?dBar(parts):'')+'<div class="d-ks">'+sub+'</div></div>';
-}
-function dPanel(title,note,body,extra){
-  return '<section class="d-panel"><div class="d-ph"><span class="d-pt">'+esc(title)+'</span>'
-    +(note?'<span class="d-pn">'+note+'</span>':'')+'<span style="flex:1"></span>'+(extra||'')+'</div>'+body+'</section>';
-}
-var C_OK='var(--ok)',C_WAIT='var(--wait)',C_BAD='var(--bad)',C_NOW='var(--now)',C_NONE='var(--line-2)';
 
 /* the procedure's clauses, checked against every record */
 function dashChecks(mats,roads){
@@ -7207,208 +7187,196 @@ window.dashToggle=function(el,id){
   var a=el.querySelector('.d-car');if(a)a.textContent=on?'▴':'▾';
 };
 
+/* the list's three views switch where they are */
+var DASH_TAB='late';
+window.dashTab=function(k){
+  DASH_TAB=k;
+  document.querySelectorAll('.d-seg button').forEach(function(b){b.setAttribute('aria-pressed',String(b.getAttribute('data-k')===k));});
+  document.querySelectorAll('.d-list').forEach(function(l){l.style.display=l.getAttribute('data-k')===k?'':'none';});
+};
+function dRow(tone,name,line,tag,go){
+  return '<div class="d-row'+(go?' row-a':'')+'"'+(go?(' onclick="'+go+'"'):'')+'>'
+    +'<span class="d-dot" style="background:var(--'+(tone==='bad'?'bad':tone==='now'?'now':tone==='ok'?'ok':'wait')+')"></span>'
+    +'<span class="d-rn">'+esc(name)+'</span><span class="d-rl">'+esc(line)+'</span>'
+    +(tag?'<span class="tag t-'+tone+'">'+esc(tag)+'</span>':'')+'</div>';
+}
 function dashPane(){
   var mats=(DB.mats||[]).filter(function(m){return !isDoc(m);});
   var roads={};mats.forEach(function(m){roads[m.id]=matRoad(m);});
-  var all=findings(), f=awake(all);
+  var f=awake(findings());
   var late=f.filter(function(x){return x.tone==='bad';}), mine=f.filter(function(x){return x.tone==='now';});
-
-  /* --- the figures --- */
-  var cat={C0:0,C1:0,C2:0,C3:0,'':0};mats.forEach(function(m){cat[/^C[0-3]$/.test(m.cat||'')?m.cat:'']++;});
-  var mts={ok:0,wait:0,bad:0,none:0};
-  mats.forEach(function(m){var x=roads[m.id].steps.filter(function(y){return y.s.k==='mts';})[0];
-    var s=x?x.state:'open';mts[s==='done'?'ok':s==='bad'?'bad':s==='wait'?'wait':'none']++;});
-  var vq=(DB.mfrs||[]).filter(function(v){return needsQual(v)&&(kindOf(v)!=='agency');});
-  var vs={ok:0,wait:0,bad:0};vq.forEach(function(v){var s=mfrState(v);vs[s.ok?'ok':s.tone==='bad'?'bad':'wait']++;});
-  var from=addDays(today(),-90), vis={ok:0,bad:0,wait:0};
-  mats.forEach(function(m){(m.visits||[]).forEach(function(v){if(!v.date||v.date<from)return;
-    vis[/Passed/.test(v.result||'')?'ok':/Failed/.test(v.result||'')?'bad':'wait']++;});});
-  var dl={ok:0,bad:0,wait:0};
-  mats.forEach(function(m){(m.dels||[]).forEach(function(d){dl[settled(d.status)?'ok':failed(d.status)?'bad':'wait']++;});});
-  var ncr=mats.reduce(function(a,m){return a+openNCR(m);},0);
-  var checks=dashChecks(mats,roads), broken=checks.filter(function(c){return c.items.length;});
-  var hits=broken.reduce(function(a,c){return a+c.items.length;},0);
+  var checks=dashChecks(mats,roads).filter(function(c){return c.items.length;});
+  checks.sort(function(a,b){return (a.tone==='bad'?0:1)-(b.tone==='bad'?0:1)||b.items.length-a.items.length;});
+  var hits=checks.reduce(function(a,c){return a+c.items.length;},0);
+  var cleared=mats.filter(function(m){return roads[m.id].at<0;}).length;
+  var vq=(DB.mfrs||[]).filter(function(v){return needsQual(v)&&kindOf(v)!=='agency';});
+  var vok=vq.filter(function(v){return mfrState(v).ok;}).length;
 
   var head='<div class="head"><div class="wrap"><div class="head-t">Dashboard</div><div class="head-m">'
     +(DB.project?('<span class="chip flat">'+esc(DB.project)+'</span>'):'')
     +'<span class="chip flat">'+new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</span>'
-    +(late.length?'<span class="chip warn">'+late.length+' late</span>':'<span class="chip set">nothing late</span>')
-    +(hits?'<span class="chip warn">'+hits+' against the procedure</span>':'<span class="chip set">procedure clear</span>')
     +'</div></div></div>';
 
-  var kpi='<div class="d-kpis">'
-    +dKpi(mats.length,'Materials','C0 '+cat.C0+' · C1 '+cat.C1+' · C2 '+cat.C2+' · C3 '+cat.C3+(cat['']?(' · <b>'+cat['']+' none</b>'):''),
-      [[cat.C0,'var(--line-3)','C0'],[cat.C1,C_WAIT,'C1'],[cat.C2,C_NOW,'C2'],[cat.C3,C_BAD,'C3'],[cat[''],C_NONE,'none']],"setTab('mat')")
-    +dKpi(mats.length?Math.round(mts.ok/mats.length*100)+'%':'—','Submittals approved',
-      mts.ok+' approved · '+mts.wait+' in review · '+mts.bad+' returned · '+mts.none+' not sent',
-      [[mts.ok,C_OK,'approved'],[mts.wait,C_WAIT,'in review'],[mts.bad,C_BAD,'returned'],[mts.none,C_NONE,'not sent']],"setTab('mat')")
-    +dKpi(vs.ok+'<small> / '+vq.length+'</small>','Vendors qualified',vs.wait+' in qualification · '+vs.bad+' blocked',
-      [[vs.ok,C_OK,'qualified'],[vs.wait,C_WAIT,'in qualification'],[vs.bad,C_BAD,'blocked']],"setTab('mfr')")
-    +dKpi((vis.ok+vis.bad)?Math.round(vis.ok/(vis.ok+vis.bad)*100)+'%':'—','Factory pass rate · 90 days',
-      vis.ok+' passed · '+vis.bad+' failed · '+vis.wait+' open',[[vis.ok,C_OK,'passed'],[vis.bad,C_BAD,'failed'],[vis.wait,C_WAIT,'open']],"setTab('fat')")
-    +dKpi(dl.ok+dl.bad+dl.wait,'Consignments',dl.ok+' accepted · '+dl.bad+' rejected · '+dl.wait+' pending',
-      [[dl.ok,C_OK,'accepted'],[dl.bad,C_BAD,'rejected'],[dl.wait,C_WAIT,'pending']],"setTab('mir')")
-    +dKpi(late.length,'Late',mine.length+' waiting on you · '+ncr+' open NCR',null,late.length?"showBucket('now')":'',late.length?'hot':'')
+  /* four figures, each one question */
+  function tile(v,l,s,tone,go){
+    return '<div class="d-tile'+(tone?' d-'+tone:'')+(go?' row-a':'')+'"'+(go?(' onclick="'+go+'"'):'')+'>'
+      +'<div class="d-tv">'+v+'</div><div class="d-tl">'+esc(l)+'</div><div class="d-ts">'+s+'</div></div>';
+  }
+  var tiles='<div class="d-tiles">'
+    +tile(mats.length,'Materials',cleared+' fully cleared','',"setTab('mat')")
+    +tile(vok+'<small>/'+vq.length+'</small>','Vendors qualified',(vq.length-vok)+' still in qualification','',"setTab('mfr')")
+    +tile(late.length,'Late',late.length?'past a deadline or returned':'nothing late',late.length?'bad':'ok',"dashTab('late')")
+    +tile(hits,'Against the procedure',checks.length?(checks.length+' clause'+(checks.length===1?'':'s')+' not met'):'every clause met',hits?'now':'ok',"dashTab('proc')")
     +'</div>';
 
-  /* --- what to do, and what is coming --- */
-  var act=late.concat(mine).slice(0,8);
-  var todo=dPanel('Deal with these first',(late.length+mine.length)?(late.length+mine.length)+' in all':'',
-    act.length?act.map(feedRow).join(''):'<div class="d-empty">Nothing is late and nothing is waiting on you.</div>',
-    (late.length+mine.length>8)?'<button class="btn-q" onclick="showDue()">See all</button>':'');
+  /* one list, three views */
+  function list(k,rows,empty){
+    return '<div class="d-list" data-k="'+k+'"'+(DASH_TAB===k?'':' style="display:none"')+'>'
+      +(rows||'<div class="d-empty">'+empty+'</div>')+'</div>';
+  }
+  var lateRows=late.slice(0,30).map(function(o){return dRow('bad',o.t,o.s,o.word,"jump('"+o.tab+"',"+o.id+")");}).join('');
+  var mineRows=mine.slice(0,30).map(function(o){return dRow('now',o.t,o.s,o.word,"jump('"+o.tab+"',"+o.id+")");}).join('');
+  var procRows=checks.map(function(c){
+    var id=c.cl+c.t;
+    return '<div class="d-chk'+(DASH_SHOW[id]?' d-on':'')+'">'
+      +'<div class="d-ch row-a" onclick="dashToggle(this,'+jsq(id)+')">'
+      +'<span class="d-dot" style="background:var(--'+(c.tone==='bad'?'bad':'now')+')"></span>'
+      +'<span class="d-ct">'+esc(c.t)+'<span class="d-cw">Clause '+esc(c.cl)+' — '+esc(c.why)+'</span></span>'
+      +'<span class="tag t-'+(c.tone==='bad'?'bad':'now')+'">'+c.items.length+'</span>'
+      +'<span class="d-car">'+(DASH_SHOW[id]?'▴':'▾')+'</span></div>'
+      +'<div class="d-items">'+c.items.slice(0,60).map(function(x){
+          return '<div class="d-item row-a" onclick="jump(\''+x.tab+'\','+x.id+')"><span class="d-in">'+esc(x.name)+'</span>'
+            +'<span class="d-is">'+esc(x.note)+'</span></div>';}).join('')
+        +(c.items.length>60?'<div class="d-is" style="padding:8px 12px">and '+(c.items.length-60)+' more</div>':'')+'</div></div>';
+  }).join('');
+  function seg(k,l,n,tone){
+    return '<button data-k="'+k+'" aria-pressed="'+(DASH_TAB===k)+'" onclick="dashTab(\''+k+'\')">'+esc(l)
+      +'<span class="d-sn'+(n&&tone?' d-'+tone:'')+'">'+n+'</span></button>';
+  }
+  var attention='<section class="d-panel"><div class="d-ph"><span class="d-pt">Needs your attention</span><span style="flex:1"></span>'
+    +'<div class="d-seg">'+seg('late','Late',late.length,'bad')+seg('proc','Procedure',hits,'now')+seg('mine','Your move',mine.length,'')+'</div></div>'
+    +list('late',lateRows,'Nothing is late.')
+    +list('proc',procRows,'Every check against the procedure is clear.')
+    +list('mine',mineRows,'Nothing is waiting on you.')
+    +'</section>';
+
   var t0=today(), up=calItems(t0,addDays(t0,13)).filter(function(x){return !/^a/.test(x.c||'');})
     .sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0;});
-  var lastD='', ahead=up.slice(0,14).map(function(x){
+  var lastD='', ahead=up.slice(0,12).map(function(x){
     var dh='';
     if(x.d!==lastD){lastD=x.d;var n=daysTo(x.d);
       dh='<div class="d-day">'+(n===0?'Today':n===1?'Tomorrow':new Date(x.d).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short'}))+'</div>';}
     return dh+'<div class="d-up'+((x.go||x.own)?' row-a':'')+'"'
       +(x.own?(' onclick="editEvent('+x.id+')"'):(x.go?(' onclick="'+attr(x.go)+'"'):''))+'>'
       +'<span class="tag t-'+(x.k||'na')+'">'+esc(x.own?'Event':(x.kind||'—'))+'</span>'
-      +'<span class="d-upt">'+esc(x.own?x.t:(x.name||x.t))+'</span>'
-      +(x.st?'<span class="d-ups">'+esc(x.st)+'</span>':'')+'</div>';
+      +'<span class="d-upt">'+esc(x.own?x.t:(x.name||x.t))+'</span></div>';
   }).join('');
-  var next=dPanel('The next 14 days',up.length?up.length+' planned':'',
-    ahead||'<div class="d-empty">Nothing planned for the next two weeks.</div>',
-    '<button class="btn-q" onclick="setTab(\'cal\')">Calendar</button>');
+  var coming='<section class="d-panel"><div class="d-ph"><span class="d-pt">Coming up</span><span class="d-pn">next 14 days</span>'
+    +'<span style="flex:1"></span><button class="btn-q" onclick="setTab(\'cal\')">Calendar</button></div>'
+    +(ahead||'<div class="d-empty">Nothing planned.</div>')
+    +(up.length>12?'<div class="d-pn" style="margin-top:8px">and '+(up.length-12)+' more on the calendar</div>':'')+'</section>';
 
-  /* --- the procedure --- */
-  checks.sort(function(a,b){return (b.items.length?1:0)-(a.items.length?1:0)||(a.tone==='bad'?-1:1)-(b.tone==='bad'?-1:1);});
-  var proc=dPanel('Compliance with the procedure','0DMQL00-DLVR-00-SEV-QM-PRO-00015 · '+broken.length+' of '+checks.length+' checks open',
-    '<div class="d-checks">'+checks.map(function(c,i){
-      var n=c.items.length, id=c.cl+c.t, open=DASH_SHOW[id];
-      return '<div class="d-chk'+(n?'':' d-clear')+(open?' d-on':'')+'">'
-        +'<div class="d-ch'+(n?' row-a':'')+'"'+(n?(' onclick="dashToggle(this,'+jsq(id)+')"'):'')+'>'
-        +'<span class="d-dot" style="background:'+(n?(c.tone==='bad'?C_BAD:C_NOW):C_OK)+'"></span>'
-        +'<span class="d-cl mono">'+esc(c.cl)+'</span>'
-        +'<span class="d-ct">'+esc(c.t)+'<span class="d-cw">'+esc(c.why)+'</span></span>'
-        +(n?'<span class="tag t-'+(c.tone==='bad'?'bad':'now')+'">'+n+'</span><span class="d-car">'+(open?'▴':'▾')+'</span>'
-           :'<span class="tag t-ok">clear</span>')+'</div>'
-        +(n?'<div class="d-items">'+c.items.slice(0,60).map(function(x){
-            return '<div class="d-item row-a" onclick="jump(\''+x.tab+'\','+x.id+')"><span class="d-in">'+esc(x.name)+'</span>'
-              +'<span class="d-is">'+esc(x.note)+'</span></div>';}).join('')
-            +(n>60?'<div class="d-is" style="padding:8px 12px">and '+(n-60)+' more</div>':'')+'</div>':'')
-        +'</div>';
-    }).join('')+'</div>');
-
-  /* --- the road, step by step --- */
-  var pipe=MAT_ROAD.map(function(s){
+  /* how far the materials have come, step by step */
+  var steps=MAT_ROAD.map(function(s){
     var c={done:0,wait:0,bad:0,open:0}, on=0;
     mats.forEach(function(m){var x=roads[m.id].steps.filter(function(y){return y.s.k===s.k;})[0];if(!x)return;on++;c[x.state]=(c[x.state]||0)+1;});
     if(!on)return '';
-    var parts=[[c.done,C_OK,'done'],[c.wait,C_WAIT,'in progress'],[c.bad,C_BAD,'returned'],[c.open||0,C_NONE,'not started']];
-    return '<div class="d-pipe row-a" onclick="setTab(\'mat\')"><div class="d-pl"><b>'+esc(s.n)+'</b><span class="mono">'+esc(s.clause)+' · '+esc(s.cats.split('').map(function(x){return 'C'+x;}).join(' '))+'</span></div>'
-      +'<div class="d-pb">'+dBar(parts)+'</div>'
-      +'<div class="d-pv"><b>'+Math.round(c.done/on*100)+'%</b> '+c.done+'/'+on+(c.bad?' · <span style="color:var(--bad)">'+c.bad+' returned</span>':'')+'</div></div>';
+    var p=Math.round(c.done/on*100);
+    return '<div class="d-step"><span class="d-sl">'+esc(s.n)+'</span>'
+      +'<div class="d-bar">'+[[c.done,'ok'],[c.wait,'wait'],[c.bad,'bad']].filter(function(q){return q[0];}).map(function(q){
+        return '<i style="width:'+(q[0]/on*100)+'%;background:var(--'+q[1]+')"></i>';}).join('')+'</div>'
+      +'<span class="d-sp"><b>'+p+'%</b><span>'+c.done+' of '+on+'</span></span></div>';
   }).join('');
-  var road=dPanel('The road, step by step','share of materials that cleared each step',
-    '<div class="d-pipes">'+pipe+'</div>'+dKey([[1,C_OK,'done'],[1,C_WAIT,'in progress'],[1,C_BAD,'returned'],[1,C_NONE,'not started']]).replace(/ <b>1<\/b>/g,''));
+  var progress='<section class="d-panel"><div class="d-ph"><span class="d-pt">Progress</span><span class="d-pn">materials that cleared each step</span><span style="flex:1"></span>'
+    +'<span class="d-key"><span><i style="background:var(--ok)"></i>done</span><span><i style="background:var(--wait)"></i>in progress</span>'
+    +'<span><i style="background:var(--bad)"></i>returned</span></span></div>'+steps+'</section>';
 
-  /* --- by discipline --- */
+  /* by discipline */
   var disc={};
   mats.forEach(function(m){
-    var d=twDisc('',m.disc)||'—', r=roads[m.id], o=disc[d]=disc[d]||{n:0,hi:0,mts:0,ven:0,venN:0,del:0,bad:0};
-    o.n++;if(m.cat==='C2'||m.cat==='C3')o.hi++;
+    var d=twDisc('',m.disc)||'—', r=roads[m.id], o=disc[d]=disc[d]||{n:0,mts:0,del:0,done:0,bad:0};
+    o.n++;
     if(r.steps.some(function(x){return x.s.k==='mts'&&x.state==='done';}))o.mts++;
-    if(/^C[123]$/.test(m.cat||'')){o.venN++;var v=mfrOf(m);if(v&&mfrState(v).ok)o.ven++;}
     if((m.dels||[]).length)o.del++;
+    if(r.at<0)o.done++;
     if(r.steps.some(function(x){return x.state==='bad';}))o.bad++;
   });
-  function cell(a,b){var p=b?Math.round(a/b*100):0;
-    return '<td>'+(b?'<div class="d-mini"><i style="width:'+p+'%"></i></div><span>'+p+'%</span>':'<span class="dim">—</span>')+'</td>';}
-  var dtab='<div class="d-tw"><table class="d-t"><thead><tr><th>Discipline</th><th>Materials</th><th>C2 / C3</th><th>Submittal approved</th><th>Vendor qualified</th><th>Delivered</th><th>Blocked</th></tr></thead><tbody>'
+  function pc(a,b){var p=b?Math.round(a/b*100):0;return '<td><div class="d-mini"><i style="width:'+p+'%"></i></div><span>'+p+'%</span></td>';}
+  var dtab='<div class="d-tw"><table class="d-t"><thead><tr><th>Discipline</th><th>Materials</th><th>Submittal approved</th><th>Delivered</th><th>Fully cleared</th><th>Blocked</th></tr></thead><tbody>'
     +Object.keys(disc).sort(function(a,b){return disc[b].n-disc[a].n;}).map(function(k){var o=disc[k];
-      return '<tr><td><b>'+esc(k)+'</b></td><td class="mono">'+o.n+'</td><td class="mono">'+o.hi+'</td>'
-        +cell(o.mts,o.n)+cell(o.ven,o.venN)+cell(o.del,o.n)
-        +'<td class="mono"'+(o.bad?' style="color:var(--bad);font-weight:600"':'')+'>'+o.bad+'</td></tr>';}).join('')
+      return '<tr><td><b>'+esc(k)+'</b></td><td>'+o.n+'</td>'+pc(o.mts,o.n)+pc(o.del,o.n)+pc(o.done,o.n)
+        +'<td'+(o.bad?' style="color:var(--bad);font-weight:600"':' class="dim"')+'>'+o.bad+'</td></tr>';}).join('')
     +'</tbody></table></div>';
-  var discP=dPanel('By discipline','',mats.length?dtab:'<div class="d-empty">No materials yet.</div>');
+  var byDisc='<section class="d-panel"><div class="d-ph"><span class="d-pt">By discipline</span></div>'
+    +(mats.length?dtab:'<div class="d-empty">No materials yet.</div>')+'</section>';
 
-  /* --- vendors holding the most up --- */
-  var hold=vq.map(function(v){var s=mfrState(v);if(s.ok)return null;
-      var n=matsOf(v).filter(function(m){return /^C[123]$/.test(m.cat||'');}).length;
-      return n?{v:v,s:s,n:n}:null;}).filter(Boolean).sort(function(a,b){return b.n-a.n;}).slice(0,8);
-  var venP=dPanel('Vendors holding up the most','not yet qualified, by the materials waiting on them',
-    hold.length?hold.map(function(h){
-      return '<div class="d-item row-a" onclick="jump(\'mfr\','+h.v.id+')"><span class="d-in">'+esc(h.v.name)
-        +' <span class="tag t-'+(h.s.tone==='bad'?'bad':'wait')+'">'+esc(h.s.word)+'</span></span>'
-        +'<span class="d-is">'+esc(h.s.short[0]||'')+'</span><span class="d-n mono">'+h.n+'</span></div>';}).join('')
-    :'<div class="d-empty">Every vendor with materials above C0 is qualified.</div>');
-
-  /* --- inspections on site, from Aconex --- */
-  var mir={ok:0,bad:0,wait:0,n:0};
-  (MATS_ALL||DB.mats||[]).forEach(function(m){if(m.doc!=='MIR')return;mir.n++;
-    var t=statusTone(rawEnd(m,'Status'));mir[t==='ok'?'ok':t==='bad'?'bad':'wait']++;});
-  var mirP=dPanel('Material inspection requests','all in Aconex',
-    '<div class="d-big"><b>'+(mir.ok+mir.bad?Math.round(mir.ok/(mir.ok+mir.bad)*100)+'%':'—')+'</b> of the decided requests approved</div>'
-    +dBar([[mir.ok,C_OK,'approved'],[mir.bad,C_BAD,'rejected / resubmit'],[mir.wait,C_WAIT,'open']])
-    +dKey([[mir.ok,C_OK,'approved'],[mir.bad,C_BAD,'rejected / resubmit'],[mir.wait,C_WAIT,'open']]),
-    '<button class="btn-q" onclick="setTab(\'allmir\')">All MIR</button>');
-
-  var body=kpi
-    +'<div class="d-two">'+todo+next+'</div>'
-    +proc+road
-    +'<div class="d-two">'+discP+'<div>'+venP+mirP+'</div></div>';
   dashCSS();
-  return head+'<div class="body"><div class="wrap d-wrap">'+body+'</div></div>';
+  return head+'<div class="body"><div class="wrap d-wrap">'+tiles
+    +'<div class="d-two">'+attention+coming+'</div>'
+    +'<div class="d-two d-even">'+progress+byDisc+'</div></div></div>';
 }
 function dashCSS(){
   if(document.getElementById('dash-css'))return;
   var s=document.createElement('style');s.id='dash-css';
   s.textContent=
-   '.d-wrap{max-width:1280px}'
-  +'.d-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px}'
-  +'.d-kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 16px;box-shadow:var(--sh)}'
-  +'.d-kpi.row-a{cursor:pointer}.d-kpi.row-a:hover{box-shadow:var(--sh-md)}'
-  +'.d-kpi.d-hot{border-color:var(--bad);background:var(--bad-b)}'
-  +'.d-kl{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;font-weight:600}'
-  +'.d-kv{font-size:30px;font-weight:650;line-height:1.15;margin:4px 0 8px;font-variant-numeric:tabular-nums}'
-  +'.d-kv small{font-size:16px;color:var(--ink-4);font-weight:500}'
-  +'.d-ks{font-size:12px;color:var(--ink-3);margin-top:7px;line-height:1.4}'
-  +'.d-bar{display:flex;height:8px;border-radius:5px;overflow:hidden;background:var(--sunk);gap:1px}'
-  +'.d-bar i{display:block;height:100%}'
-  +'.d-key{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:12px;color:var(--ink-3)}'
-  +'.d-key span{display:flex;align-items:center;gap:6px}.d-key i{width:10px;height:10px;border-radius:3px;display:inline-block}'
-  +'.d-two{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}'
-  +'@media(max-width:980px){.d-two{grid-template-columns:1fr}}'
+   '.d-wrap{max-width:1240px}'
+  +'.d-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}'
+  +'@media(max-width:900px){.d-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}'
+  +'.d-tile{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line-2);border-radius:var(--r-lg);padding:16px 18px;box-shadow:var(--sh)}'
+  +'.d-tile.row-a{cursor:pointer}.d-tile.row-a:hover{box-shadow:var(--sh-md)}'
+  +'.d-tile.d-bad{border-left-color:var(--bad)}.d-tile.d-bad .d-tv{color:var(--bad)}'
+  +'.d-tile.d-now{border-left-color:var(--now)}.d-tile.d-now .d-tv{color:var(--now)}'
+  +'.d-tile.d-ok{border-left-color:var(--ok)}'
+  +'.d-tv{font-size:34px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}'
+  +'.d-tv small{font-size:18px;color:var(--ink-4);font-weight:500;margin-left:2px}'
+  +'.d-tl{font-size:14px;font-weight:600;margin-top:8px}'
+  +'.d-ts{font-size:12.5px;color:var(--ink-3);margin-top:2px}'
+  +'.d-two{display:grid;grid-template-columns:3fr 2fr;gap:16px;align-items:start}'
+  +'.d-two.d-even{grid-template-columns:1fr 1fr}'
+  +'@media(max-width:980px){.d-two,.d-two.d-even{grid-template-columns:1fr}}'
   +'.d-panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px;margin-bottom:16px;box-shadow:var(--sh)}'
-  +'.d-ph{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap}'
+  +'.d-ph{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}'
   +'.d-pt{font-size:15px;font-weight:650}.d-pn{font-size:12px;color:var(--ink-4)}'
-  +'.d-empty{color:var(--ink-3);font-size:13.5px;padding:18px 0;text-align:center}'
-  +'.d-day{font-size:11.5px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 4px}'
-  +'.d-day:first-child{margin-top:0}'
-  +'.d-up{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px}'
-  +'.d-up.row-a{cursor:pointer}.d-up.row-a:hover,.d-item.row-a:hover,.d-ch.row-a:hover,.d-pipe.row-a:hover{background:var(--hover)}'
-  +'.d-up .tag{min-width:58px;text-align:center;flex-shrink:0}'
-  +'.d-upt{flex:1;min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
-  +'.d-ups{font-size:12px;color:var(--ink-3);flex-shrink:0}'
-  +'.d-checks{border-top:1px solid var(--line)}'
+  +'.d-seg{display:inline-flex;background:var(--sunk);border-radius:9px;padding:3px;gap:2px}'
+  +'.d-seg button{border:0;background:none;padding:6px 12px;border-radius:7px;font:inherit;font-size:13px;color:var(--ink-2);cursor:pointer;display:flex;align-items:center;gap:7px}'
+  +'.d-seg button[aria-pressed=true]{background:var(--card);color:var(--ink);font-weight:600;box-shadow:var(--sh)}'
+  +'.d-sn{font-size:11.5px;font-family:var(--mono);color:var(--ink-4)}'
+  +'.d-sn.d-bad{color:var(--bad);font-weight:700}.d-sn.d-now{color:var(--now);font-weight:700}'
+  +'.d-list{max-height:460px;overflow-y:auto;overflow-x:hidden;border-top:1px solid var(--line)}'
+  +'.d-row{display:flex;align-items:center;gap:10px;padding:9px 8px;border-bottom:1px solid var(--line)}'
+  +'.d-row.row-a,.d-ch.row-a,.d-item.row-a,.d-up.row-a{cursor:pointer}'
+  +'.d-row.row-a:hover,.d-ch.row-a:hover,.d-item.row-a:hover,.d-up.row-a:hover{background:var(--hover)}'
+  +'.d-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}'
+  +'.d-rn{font-size:13.5px;font-weight:550;flex:0 0 36%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+  +'.d-rl{font-size:12.5px;color:var(--ink-3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+  +'.d-row .tag{flex-shrink:0}'
+  +'.d-empty{color:var(--ink-3);font-size:13.5px;padding:22px 0;text-align:center}'
   +'.d-chk{border-bottom:1px solid var(--line)}'
-  +'.d-ch{display:flex;align-items:center;gap:12px;padding:10px 8px}.d-ch.row-a{cursor:pointer}'
-  +'.d-clear .d-ct{color:var(--ink-3)}'
-  +'.d-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}'
-  +'.d-cl{font-size:11.5px;color:var(--ink-3);min-width:96px;flex-shrink:0}'
-  +'.d-ct{flex:1;min-width:0;font-size:14px;font-weight:550}'
-  +'.d-cw{display:block;font-size:12px;font-weight:400;color:var(--ink-4);margin-top:1px}'
+  +'.d-ch{display:flex;align-items:center;gap:10px;padding:10px 8px}'
+  +'.d-ct{flex:1;min-width:0;font-size:13.5px;font-weight:550}'
+  +'.d-cw{display:block;font-size:12px;font-weight:400;color:var(--ink-4);margin-top:2px}'
   +'.d-car{color:var(--ink-4);width:12px}'
-  +'.d-items{padding:0 0 10px 30px;display:none}.d-on .d-items{display:block}'
-  +'.d-item{display:flex;align-items:center;gap:12px;padding:7px 12px;border-radius:7px}.d-item.row-a{cursor:pointer}'
-  +'.d-in{font-size:13.5px;flex:0 1 45%;min-width:0}'
-  +'.d-is{font-size:12.5px;color:var(--ink-3);flex:1;min-width:0}'
-  +'.d-n{font-weight:600;font-size:13px}'
-  +'.d-pipe{display:grid;grid-template-columns:minmax(180px,260px) 1fr 150px;gap:16px;align-items:center;padding:8px;border-radius:7px;cursor:pointer}'
-  +'.d-pl b{display:block;font-size:13.5px;font-weight:550}.d-pl span{font-size:11px;color:var(--ink-4)}'
-  +'.d-pipe .d-bar{height:12px}'
-  +'.d-pv{font-size:12.5px;color:var(--ink-3);text-align:right}.d-pv b{color:var(--ink);font-size:14px}'
-  +'@media(max-width:700px){.d-pipe{grid-template-columns:1fr}.d-pv{text-align:left}.d-cl{display:none}}'
-  +'.d-tw{overflow-x:auto}'
-  +'.d-t{width:100%;border-collapse:collapse;font-size:13px}'
+  +'.d-items{padding:0 0 8px 18px;display:none}.d-on .d-items{display:block}'
+  +'.d-item{display:flex;gap:12px;padding:6px 10px;border-radius:6px}'
+  +'.d-in{font-size:13px;flex:0 0 40%;min-width:0}.d-is{font-size:12.5px;color:var(--ink-3);flex:1;min-width:0}'
+  +'.d-day{font-size:11.5px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 4px}'
+  +'.d-day:first-of-type{margin-top:0}'
+  +'.d-up{display:flex;align-items:center;gap:10px;padding:6px 6px;border-radius:7px}'
+  +'.d-up .tag{min-width:52px;text-align:center;flex-shrink:0}'
+  +'.d-upt{flex:1;min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+  +'.d-step{display:grid;grid-template-columns:190px 1fr 92px;gap:12px;align-items:center;padding:7px 0}'
+  +'.d-sl{font-size:13px}'
+  +'.d-bar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--sunk)}.d-bar i{display:block;height:100%}'
+  +'.d-sp{text-align:right;font-size:12px;color:var(--ink-4)}.d-sp b{color:var(--ink);font-size:13.5px;margin-right:6px}'
+  +'.d-key{display:flex;gap:12px;font-size:11.5px;color:var(--ink-3)}.d-key span{display:flex;align-items:center;gap:5px}'
+  +'.d-key i{width:9px;height:9px;border-radius:2px;display:inline-block}'
+  +'.d-tw{overflow-x:auto}.d-t{width:100%;border-collapse:collapse;font-size:13px}'
   +'.d-t th{text-align:left;font-size:11.5px;color:var(--ink-3);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}'
-  +'.d-t td{padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}'
+  +'.d-t td{padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}'
   +'.d-t td span{font-size:12px;color:var(--ink-3);margin-left:6px}'
-  +'.d-mini{display:inline-block;width:60px;height:6px;border-radius:4px;background:var(--sunk);overflow:hidden;vertical-align:middle}'
+  +'.d-mini{display:inline-block;width:56px;height:6px;border-radius:4px;background:var(--sunk);overflow:hidden;vertical-align:middle}'
   +'.d-mini i{display:block;height:100%;background:var(--ok)}'
-  +'.d-big{font-size:13px;color:var(--ink-3);margin-bottom:10px}.d-big b{font-size:26px;color:var(--ink);margin-right:6px}';
+  +'@media(max-width:600px){.d-step{grid-template-columns:1fr 70px}.d-step .d-bar{grid-column:1/-1;order:3}.d-rn{flex-basis:45%}}';
   document.head.appendChild(s);
 }
 window.homePane=dashPane;
