@@ -3199,7 +3199,8 @@ window.venLogFor=function(v,keys){
       return '<div class="pr"><div class="pr-l">'+esc(f[0])+'</div><div class="pr-v">'+esc(logShow(f,o[f[0]]))+'</div></div>';
     }).join('')+'</div>'
     +'<div class="pg-note" style="color:var(--ink-3)">Carried into the Main Log of every material from this vendor.</div></div>';
-  var out={};out[at]=h;return out;
+  /* it comes before the physical assessment itself */
+  var out={};out[at==='pa'?'^pa':at]=h;return out;
 };
 window.editVenLog=function(id){
   var v=mfr(id);if(!v)return;
@@ -3209,6 +3210,9 @@ window.editVenLog=function(id){
     +VEN_LOG.map(function(f,i){
       var fid='vl-'+i, val=o[f[0]];
       var h='<div class="f"><label for="'+fid+'">'+esc(f[0])+'</label>';
+      if(f[2]===YN)return '<div class="f"><label style="display:flex;align-items:center;gap:8px;cursor:pointer">'
+        +'<input type="checkbox" id="'+fid+'"'+(val==='Yes'?' checked':'')+' style="width:18px;height:18px;margin:0;flex:none">'
+        +esc(f[0])+'</label></div>';
       if(f[1]==='sel')h+='<select id="'+fid+'"><option value="">\u2014</option>'
         +f[2].map(function(x){return '<option'+(x===val?' selected':'')+'>'+esc(x)+'</option>';}).join('')+'</select>';
       else h+='<input id="'+fid+'" class="mono" value="'+attr(logShow(f,val))+'" placeholder="dd/mm/yyyy" autocomplete="off">'
@@ -3223,7 +3227,7 @@ window.saveVenLog=function(id){
   var o=Object.assign({},v.logf||{}),bad=false;
   VEN_LOG.forEach(function(f,i){
     var el=document.getElementById('vl-'+i);if(!el)return;
-    var x=trim(el.value);
+    var x=el.type==='checkbox'?(el.checked?'Yes':'No'):trim(el.value);
     if(f[1]==='date'&&x){var iso=parseDate(x);
       if(!iso){bad=true;document.getElementById('e-vl-'+i).textContent='Use dd/mm/yyyy';return;}x=iso;}
     if(x)o[f[0]]=x;else delete o[f[0]];

@@ -2528,7 +2528,7 @@ function roadProps(rec,steps,kind,after){
         if(warn)body+='<div class="pg-note late">'+esc(warn)+'</div>';
       }
     }
-    h+='<div class="pgroup'+(open===st.k?' on':'')+'"'+navAttr(st.n,tone,'pg-'+st.k)+'><div class="pg-h">'
+    h+=(after['^'+st.k]||'')+'<div class="pgroup'+(open===st.k?' on':'')+'"'+navAttr(st.n,tone,'pg-'+st.k)+'><div class="pg-h">'
       +'<span class="pg-t">'+esc(st.n)+'</span><span class="sclause">'+esc(st.clause)+'</span>'
       +'<span class="tag t-'+tone+'">'+esc(word)+'</span>'
       +'<span style="flex:1"></span>'
