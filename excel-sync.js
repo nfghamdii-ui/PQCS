@@ -1090,7 +1090,8 @@ function widths(){
   return COLS.map(function(c,i){return i===0?62:Math.min(30,Math.max(12,c.length*0.95));})
     .concat(LOG_EXTRA.map(function(x){return x.w;}));
 }
-window.excelOut=function(){
+window.excelOut=async function(){
+  try{await acxLoad();}catch(e){}
   try{
     var name=(DB.project||'Project Materials').replace(/[^\w \-]/g,'').trim();
     download(sevenLog(),name+' \u2014 Material Live Tracking Sheet '+today()+'.xlsx');
@@ -1610,7 +1611,7 @@ var CORE_TYPE={'material submittal':1,'pre-qualification':1,'personnel approval 
 var ACX=null, ACX_AT=null, ACX_ITEMS=null, ACX_KEYS=0, ACX_OLD=0, ACX_CHUNK=2500, ACX_P=null;
 function acxRow(d){
   var w=verdictOf(d.status)==='Terminated'?'Terminated':(verdictOf(d.review)||verdictOf(d.status)||trim(d.status));
-  return [d.no,d.title,kindOfType(d.type),w,d.date||'',plainDisc(d.disc||''),d.rev||''];
+  return [d.no,d.title,kindOfType(d.type),w,d.date||'',trim(d.disc||''),d.rev||''];
 }
 /* read once: a second ask while the first is on the network waits for it */
 function acxLoad(){
@@ -1633,7 +1634,7 @@ async function acxFetch(){
     w.data.forEach(function(x){(x.value||[]).forEach(function(o){
       if(!have[K(o[0])])list.push([o[0],o[1],'WIR',o[2],o[3],o[4],'']);});});
   }
-  ACX=list;ACX_AT=null;ACX_ITEMS=null;
+  ACX=list;ACX_AT=null;ACX_ITEMS=null;ACX_ROWS=null;
   return ACX;
 }
 function acxIndex(){
@@ -1658,7 +1659,7 @@ async function acxMerge(rows){
   try{
     var list=await acxLoad(), at=acxIndex();
     rows.forEach(function(w){var i=at[K(w[0])];if(i==null){at[K(w[0])]=list.length;list.push(w);}else list[i]=w;});
-    ACX_ITEMS=null;
+    ACX_ITEMS=null;ACX_ROWS=null;
     /* the copies on the materials take their new outcomes */
     var moved=0;
     (DB.mats||[]).forEach(function(m){
@@ -1676,6 +1677,48 @@ async function acxMerge(rows){
     toast(rows.length+' Aconex documents in the list'+(moved?(' — '+moved+' material'+(moved===1?'':'s')+' brought up to date'):''));
   }catch(e){toast('The Aconex list could not be saved — '+(e.message||e));}
 }
+/* the list as table rows — documents in their own right, made once per load */
+var ACX_ROWS=null;
+function acxRows(){
+  if(!ACX)return [];
+  if(ACX_ROWS)return ACX_ROWS;
+  ACX_ROWS=ACX.map(function(r){
+    var x=refOfRow(r), d=lightDoc(x);
+    d.cat=x.kind==='MIR'?catOfTitle(x.title):'';
+    d.status=x.status;d.date=x.date;
+    return d;
+  });
+  return ACX_ROWS;
+}
+/* the pages that show the list's lines, and which lines each shows */
+var LINE_VIEWS={
+  mir:function(d){return d.doc==='MIR'&&!isLinked(d);},
+  allmir:function(d){return d.doc==='MIR';},
+  doc:function(d){return /^(ITP|MES|MAS)$/.test(d.doc)&&!isLinked(d);},
+  itp:function(d){return d.doc==='ITP';},mes:function(d){return d.doc==='MES';},
+  wir:function(d){return d.doc==='WIR';},mas:function(d){return d.doc==='MAS';},
+  odoc:function(d){return d.doc!=='MIR'&&!OTHER_PAGES.some(function(p){return p[1]===d.doc;});},
+  alldoc:function(d){return d.doc!=='MIR';}
+};
+/* opened from a page or the calendar: what Aconex says, who it serves,
+   and the way to link it — a line has no page of its own */
+function lightOpen(d){
+  var on=servedBy(d);
+  sheet(d.doc+' — '+d.ref,
+     '<div class="props">'+[['Title',esc(d.name)],['Number','<span class="mono">'+esc(d.ref)+'</span>'],['Kind',esc(d.doc)],
+       ['Discipline',esc(d.disc||'')],['Status',d.status?'<span class="tag t-'+(statusTone(d.status)||'na')+'">'+esc(d.status)+'</span>':''],
+       ['Date',d.date?show(d.date):''],['Revision',esc((d.raw||{})[d.doc+' Revision']||'')]].map(function(p){
+       return '<div class="pr"><div class="pr-l">'+p[0]+'</div><div class="pr-v">'+p[1]+'</div></div>';}).join('')+'</div>'
+    +'<div class="sec" style="margin-top:16px">Linked to</div><div class="panel"><div class="panel-b">'
+    +(on.length?on.map(function(m){return '<div class="line row-a" onclick="closeSheet();jump(\'mat\','+m.id+')"><div class="line-m">'+esc(m.name)+'</div></div>';}).join('')
+      :'<span class="dim">No material yet.</span>')+'</div></div>'
+    +'<div class="f-act" style="margin-top:16px"><button class="btn btn-p" onclick="docLinkPick('+jsq(d.id)+',\'\',\'\')">Link to a material</button></div>');
+}
+window.lightShow=function(id){
+  var d=null;acxRows().some(function(x){if(x.id===id){d=x;return true;}return false;});
+  if(d)lightOpen(d);
+  else if(!ACX)acxLoad().then(function(){lightShow(id);});
+};
 /* the list as items a search can run over, made once per load */
 function acxItems(){
   if(ACX_ITEMS)return ACX_ITEMS;
@@ -2310,6 +2353,22 @@ window.acxCal=function(put){
        unlinked:!mat&&!NOT_FOR_MAT[m.doc]&&!SITE_KIND[m.doc]&&!m.site&&!isLinked(m),
        linkedTo:(!mat&&isLinked(m))?servedBy(m).map(function(x){return x.name;}).join(', '):''});
   });
+  /* the Aconex list's lines on their days, an inspection request linked
+     to a material showing as its consignment instead; the list is read
+     the first time the calendar asks for it */
+  if(ACX){
+    var lx=linkIndex().ref;
+    acxRows().forEach(function(d){
+      if(!d.date||d.doc==='WIR')return;
+      var on=lx[K(d.ref)];
+      if(d.doc==='MIR'&&on)return;
+      var no=d.ref.replace(/^.*?-(?=[A-Z]{3}-)/,'');
+      put(d.date,(no||d.doc)+' · '+d.name+(d.status?(' · '+d.status):''),statusTone(d.status)||'na',
+        "lightShow('"+d.id.replace(/'/g,'')+"')",
+        {c:d.doc==='MIR'?'amir':'adoc',kind:d.doc,name:d.name,no:d.ref,st:d.status,disc:d.disc||'',cat:d.cat||'',
+         docId:d.id,unlinked:!on,linkedTo:on?on.map(function(x){return x.name;}).join(', '):''});
+    });
+  }else if(TAB==='cal'&&!ACX_P)acxLoad().then(function(){if(TAB==='cal')rPane();},function(){});
   (DB.mfrs||[]).forEach(function(v){
     var pq=pqOf(v);if(!pq.date)return;
     put(pq.date,'PQD \u00b7 '+v.name+(pq.status?(' \u00b7 '+pq.status):''),statusTone(pq.status)||'na',
@@ -2495,14 +2554,16 @@ function linkIndex(){
   var all=MATS_ALL||DB.mats||[];
   var key=(typeof EDITS!=='undefined'?EDITS:0)+'|'+all.length;
   if(LINKIDX&&LINKIDX.arr===all&&LINKIDX.key===key)return LINKIDX;
-  var by={};
+  var by={}, ref={};
   all.forEach(function(m){
     (m.docs||[]).forEach(function(id){var k=String(id);(by[k]=by[k]||[]).push(m);});
+    (m.refs||[]).forEach(function(x){var k=K(x.no);(ref[k]=ref[k]||[]).push(m);});
   });
-  LINKIDX={arr:all,key:key,by:by};
+  LINKIDX={arr:all,key:key,by:by,ref:ref};
   return LINKIDX;
 }
-function isLinked(d){return !!linkIndex().by[String(d.id)];}
+/* a record by its id; a line of the Aconex list by its number */
+function isLinked(d){var x=linkIndex();return !!(d.light?x.ref[K(d.ref)]:x.by[String(d.id)]);}
 function waitsForLink(m){
   return isDoc(m)&&m.doc!=='MIR'&&!NOT_FOR_MAT[m.doc]&&!SITE_KIND[m.doc]&&!m.site&&!isLinked(m);
 }
@@ -2549,7 +2610,7 @@ function looseMir(){
   return (DB.mats||[]).filter(function(m){return m.doc==='MIR'&&!isLinked(m);});
 }
 window.showLooseMir=function(){setTab('mir');};
-function servedBy(doc){return (linkIndex().by[String(doc.id)]||[]).slice();}
+function servedBy(doc){var x=linkIndex();return ((doc.light?x.ref[K(doc.ref)]:x.by[String(doc.id)])||[]).slice();}
 
 /* ---------------------------------------------------------------
    The tab bar moves out of the rail and across the top, because four
@@ -2638,6 +2699,7 @@ function paintTabs(){
     else if(m.doc==='MIR'){if(!isLinked(m))n.mir++;}
     else if(waitsForLink(m))n.doc++;
   });
+  acxRows().forEach(function(d){if(LINE_VIEWS.mir(d))n.mir++;else if(LINE_VIEWS.doc(d))n.doc++;});
   var ot=document.getElementById('tab-other');
   if(ot)ot.setAttribute('aria-selected',String(TAB==='mat'&&(OTHER_TABS.some(function(p){return p[0]===VIEW;})
     ||(isOtherView(VIEW)&&VIEW!=='paa'&&VIEW!=='pqd'))));
@@ -2763,6 +2825,12 @@ function otherMenu(btn){
     var p=OTHER_PAGES.filter(function(x){return x[1]===m.doc;})[0];
     var k=p?p[0]:'odoc';n[k]=(n[k]||0)+1;
   });
+  acxRows().forEach(function(d){
+    if(d.doc==='MIR')return;
+    all++;
+    var p=OTHER_PAGES.filter(function(x){return x[1]===d.doc;})[0];
+    var k=p?p[0]:'odoc';n[k]=(n[k]||0)+1;
+  });
   var items=OTHER_PAGES.filter(function(p){return p[0]!=='paa'&&p[0]!=='pqd'&&n[p[0]];}).map(function(p){return [p[0],p[2]];})
     .concat(n.odoc?[['odoc','Other kinds']]:[]).concat([['alldoc','All documents']]);
   var box=document.createElement('div');
@@ -2872,6 +2940,7 @@ function install2(){
   var origSetTab=window.setTab;
   window.setTab=function(t){
     RECORD=false;                            /* a tab opens on its list */
+    if(LINE_VIEWS[t]&&!ACX)acxLoad().then(function(){rPane();paintTabs();},function(){});
     if(t==='mir'||t==='doc'||t==='ipi'||t==='fat'||t==='irn'||isOtherView(t)){
       VIEW=t;if(t!=='doc')DOCKIND='';origSetTab('mat');}
     else if(t==='rep'||t==='tbl'||t==='avl'){
@@ -4234,7 +4303,7 @@ function generalRows(){
 function looseRows(){
   var loose=(DB.mats||[]).filter(function(m){
     return waitsForLink(m)||(m.doc==='MIR'&&!isLinked(m));
-  });
+  }).concat(acxRows().filter(function(d){return LINE_VIEWS.mir(d)||LINE_VIEWS.doc(d);}));
   var rows=[['Kind','Reference','Title','Discipline','Revision','Outcome','Note']];
   loose.forEach(function(d){
     var r=d.raw||{};
@@ -4814,6 +4883,10 @@ function twItems(t0,end){
     var no=refOf(d);
     put('10',d.name+(no?' — '+no:''),twDisc(no,d.disc),[acxDateOf(d)]);
   });
+  acxRows().forEach(function(d){
+    if(d.doc!=='MIR'||isLinked(d)||(d.cat!=='C2'&&d.cat!=='C3'))return;
+    put('10',d.name+' — '+d.ref,twDisc(d.ref,d.disc),[d.date]);
+  });
   return sec;
 }
 function twlasBook(){
@@ -5381,9 +5454,10 @@ var REPORTS=[
   d:'SEVEN\u2019s Material Live Tracking Sheet, in the client\u2019s own format \u2014 its headings, colours '
     +'and 76 columns \u2014 with every material on a row, by discipline, and the tracker\u2019s own columns '
     +'after them. A Summary sheet, and the documents linked to nothing, go in the same workbook.',
-  go:function(){
+  go:async function(){
+    try{await acxLoad();}catch(e){}
     var name=(DB.project||'Project Materials').replace(/[^\w \-]/g,'').trim();
-    download(sevenLog(),name+' \u2014 Material Live Tracking Sheet '+today()+'.xlsx');
+    download(sevenLog(),name+' — Material Live Tracking Sheet '+today()+'.xlsx');
   }},
  {k:'ven',t:'Vendors and who brought them',back:true,
   d:'Every company on the project: its kind and category, its pre-qualification, its ISO '
@@ -5409,8 +5483,9 @@ var REPORTS=[
   d:'This week and next, Saturday to Friday, in the project\u2019s TWLAS layout: physical assessments, '
     +'pre-qualifications, pre-inspection dossiers and meetings, post-inspection dossiers, FAT and '
     +'materials release, each marked on the day it is planned or falls due. Submitted weekly under clause 2.2.6.',
-  go:function(){
-    download(twlasBook(),(DB.project||'Project')+' \u2014 TWLAS '+twStart()+'.xlsx');
+  go:async function(){
+    try{await acxLoad();}catch(e){}
+    download(twlasBook(),(DB.project||'Project')+' — TWLAS '+twStart()+'.xlsx');
   }},
  {k:'insp',t:'Inspectors',back:true,
   d:'Everyone approved to inspect on this project, their agency and the reference SEVEN '
@@ -5803,7 +5878,8 @@ var TABLES_DEF={
     leaves it once a material links it, and every request, linked or
     not, is on "All MIR" to look things up in. */
  mir:mirTable('Material Inspection Request',function(m){return m.doc==='MIR'&&!isLinked(m);},false,
-   function(){var n=(DB.mats||[]).filter(function(m){return m.doc==='MIR';}).length;
+   function(){var n=(DB.mats||[]).filter(function(m){return m.doc==='MIR';}).length
+       +acxRows().filter(function(d){return d.doc==='MIR';}).length;
      return '<span class="chip flat">Not linked to a material yet</span>'
        +'<button class="btn btn-s" onclick="setTab(\'allmir\')">All MIR '+n+'</button>';}),
  allmir:mirTable('All MIR',function(m){return m.doc==='MIR';},true,
@@ -6158,6 +6234,14 @@ function cellOf(r,c){
 
 /* the values a "pick" column actually holds, so the list offers what is
    there rather than what might be */
+/* the document pages show the list's lines beside the records; a line
+   opens as a short sheet with a way to link it */
+Object.keys(LINE_VIEWS).forEach(function(k){
+  var t=TABLES_DEF[k];if(!t)return;
+  var base=t.rows, open=t.open;
+  t.rows=function(){return base().concat(acxRows().filter(LINE_VIEWS[k]));};
+  t.open=function(r){if(r.light)return lightOpen(r);open(r);};
+});
 function choices(c,rows){
   var n={};
   rows.forEach(function(r){
@@ -6313,7 +6397,7 @@ function rowDead(r){
   return /terminat/i.test(String(st||''));
 }
 function tblRow(r,cols){
-  return '<tr'+(rowDead(r)?' class="row-dead"':'')+' onclick="tblOpen('+r.id+')">'
+  return '<tr'+(rowDead(r)?' class="row-dead"':'')+' onclick="tblOpen('+jsq(r.id)+')">'
     +cols.map(function(c){
       var v=cellOf(r,c), t=(v!==''&&c.tone)?c.tone(v,r):'';
       var cls=[c.kind==='pick'?'nowrap':'',c.num?'num':''].filter(Boolean).join(' ');
@@ -7428,7 +7512,7 @@ window.docLinkPick=function(docId,q,ds){
         +(rows.length>60?('<div class="dim" style="font-size:13px;padding-top:10px">and '+(rows.length-60)+' more — narrow the search</div>'):'')
       :'<span class="dim">No material matches.</span>')
     +'</div></div>'
-    +'<div class="f-act" style="margin-top:14px"><button class="btn-q" onclick="daySheet(\''+ds+'\')">← Back to the day</button></div>');
+    +(ds?'<div class="f-act" style="margin-top:14px"><button class="btn-q" onclick="daySheet(\''+ds+'\')">← Back to the day</button></div>':''));
   var f=document.getElementById('lk');if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
 };
 window.docLinkDo=function(matId,docId,ds){

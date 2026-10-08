@@ -2208,7 +2208,7 @@ window.daySheet=function(ds){
         /* a document no material has yet is linked from here, and the day
            comes back so the next can be done */
         var act=(x.docId&&x.unlinked)
-          ?'<button class="btn btn-s no-print" onclick="event.stopPropagation();docLinkPick('+x.docId+',\'\',\''+ds+'\')">Link to material</button>'
+          ?'<button class="btn btn-s no-print" onclick="event.stopPropagation();docLinkPick('+jsq(x.docId)+',\'\',\''+ds+'\')">Link to material</button>'
           :(x.docId&&x.linkedTo?'<span class="dim" style="font-size:12px;flex-shrink:0">linked · '+esc(x.linkedTo)+'</span>':'');
         return '<div class="dg-row'+((x.go||x.own)?' row-a':'')+'"'
           +(x.own?(' onclick="editEvent('+x.id+')"'):(x.go?(' onclick="closeSheet();'+x.go+'"'):''))+'>'
