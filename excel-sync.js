@@ -964,12 +964,23 @@ function rawOut(m){
   step('pid','PID Number','PID Submittal Date','PID Status');
   if(s.pfm&&s.pfm.date)set('Pre-Fabrication Meeting Date',s.pfm.date);
   if(s.fat){
-    if(s.fat.ref)set(raw['FAT/TPI Results']!=null&&raw['FAT/TPI Results']!==''
+    /* a report linked from Aconex is a result, not the package */
+    if(s.fat.ref)set((raw['FAT/TPI Results']!=null&&raw['FAT/TPI Results']!=='')
+      ||visitsOf(m,'fat').some(function(x){return x.fromDoc;})
       ?'FAT/TPI Results':'FAT Package/Procedure Number/ITP',s.fat.ref);
     if(s.fat.date)set('FAT Planned Date',s.fat.date);
     if(s.fat.status&&s.fat.status!=='Pending')
       setStatus('FAT Package Status',/Passed/.test(s.fat.status)?'Approved':s.fat.status);
     if(s.fat.by&&!raw['3rd Party Service Provider Name'])set('3rd Party Service Provider Name',s.fat.by);
+  }
+  /* FAT procedures linked to the material: their numbers, and the
+     outcome that still holds them back */
+  var fp=(m.docs||[]).length?docsOf(m).filter(function(d){return ASK_KINDS[d.doc]&&d.role==='fatp';}):[];
+  if(fp.length){
+    set('FAT Package/Procedure Number/ITP',fp.map(refOf).join('\n'));
+    var fs=fp.map(function(d){return normStatus(docStatus(d))||'Pending';});
+    var fl=fs.filter(function(x){return x!=='Terminated';});
+    setStatus('FAT Package Status',fl.length?fl.reduce(function(a,b){return (STEP_RANK[b]<STEP_RANK[a])?b:a;}):'Terminated');
   }
   /* deliveries: the newest one fills the inspection-request columns,
      and the running total fills the quantities */
@@ -3115,18 +3126,20 @@ function linkPanel(m){
   /* What has a place of its own on the page is not listed again here:
      inspection requests are consignments, and an ITP or PID shows in its
      step — when the material's road has that step at all. */
-  var inStep=function(d){return DOC_STEP[d.doc]&&stepApplies(m,DOC_STEP[d.doc]);};
+  var stepOfDoc=function(d){return DOC_STEP[d.doc]||(ASK_KINDS[d.doc]&&ROLE_STEP[d.role])||'';};
+  var inStep=function(d){var k=stepOfDoc(d);return k&&stepApplies(m,k);};
   var all=docsOf(m), list=all.filter(function(d){return d.doc!=='MIR'&&!inStep(d);});
   var nmir=all.filter(function(d){return d.doc==='MIR';}).length;
-  var stepped={};all.filter(inStep).forEach(function(d){stepped[d.doc]=(stepped[d.doc]||0)+1;});
+  var stepped={};all.filter(inStep).forEach(function(d){var k=stepOfDoc(d);stepped[k]=(stepped[k]||0)+1;});
   return '<div class="sec"'+navAttr('Documents','na','pg-docs')+'>Documents</div><div class="panel">'
     +'<div class="panel-h"><div class="panel-t">Linked to this material</div>'
     +'<button class="btn btn-s no-print" onclick="linkPick('+m.id+')">Link a document</button></div>'
     +'<div class="panel-b">'
     +(list.length?list.map(function(d){
         var st=(d.raw&&d.raw['MAT Status'])||'';
+        var lab=(ASK_KINDS[d.doc]&&d.role&&d.role!=='doc')?roleName(d.role):d.doc;
         return '<div class="line">'
-          +'<span class="tag t-na" style="min-width:54px;text-align:center">'+esc(d.doc)+'</span>'
+          +'<span class="tag t-na" style="min-width:54px;text-align:center">'+esc(lab)+'</span>'
           +'<div class="line-m"><div>'+esc(d.name)+'</div>'
           +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'
           +esc(refOf(d))+(st?(' · '+esc(st)):'')+'</div></div>'
@@ -3136,7 +3149,8 @@ function linkPanel(m){
       :'<span class="dim">Nothing else linked. A method statement that belongs to this material is '
       +'attached here, and one document can serve many materials.</span>')
     +Object.keys(stepped).map(function(k){
-      return '<div class="dim" style="font-size:12.5px;margin-top:10px">'+stepped[k]+' '+k+(stepped[k]===1?' is':'s are')+' shown in '+(k==='ITP'?'the Inspection and test plan':'the Pre-inspection dossier')+' step.</div>';}).join('')
+      var sn=(MAT_ROAD.filter(function(x){return x.k===k;})[0]||{n:k}).n;
+      return '<div class="dim" style="font-size:12.5px;margin-top:10px">'+stepped[k]+' document'+(stepped[k]===1?' is':'s are')+' shown in the '+esc(sn)+' step.</div>';}).join('')
     +(nmir?'<div class="dim" style="font-size:12.5px;margin-top:10px">'+nmir+' inspection request'
       +(nmir===1?' is':'s are')+' under Deliveries, one consignment each.</div>':'')
     +'</div></div>';
@@ -3522,13 +3536,70 @@ function mirToDel(m,d){
    erection, say) give every number, the latest date, and the outcome
    that still holds the step back — all must be approved for it to be. */
 var DOC_STEP={ITP:'itp',PID:'pid'};
+/* Report, Procedure and Transmittal are what Aconex calls many things.
+   Whoever links one says which this is — once, on the document, so
+   every material it serves reads it the same way. */
+var ASK_KINDS={Report:1,Procedure:1,Transmittal:1};
+var DOC_ROLES=[
+  ['fat','FAT report','a visit under Final inspection or FAT — fills FAT/TPI Results'],
+  ['ipi','In-process inspection report','a visit under In-process inspection'],
+  ['fatp','FAT procedure','fills FAT Package/Procedure Number and FAT Package Status'],
+  ['pid','Pre-inspection dossier (PID)','fills the Pre-inspection dossier step'],
+  ['doc','Just a document','listed under Documents, nothing filled']];
+var ROLE_STEP={fat:'fat',ipi:'ipi',pid:'pid'};
+function roleName(r){var x=DOC_ROLES.filter(function(y){return y[0]===r;})[0];return x?x[1]:'';}
+/* a document's outcome and date, from its own kind's columns or, for a
+   type with no home of its own, wherever the register put them */
+function docStatus(d,kind){var raw=d.raw||{};return trim(raw[(kind||d.doc)+' Status']||'')||trim(rawEnd(d,'Status')||'');}
+function docDate(d,kind){
+  var raw=d.raw||{}, x=raw[(kind||d.doc)+' Submittal Date']||d.acxDate||rawEnd(d,'Submittal Date')||'';
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(x))?String(x):'';
+}
+/* a report's outcome in Aconex, as the result of the visit it records */
+function visitWord(s){
+  var w=normStatus(s)||trim(s||'');
+  if(w==='Approved')return 'Passed';
+  if(/Approved/.test(w))return 'Passed with comments';
+  if(w==='Rejected')return 'Failed';
+  return 'Pending';
+}
+var VISID=null;
+/* the reports linked as visits: one visit each, kept in step with Aconex */
+function syncDocVisits(m,docs){
+  var changed=false;
+  m.visits=m.visits||[];
+  ['fat','ipi'].forEach(function(k){
+    var want=docs.filter(function(d){return ASK_KINDS[d.doc]&&d.role===k;});
+    var touched=false;
+    m.visits=m.visits.filter(function(v){
+      if(v.step!==k||!v.fromDoc)return true;
+      if(want.some(function(d){return String(d.id)===String(v.fromDoc);}))return true;
+      touched=true;
+      if(v.by){delete v.fromDoc;return true;}     /* something typed on it stays */
+      return false;
+    });
+    want.forEach(function(d){
+      var no=refOf(d), date=docDate(d), res=visitWord(docStatus(d));
+      var v=m.visits.filter(function(x){return x.step===k&&String(x.fromDoc)===String(d.id);})[0];
+      if(!v){
+        m.visits.push({id:(VISID||(VISID=idMaker()))(),step:k,date:date,by:'',ref:no,result:res,
+          note:'',fromDoc:d.id});
+        touched=true;
+      }else if(v.ref!==no||v.date!==date||v.result!==res){
+        v.ref=no;v.date=date;v.result=res;touched=true;
+      }
+    });
+    if(touched){restep(m,k);changed=true;}
+  });
+  return changed;
+}
 var STEP_RANK={'Rejected':0,'Resubmit':1,'Pending':2,'Approved with comments':3,'Approved':4};
 function syncDocSteps(m){
   if(!m||isDoc(m))return false;
   var changed=false, docs=docsOf(m);
   m.steps=m.steps||{};
   Object.keys(DOC_STEP).forEach(function(kind){
-    var k=DOC_STEP[kind], list=docs.filter(function(d){return d.doc===kind;});
+    var k=DOC_STEP[kind], list=docs.filter(function(d){return d.doc===kind||(ASK_KINDS[d.doc]&&ROLE_STEP[d.role]===k);});
     var cur=m.steps[k];
     if(!list.length){
       if(cur&&cur.fromDocs){delete m.steps[k];changed=true;}
@@ -3538,9 +3609,9 @@ function syncDocSteps(m){
     list.forEach(function(d){
       var raw=d.raw||{};
       var r=refOf(d);if(r)refs.push(r);
-      var dt=raw[kind+' Submittal Date']||d.acxDate||'';
-      if(/^\d{4}-\d{2}-\d{2}$/.test(String(dt))&&dt>date)date=dt;
-      sts.push(normStatus(raw[kind+' Status'])||'Pending');
+      var dt=docDate(d,kind);
+      if(dt&&dt>date)date=dt;
+      sts.push(normStatus(docStatus(d,kind))||'Pending');
     });
     var live=sts.filter(function(x){return x!=='Terminated';});
     var status=live.length?live.reduce(function(a,b){return (STEP_RANK[b]<STEP_RANK[a])?b:a;}):'Terminated';
@@ -3549,6 +3620,7 @@ function syncDocSteps(m){
       m.steps[k]=Object.assign({},cur||{},next);changed=true;
     }
   });
+  if(syncDocVisits(m,docs))changed=true;
   return changed;
 }
 function liftDocSteps(){
@@ -3613,8 +3685,29 @@ window.linkPick=function(matId,q,go){
   var f=document.getElementById('lk');
   if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
 };
-window.linkAdd=function(matId,docId){
+window.askRole=function(matId,docId,ds){
+  var d=mat(docId), m=mat(matId);if(!d||!m)return;
+  sheet('What is this document?',
+     '<div style="font-size:13.5px;margin-bottom:14px"><b>'+esc(d.name)+'</b>'
+    +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'+esc(refOf(d))+' · '+esc(d.doc)
+    +(docStatus(d)?(' · '+esc(docStatus(d))):'')+'</div></div>'
+    +'<div class="dim" style="font-size:13px;margin-bottom:10px">Aconex calls it a '+esc(d.doc)
+    +'. Say what it is and it goes where it belongs on '+esc(m.name)+'.</div>'
+    +'<div class="panel"><div class="panel-b">'
+    +DOC_ROLES.map(function(r){
+      return '<div class="line row-a" onclick="linkAdd('+matId+','+docId+',\''+r[0]+'\''+(ds?(',\''+ds+'\''):'')+')">'
+        +'<div class="line-m"><div><b>'+esc(r[1])+'</b>'+(d.role===r[0]?' <span class="tag t-wait">as before</span>':'')+'</div>'
+        +'<div class="dim" style="font-size:12.5px;margin-top:2px">'+esc(r[2])+'</div></div></div>';
+    }).join('')+'</div></div>');
+};
+window.linkAdd=function(matId,docId,role,ds){
   var m=mat(matId);if(!m)return;
+  var d0=mat(docId);
+  if(d0&&ASK_KINDS[d0.doc]&&!role)return askRole(matId,docId,ds);
+  var was=d0?d0.role:'';
+  if(d0&&role)d0.role=role;
+  /* the same document on other materials reads the new answer too */
+  if(d0&&role&&was!==role)servedBy(d0).forEach(function(x){if(String(x.id)!==String(matId))syncDocSteps(x);});
   m.docs=m.docs||[];
   if(m.docs.indexOf(docId)<0&&!m.docs.some(function(x){return String(x)===String(docId);}))
     m.docs.push(docId);
@@ -3622,7 +3715,9 @@ window.linkAdd=function(matId,docId){
   var made=mirToDel(m,d);
   syncDocSteps(m);
   touch();closeSheet();rPane();paintTabs();
+  if(ds)setTimeout(function(){daySheet(ds);},60);
   if(made)return toast('Linked '+refOf(d)+' — it is a consignment under Deliveries now; add its quantity there');
+  if(d&&role&&role!=='doc')return toast('Linked '+refOf(d)+' as '+roleName(role).replace(/ \(PID\)$/,''));
   toast('Linked '+(d?d.doc:'the document')+' — it still serves '
     +(d?servedBy(d).length:1)+' material'+((d&&servedBy(d).length!==1)?'s':''));
 };
@@ -7075,6 +7170,8 @@ window.docLinkPick=function(docId,q,ds){
   var f=document.getElementById('lk');if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
 };
 window.docLinkDo=function(matId,docId,ds){
+  var d=mat(docId);
+  if(d&&ASK_KINDS[d.doc])return askRole(matId,docId,ds);
   window.linkAdd(matId,docId);
   if(ds)setTimeout(function(){daySheet(ds);},60);
 };
@@ -7083,10 +7180,9 @@ window.docRef=refOf;
 window.stepDocs=function(m,k){
   var kind=Object.keys(DOC_STEP).filter(function(x){return DOC_STEP[x]===k;})[0];
   if(!kind)return [];
-  return docsOf(m).filter(function(d){return d.doc===kind;}).map(function(d){
-    var raw=d.raw||{};
-    return {id:d.id,no:refOf(d),title:d.name,status:normStatus(raw[kind+' Status'])||trim(raw[kind+' Status']||'')||'Pending',
-      date:raw[kind+' Submittal Date']||d.acxDate||''};
+  return docsOf(m).filter(function(d){return d.doc===kind||(ASK_KINDS[d.doc]&&ROLE_STEP[d.role]===k);}).map(function(d){
+    var st=docStatus(d,kind);
+    return {id:d.id,no:refOf(d),title:d.name,status:normStatus(st)||st||'Pending',date:docDate(d,kind)};
   });
 };
 /* ---------------------------------------------------------------
