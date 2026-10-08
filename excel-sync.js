@@ -2710,6 +2710,8 @@ function liftTabs(){
   ob.setAttribute('aria-selected','false');ob.setAttribute('aria-haspopup','menu');
   ob.textContent='Other \u25BE';
   ob.onclick=function(e){e.stopPropagation();otherMenu(ob);};
+  /* the pages Other held open from All documents now */
+  ob.style.display='none';
   tabs.appendChild(ob);
   /* every document Aconex holds, of every kind, on one page */
   var ab=document.createElement('button');
@@ -2752,7 +2754,8 @@ function paintTabs(){
   acxRows().forEach(function(d){if(LINE_VIEWS.mir(d))n.mir++;else if(LINE_VIEWS.doc(d))n.doc++;});
   var at=document.getElementById('tab-alldoc');
   if(at){
-    at.setAttribute('aria-selected',String(TAB==='mat'&&VIEW==='alldoc'));
+    at.setAttribute('aria-selected',String(TAB==='mat'&&(VIEW==='alldoc'||VIEW==='allmir'
+      ||OTHER_TABS.some(function(x){return x[0]===VIEW;})||(isOtherView(VIEW)&&VIEW!=='paa'&&VIEW!=='pqd'))));
     var an=document.getElementById('n-alldoc');
     if(an)an.textContent=ACX?String((MATS_ALL||DB.mats||[]).filter(isDoc).length+acxRows().length):'';
   }
@@ -6391,6 +6394,23 @@ function cellOf(r,c){
 
 /* the values a "pick" column actually holds, so the list offers what is
    there rather than what might be */
+/* All documents leads to the pages worked through, and each of them
+   leads back to it */
+(function(){
+  var all=TABLES_DEF.alldoc, was=all.extra;
+  all.extra=function(){
+    return OTHER_TABS.map(function(it){
+      var c=document.getElementById('n-'+it[0]);
+      return '<button class="btn btn-s" onclick="setTab(\''+it[0]+'\')">'+esc(it[1])
+        +(c&&c.textContent?(' <span class="n" style="font-family:var(--mono);font-size:11px;color:var(--ink-4)">'+c.textContent+'</span>'):'')+'</button>';
+    }).join('')+(was?was():'');
+  };
+  OTHER_TABS.map(function(x){return x[0];}).concat(['allmir']).forEach(function(k){
+    var t=TABLES_DEF[k];if(!t)return;
+    var ex=t.extra;
+    t.extra=function(){return '<button class="btn btn-s" onclick="setTab(\'alldoc\')">← All documents</button>'+(ex?ex():'');};
+  });
+})();
 /* the document pages show the list's lines beside the records; a line
    opens as a short sheet with a way to link it */
 Object.keys(LINE_VIEWS).forEach(function(k){
