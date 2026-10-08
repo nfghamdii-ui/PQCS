@@ -1314,9 +1314,43 @@ var REF_FIELDS=Object.keys(STATUS_OF).concat(['PA Document Number','PO Number'])
    register has no column for it, and 658 of the rows are C0 or C1 —
    material this tracker does not follow — so reading it off the title
    is what keeps those from burying the rest. */
+/* The category as the title writes it: "Category C2", "Category: 01",
+   "Cate gory 0", "Category CO" (a letter O), or the code on its own —
+   "(C0)", "-C2-", ": C3". Of several, the highest. A grade such as C40
+   or C25 is not a category. */
 function catOfTitle(t){
+  t=String(t||'');
+  var found=[], m, a=/CATE\s*GOR\w*[\s:\-]*\(?"?\s*C?\s*0?([0-3O])(?![0-9A-Za-z])/gi,
+      b=/(?:^|[^A-Za-z0-9])C\s?([0-3])(?![0-9A-Za-z])/gi;
+  while((m=a.exec(t)))found.push(m[1].toUpperCase().replace('O','0'));
+  while((m=b.exec(t)))found.push(m[1]);
+  return found.length?('C'+found.sort().pop()):'';
+}
+/* the rule before, to know a category it read wrong */
+function catOfTitleOld(t){
   var m=/CATEGOR\w*[\s:\-]*\(?"?\s*C?\s*([0-3])/i.exec(String(t||''));
   return m?('C'+m[1]):'';
+}
+/* A material with no category takes the one its Aconex title states;
+   one the old reading got wrong ("Category 01" read as C0) is put right;
+   and one whose title says nothing is offered the nearest entry of
+   Attachment 1, marked to be confirmed. A category set by hand is
+   never touched. */
+function liftCats(){
+  var n=0;
+  (DB.mats||[]).forEach(function(m){
+    if(isDoc(m))return;
+    var t=m.name||(m.raw||{})['Item Description']||'', c=catOfTitle(t);
+    var mine=/set by you|set in Excel/.test(m.catFrom||'');
+    if(!m.cat&&c){m.cat=c;m.catFrom='read from its title in Aconex';m.catSure=true;n++;return;}
+    if(m.cat&&!mine&&c&&c!==m.cat&&catOfTitleOld(t)===m.cat){m.cat=c;m.catFrom='read from its title in Aconex';m.catSure=true;n++;return;}
+    if(!m.cat&&typeof lookCat==='function'){
+      var f=lookCat(t);
+      if(f){m.cat=topCat(f.c.c);m.catFrom=f.sure?'read from Attachment 1':'closest entry in Attachment 1';m.catSure=!!f.sure;n++;}
+    }
+  });
+  if(n)touch();
+  return n;
 }
 function splitRefs(v){
   if(v==null||v==='')return [];
@@ -7283,7 +7317,7 @@ function install(){
    once everything already carries a label. */
 function sortOut(){
   try{
-    var n=labelDocuments()+liftVisits()+liftTerminated()+liftMirLinks()+liftRefs()+liftDocSteps()+paaSyncPeople();
+    var n=labelDocuments()+liftVisits()+liftTerminated()+liftMirLinks()+liftRefs()+liftDocSteps()+paaSyncPeople()+liftCats();
     if(n){rList();rPane();}
     else paintTabs();
   }catch(e){}
