@@ -3554,9 +3554,9 @@ var ROLE_STEP={fat:'fat',ipi:'ipi',pid:'pid',fatp:'fat',pfm:'pfm',irn:'irn',post
 var STEP_FROM_DOCS={itp:'ITP',pid:'PID',pfm:'',post:''};
 /* what the button and the list say, step by step */
 var LINK_TEXT={fat:'FAT report',fatp:'FAT procedure',ipi:'in-process inspection report',pid:'PID',
-  pfm:'the meeting minutes',irn:'release note',post:'post-inspection dossier'};
+  pfm:'the meeting minutes',irn:'release note',post:'post-inspection dossier',mir:'an MIR'};
 /* the kind Aconex itself gives the thing, where it has one */
-var ROLE_KIND={pid:'PID'};
+var ROLE_KIND={pid:'PID',mir:'MIR'};
 function roleName(r){var x=DOC_ROLES.filter(function(y){return y[0]===r;})[0];return x?x[1]:'';}
 /* a document's outcome and date, from its own kind's columns or, for a
    type with no home of its own, wherever the register put them */
@@ -3661,8 +3661,9 @@ window.linkPick=function(matId,q,go,role){
   var need=K(q||'');
   /* linked from a step, only what that step can hold is offered:
      Aconex's reports, procedures and transmittals, or its own kind */
-  var all=(DB.mats||[]).filter(function(d){return isDoc(d)&&(!role||ASK_KINDS[d.doc]||d.doc===ROLE_KIND[role]
-    ||(role==='irn'&&/release/i.test(d.doc)));});
+  /* an inspection request is its own kind: only those are offered */
+  var all=(DB.mats||[]).filter(function(d){return isDoc(d)&&(!role||(role==='mir'?d.doc==='MIR'
+    :(ASK_KINDS[d.doc]||d.doc===ROLE_KIND[role]||(role==='irn'&&/release/i.test(d.doc)))));});
   var rl=role?("'"+role+"'"):'undefined';
   var rows=all.filter(function(d){
     /* from a step, one linked already but not yet said to be this can be */
@@ -3681,7 +3682,7 @@ window.linkPick=function(matId,q,go,role){
     rows.sort(function(a,b){return score(b)-score(a);});}
   var already=need?all.filter(function(d){
     return has[String(d.id)]&&K(d.name+' '+refOf(d)+' '+(d.doc||'')).indexOf(need)>=0;}):[];
-  sheet((role?('Link '+(/^the /.test(LINK_TEXT[role])?'':/^[aeiou]/i.test(LINK_TEXT[role])?'an ':'a ')+LINK_TEXT[role]):'Link a document')+' to '+m.name,
+  sheet((role?('Link '+(/^(the|an?) /.test(LINK_TEXT[role])?'':/^[aeiou]/i.test(LINK_TEXT[role])?'an ':'a ')+LINK_TEXT[role]):'Link a document')+' to '+m.name,
      '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'
     +(need?('Searching all '+all.length+' documents.')
           :('Showing the '+rows.length+' in '+esc(m.disc||'no discipline')
@@ -3731,7 +3732,7 @@ window.linkAdd=function(matId,docId,role,ds){
   var d0=mat(docId);
   if(d0&&ASK_KINDS[d0.doc]&&!role)return askRole(matId,docId,ds);
   var was=d0?d0.role:'';
-  if(d0&&role)d0.role=role;
+  if(d0&&role&&role!=='mir')d0.role=role;
   /* the same document on other materials reads the new answer too */
   if(d0&&role&&was!==role)servedBy(d0).forEach(function(x){if(String(x.id)!==String(matId))syncDocSteps(x);});
   m.docs=m.docs||[];

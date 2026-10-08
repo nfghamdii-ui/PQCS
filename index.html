@@ -2486,8 +2486,9 @@ function roadProps(rec,steps,kind,after){
       var ord=num(rec.qty), got=received(rec), n=(rec.dels||[]).length;
       word=n?(n+' consignment'+(n===1?'':'s')):'nothing yet';
       var dl=typeof window.logInline==='function'?window.logInline(rec,'Delivery'):null;
-      btns=(typeof window.linkPick==='function'?'<button class="btn btn-s" onclick="linkPick('+rec.id+',\'MIR\')">Link an MIR</button>':'')
-        +'<button class="btn btn-s'+(x.now?' btn-p':'')+'" onclick="addDel()">Record a delivery</button>'
+      /* the inspection request from Aconex is the usual way in, so it leads */
+      btns=(typeof window.linkPick==='function'?'<button class="btn btn-s btn-p" onclick="linkPick('+rec.id+',\'\',false,\'mir\')">Link an MIR</button>':'')
+        +'<button class="btn btn-s" onclick="addDel()">Record a delivery</button>'
         +(dl?'<button class="btn-q" onclick="editLog('+rec.id+','+dl.gi+')">Edit dates</button>':'');
       body='<div class="props">'+pr('Consignments',n?String(n):'')
         +pr('Accepted',ord?(got+' of '+ord+' '+esc(rec.unit||'')):(n?String(got):''))
@@ -3002,7 +3003,7 @@ function delPanel(m){
   return '<div class="sec">Deliveries</div><div class="panel">'
     +'<div class="panel-h"><div class="panel-t">Consignments</div>'
       +'<span class="no-print" style="display:flex;gap:6px">'
-      +(typeof window.linkPick==='function'?'<button class="btn btn-s" onclick="linkPick('+m.id+',\'MIR\')">Link an MIR</button>':'')
+      +(typeof window.linkPick==='function'?'<button class="btn btn-s btn-p" onclick="linkPick('+m.id+',\'\',false,\'mir\')">Link an MIR</button>':'')
       +'<button class="btn btn-s" onclick="addDel()">Record a delivery</button></span></div>'
     +'<div class="panel-b">'
     +(ord?'<div style="margin-bottom:14px"><div class="bar"><i style="width:'+pct+'%"></i></div>'
