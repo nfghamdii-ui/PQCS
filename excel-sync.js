@@ -1436,6 +1436,11 @@ var SKIP_TYPE={'work inspection request':1};
 function planRegister(reg){
   var idx=refIndex();
   var p={moved:[],ended:[],locked:[],same:[],newC23:[],newPlain:[],newC01:[],unknown:0,dead:[]};
+  /* the work inspection requests, kept as a plain list to link from */
+  p.wirs=reg.filter(function(d){return SKIP_TYPE[K(d.type)];}).map(function(d){
+    var w=verdictOf(d.status)==='Terminated'?'Terminated':(verdictOf(d.review)||verdictOf(d.status)||trim(d.status));
+    return [d.no,d.title,w,d.date||'',plainDisc(d.disc||'')];
+  });
   reg.forEach(function(d){
     if(SKIP_TYPE[K(d.type)])return;
     var hits=idx[K(d.no)];
@@ -1587,7 +1592,130 @@ var applyRegisterBare=function(){};
 function applyRegister(p,alsoEnded,tag){
   var n=applyRegisterBare(p,alsoEnded,tag);
   liftDocSteps();
+  if(p.wirs&&p.wirs.length){var w=p.wirs;p.wirs=null;wirMerge(w);}
   return n;
+}
+/* ---------------------------------------------------------------
+   WORK INSPECTION REQUESTS. Seventeen thousand of them made every page
+   slow as records, so the register keeps them as a plain list — number,
+   title, outcome, date, discipline — stored apart and read only when a
+   WIR is linked. A material keeps the ones linked to it, and each
+   upload brings their outcomes up to date.
+   --------------------------------------------------------------- */
+var WIRS=null, WIR_KEYS=0, WIR_CHUNK=2500, WIR_P=null;
+/* read once: a second ask while the first is on the network waits for it */
+function wirLoad(){
+  if(WIRS)return Promise.resolve(WIRS);
+  if(!WIR_P)WIR_P=wirFetch().catch(function(e){WIR_P=null;throw e;});
+  return WIR_P;
+}
+async function wirFetch(){
+  var c=client();if(!c)return (WIRS=[]);
+  var r=await c.from('settings').select('key,value').like('key','wir:%');
+  if(r.error)throw r.error;
+  var rows=(r.data||[]).sort(function(a,b){return (+a.key.slice(4))-(+b.key.slice(4));});
+  WIR_KEYS=rows.length;
+  WIRS=[];rows.forEach(function(x){WIRS=WIRS.concat(x.value||[]);});
+  return WIRS;
+}
+async function wirSave(list){
+  var c=client();if(!c)return;
+  var n=Math.ceil(list.length/WIR_CHUNK);
+  for(var i=0;i<n;i++){
+    var r=await c.from('settings').upsert({key:'wir:'+i,value:list.slice(i*WIR_CHUNK,(i+1)*WIR_CHUNK)},{onConflict:'key'});
+    if(r.error)throw r.error;
+  }
+  for(var j=n;j<WIR_KEYS;j++)await c.from('settings').delete().eq('key','wir:'+j);
+  WIR_KEYS=n;
+}
+async function wirMerge(rows){
+  try{
+    var list=await wirLoad(), at={};
+    list.forEach(function(w,i){at[K(w[0])]=i;});
+    rows.forEach(function(w){var i=at[K(w[0])];if(i==null){at[K(w[0])]=list.length;list.push(w);}else list[i]=w;});
+    /* the WIRs already linked take their new outcomes */
+    var by={};list.forEach(function(w){by[K(w[0])]=w;});
+    var moved=0;
+    (DB.mats||[]).forEach(function(m){
+      if(!(m.wirs||[]).length)return;
+      var ch=false;
+      m.wirs.forEach(function(x){var w=by[K(x.no)];if(w&&(x.status!==w[2]||x.date!==w[3])){x.status=w[2];x.date=w[3];x.title=w[1];ch=true;}});
+      if(ch){wirRaw(m);moved++;}
+    });
+    if(moved){touch();rPane();}
+    await wirSave(list);
+    toast(rows.length+' WIR kept for linking'+(moved?(' — '+moved+' material'+(moved===1?'':'s')+' brought up to date'):''));
+  }catch(e){toast('The WIR list could not be saved — '+(e.message||e));}
+}
+/* the Main Log's three WIR columns, one line per request */
+function wirRaw(m){
+  /* said outright, or the old guess from a number (labelDocuments)
+     would read a WIR number on it as a WIR */
+  if(m.doc==null)m.doc='';
+  m.raw=m.raw||{};
+  var l=m.wirs||[];
+  function put(c,v){if(v.some(Boolean))m.raw[c]=v.join('\n');else delete m.raw[c];}
+  put('WIR Number',l.map(function(x){return x.no;}));
+  put('WIR Approval Date',l.map(function(x){return x.date||'';}));
+  put('WIR Status',l.map(function(x){return x.status||'';}));
+}
+window.wirPick=async function(matId,q){
+  var m=mat(matId);if(!m)return;
+  var list;
+  if(!WIRS){busy(true,'Reading the WIR list');try{list=await wirLoad();}catch(e){busy(false);return toast('Could not read the WIR list — '+(e.message||e));}busy(false);}
+  list=WIRS;
+  var has={};(m.wirs||[]).forEach(function(x){has[K(x.no)]=1;});
+  var need=K(q||'');
+  var rows=list.filter(function(w){
+    if(has[K(w[0])])return false;
+    if(!need)return m.disc&&K(w[4]||'')===K(plainDisc(m.disc));
+    return K(w[0]+' '+w[1]).indexOf(need)>=0;
+  });
+  sheet('Link a WIR to '+m.name,
+     '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'
+    +(list.length?(list.length+' work inspection requests from the last Aconex upload. '
+      +(need?'':'Showing those in '+esc(m.disc||'its discipline')+' — search by number or title for the rest.'))
+      :'No WIR yet — upload the Aconex register (More → Upload the register) and they are kept for linking.')
+    +'</div>'
+    +'<div class="f" style="margin-bottom:14px"><label for="wk">Search by number or title</label>'
+    +'<input id="wk" value="'+attr(q||'')+'" autocomplete="off" oninput="searchSoon(function(v){wirPick('+matId+',v);},this.value)"></div>'
+    +'<div class="panel"><div class="panel-b">'
+    +(rows.length?rows.slice(0,60).map(function(w){
+        return '<div class="line row-a" onclick="wirLink('+matId+','+jsq(w[0])+')">'
+          +'<span class="tag t-'+(statusTone(w[2])||'na')+'" style="min-width:118px;text-align:center;flex-shrink:0">'+esc(w[2]||'—')+'</span>'
+          +'<div class="line-m"><div>'+esc(w[1]||'(no title)')+'</div>'
+          +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'+esc(w[0])+(w[3]?(' · '+show(w[3])):'')+'</div></div></div>';
+      }).join('')+(rows.length>60?('<div class="dim" style="font-size:13px;padding-top:10px">and '+(rows.length-60)+' more — narrow the search</div>'):'')
+      :'<span class="dim">'+(list.length?'Nothing matches.':'')+'</span>')
+    +'</div></div>');
+  var f=document.getElementById('wk');if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
+};
+window.wirLink=function(matId,no){
+  var m=mat(matId);if(!m||!WIRS)return;
+  var w=WIRS.filter(function(x){return K(x[0])===K(no);})[0];if(!w)return;
+  m.wirs=m.wirs||[];
+  /* numbers typed into the log before are kept beside the linked ones */
+  if(!m.wirs.length)splitRefs((m.raw||{})['WIR Number']).forEach(function(n){m.wirs.push({no:n,title:'',status:'',date:''});});
+  if(!m.wirs.some(function(x){return K(x.no)===K(w[0]);}))m.wirs.push({no:w[0],title:w[1],status:w[2],date:w[3]});
+  wirRaw(m);touch();closeSheet();rPane();
+  toast('Linked '+w[0]);
+};
+window.wirUnlink=function(matId,no){
+  var m=mat(matId);if(!m)return;
+  m.wirs=(m.wirs||[]).filter(function(x){return K(x.no)!==K(no);});
+  wirRaw(m);touch();rPane();
+};
+function wirLines(m){
+  var l=m.wirs||[];
+  if(!l.length)return '';
+  return '<div class="dlist" style="margin-top:8px">'+l.map(function(x){
+    return '<div class="pr dl-row">'
+      +'<span class="tag t-'+(statusTone(x.status)||'na')+'" style="min-width:150px;text-align:center">'+esc(x.status||'—')+'</span>'
+      +'<div style="flex:1;min-width:0"><div class="pr-v mono">'+esc(x.no)+'</div>'
+      +(x.title?'<div class="pr-l">'+esc(x.title)+'</div>':'')+'</div>'
+      +'<span class="pr-l" style="flex-shrink:0">'+(x.date?show(x.date):'')+'</span>'
+      +'<button class="btn-q no-print" onclick="wirUnlink('+m.id+','+jsq(x.no)+')">Unlink</button></div>';
+  }).join('')+'</div>';
 }
 applyRegisterBare=function(p,alsoEnded,tag){
   if(p.rows)stampDates(p.rows);
@@ -3300,11 +3428,12 @@ window.logGroupsFor=function(m,keys){
       +'<div class="pgroup"'+navAttr(g[0],filled===g[1].length?'ok':filled?'wait':'na','pg-log-'+gi)+'><div class="pg-h"><span class="pg-t">'+esc(g[0])+'</span>'
       +'<span class="tag t-'+(filled===g[1].length?'ok':filled?'wait':'na')+'">'+filled+' of '+g[1].length+'</span>'
       +'<span style="flex:1"></span>'
+      +(g[0]==='Installation & WIR'?'<button class="btn btn-s btn-p no-print" style="margin-right:6px" onclick="wirPick('+m.id+')">Link a WIR</button>':'')
       +'<button class="btn btn-s no-print" onclick="editLog('+m.id+','+gi+')">Edit</button></div>'
       +'<div class="props">'+g[1].map(function(f){
         var v=logShow(f,raw[f[0]]);
         return '<div class="pr"><div class="pr-l">'+esc(f[0])+'</div><div class="pr-v">'+esc(v)+'</div></div>';
-      }).join('')+'</div></div>';
+      }).join('')+'</div>'+(g[0]==='Installation & WIR'?wirLines(m):'')+'</div>';
   });
   return out;
 };
@@ -3408,6 +3537,7 @@ window.saveLog=function(id){
     out[f[0]]=v;
   });});
   if(bad)return;
+  if(m.doc==null)m.doc='';           /* a material, whatever number is typed on it */
   m.raw=m.raw||{};
   Object.keys(out).forEach(function(c){if(out[c])m.raw[c]=out[c];else delete m.raw[c];});
   touch();closeSheet();rPane();
