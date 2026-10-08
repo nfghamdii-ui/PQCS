@@ -1437,11 +1437,9 @@ var SKIP_TYPE={'work inspection request':1};
 function planRegister(reg){
   var idx=refIndex();
   var p={moved:[],ended:[],locked:[],same:[],newC23:[],newPlain:[],newC01:[],unknown:0,dead:[]};
-  /* the work inspection requests, kept as a plain list to link from */
-  p.wirs=reg.filter(function(d){return SKIP_TYPE[K(d.type)];}).map(function(d){
-    var w=verdictOf(d.status)==='Terminated'?'Terminated':(verdictOf(d.review)||verdictOf(d.status)||trim(d.status));
-    return [d.no,d.title,w,d.date||'',plainDisc(d.disc||'')];
-  });
+  /* every document but a material, a pre-qualification or a personnel
+     approval goes to the Aconex list, to link from */
+  p.light=reg.filter(function(d){return !CORE_TYPE[K(d.type)];}).map(acxRow);
   reg.forEach(function(d){
     if(SKIP_TYPE[K(d.type)])return;
     var hits=idx[K(d.no)];
@@ -1462,6 +1460,8 @@ function planRegister(reg){
     var want=verdictOf(d.status)==='Terminated'?'Terminated'
       :(verdictOf(d.review)||verdictOf(d.status));
     if(!hits||!hits.length){
+      /* a new one of the other kinds is a line of the list, not a record */
+      if(!CORE_TYPE[K(d.type)])return;
       var cat=catOfTitle(d.title);
       d.cat=cat;d.want=want;
       if(cat==='C2'||cat==='C3')p.newC23.push(d);
@@ -1593,121 +1593,155 @@ var applyRegisterBare=function(){};
 function applyRegister(p,alsoEnded,tag){
   var n=applyRegisterBare(p,alsoEnded,tag);
   liftDocSteps();
-  if(p.wirs&&p.wirs.length){var w=p.wirs;p.wirs=null;wirMerge(w);}
+  if(p.light&&p.light.length){var w=p.light;p.light=null;acxMerge(w);}
   return n;
 }
 /* ---------------------------------------------------------------
-   WORK INSPECTION REQUESTS. Seventeen thousand of them made every page
-   slow as records, so the register keeps them as a plain list — number,
-   title, outcome, date, discipline — stored apart and read only when a
-   WIR is linked. A material keeps the ones linked to it, and each
-   upload brings their outcomes up to date.
+   THE ACONEX LIST. The tracker works on materials, vendors and the
+   inspectors. Every other document Aconex holds — inspection requests,
+   plans, method statements, reports, transmittals, work inspection
+   requests — is one plain line: number, title, kind, outcome, date,
+   discipline, revision. The lines are stored apart, in chunks, and read
+   only when asked for, so sixty thousand of them weigh nothing on a
+   page. A material links a line by its number and keeps a copy of it;
+   each upload brings the copies up to date.
    --------------------------------------------------------------- */
-var WIRS=null, WIR_KEYS=0, WIR_CHUNK=2500, WIR_P=null;
-/* read once: a second ask while the first is on the network waits for it */
-function wirLoad(){
-  if(WIRS)return Promise.resolve(WIRS);
-  if(!WIR_P)WIR_P=wirFetch().catch(function(e){WIR_P=null;throw e;});
-  return WIR_P;
+var CORE_TYPE={'material submittal':1,'pre-qualification':1,'personnel approval form':1};
+var ACX=null, ACX_AT=null, ACX_ITEMS=null, ACX_KEYS=0, ACX_OLD=0, ACX_CHUNK=2500, ACX_P=null;
+function acxRow(d){
+  var w=verdictOf(d.status)==='Terminated'?'Terminated':(verdictOf(d.review)||verdictOf(d.status)||trim(d.status));
+  return [d.no,d.title,kindOfType(d.type),w,d.date||'',plainDisc(d.disc||''),d.rev||''];
 }
-async function wirFetch(){
-  var c=client();if(!c)return (WIRS=[]);
-  var r=await c.from('settings').select('key,value').like('key','wir:%');
+/* read once: a second ask while the first is on the network waits for it */
+function acxLoad(){
+  if(ACX)return Promise.resolve(ACX);
+  if(!ACX_P)ACX_P=acxFetch().catch(function(e){ACX_P=null;throw e;});
+  return ACX_P;
+}
+async function acxFetch(){
+  var c=client();if(!c){ACX=[];return ACX;}
+  var r=await c.from('settings').select('key,value').like('key','acx:%');
   if(r.error)throw r.error;
   var rows=(r.data||[]).sort(function(a,b){return (+a.key.slice(4))-(+b.key.slice(4));});
-  WIR_KEYS=rows.length;
-  WIRS=[];rows.forEach(function(x){WIRS=WIRS.concat(x.value||[]);});
-  return WIRS;
+  ACX_KEYS=rows.length;
+  var list=[];rows.forEach(function(x){list=list.concat(x.value||[]);});
+  /* the work inspection requests kept before the list held every kind */
+  var w=await c.from('settings').select('key,value').like('key','wir:%');
+  if(!w.error&&(w.data||[]).length){
+    ACX_OLD=w.data.length;
+    var have={};list.forEach(function(x){have[K(x[0])]=1;});
+    w.data.forEach(function(x){(x.value||[]).forEach(function(o){
+      if(!have[K(o[0])])list.push([o[0],o[1],'WIR',o[2],o[3],o[4],'']);});});
+  }
+  ACX=list;ACX_AT=null;ACX_ITEMS=null;
+  return ACX;
 }
-async function wirSave(list){
+function acxIndex(){
+  if(!ACX_AT){ACX_AT={};(ACX||[]).forEach(function(r,i){ACX_AT[K(r[0])]=i;});}
+  return ACX_AT;
+}
+function acxFind(no){var i=acxIndex()[K(no)];return i==null?null:ACX[i];}
+async function acxSave(list){
   var c=client();if(!c)return;
-  var n=Math.ceil(list.length/WIR_CHUNK);
+  var n=Math.ceil(list.length/ACX_CHUNK);
   for(var i=0;i<n;i++){
-    var r=await c.from('settings').upsert({key:'wir:'+i,value:list.slice(i*WIR_CHUNK,(i+1)*WIR_CHUNK)},{onConflict:'key'});
+    var r=await c.from('settings').upsert({key:'acx:'+i,value:list.slice(i*ACX_CHUNK,(i+1)*ACX_CHUNK)},{onConflict:'key'});
     if(r.error)throw r.error;
   }
-  for(var j=n;j<WIR_KEYS;j++)await c.from('settings').delete().eq('key','wir:'+j);
-  WIR_KEYS=n;
+  for(var j=n;j<ACX_KEYS;j++)await c.from('settings').delete().eq('key','acx:'+j);
+  ACX_KEYS=n;
+  /* the old work-inspection list now lives in this one */
+  for(var o=0;o<ACX_OLD;o++)await c.from('settings').delete().eq('key','wir:'+o);
+  ACX_OLD=0;
 }
-async function wirMerge(rows){
+async function acxMerge(rows){
   try{
-    var list=await wirLoad(), at={};
-    list.forEach(function(w,i){at[K(w[0])]=i;});
+    var list=await acxLoad(), at=acxIndex();
     rows.forEach(function(w){var i=at[K(w[0])];if(i==null){at[K(w[0])]=list.length;list.push(w);}else list[i]=w;});
-    /* the WIRs already linked take their new outcomes */
-    var by={};list.forEach(function(w){by[K(w[0])]=w;});
+    ACX_ITEMS=null;
+    /* the copies on the materials take their new outcomes */
     var moved=0;
     (DB.mats||[]).forEach(function(m){
-      if(!(m.wirs||[]).length)return;
+      if(!(m.refs||[]).length)return;
       var ch=false;
-      m.wirs.forEach(function(x){var w=by[K(x.no)];if(w&&(x.status!==w[2]||x.date!==w[3])){x.status=w[2];x.date=w[3];x.title=w[1];ch=true;}});
-      if(ch){wirRaw(m);moved++;}
+      m.refs.forEach(function(x){
+        var w=acxFind(x.no);if(!w)return;
+        if(x.status!==w[3]||x.date!==w[4]||x.title!==w[1]||x.rev!==w[6]){
+          x.status=w[3];x.date=w[4];x.title=w[1];x.rev=w[6];ch=true;}
+      });
+      if(ch){if(m.refs.some(function(x){return x.kind==='WIR';}))wirRaw(m);syncDocSteps(m);moved++;}
     });
     if(moved){touch();rPane();}
-    await wirSave(list);
-    toast(rows.length+' WIR kept for linking'+(moved?(' — '+moved+' material'+(moved===1?'':'s')+' brought up to date'):''));
-  }catch(e){toast('The WIR list could not be saved — '+(e.message||e));}
+    await acxSave(list);
+    toast(rows.length+' Aconex documents in the list'+(moved?(' — '+moved+' material'+(moved===1?'':'s')+' brought up to date'):''));
+  }catch(e){toast('The Aconex list could not be saved — '+(e.message||e));}
+}
+/* the list as items a search can run over, made once per load */
+function acxItems(){
+  if(ACX_ITEMS)return ACX_ITEMS;
+  ACX_ITEMS=(ACX||[]).map(function(r){return {id:'r:'+r[0],light:true,doc:r[2]||'Document',name:r[1]||r[0],ref:r[0],disc:r[5]||'',status:r[3]||'',date:r[4]||''};});
+  return ACX_ITEMS;
+}
+/* a line linked to a material, read as a document: the steps, the
+   consignments and the Main Log fill from it exactly as from a record */
+function lightDoc(x){
+  var k=x.kind||'Document', raw={};
+  raw[k+' Number']=x.no;
+  if(x.status)raw[k+' Status']=x.status;
+  if(x.rev)raw[k+' Revision']=x.rev;
+  if(x.date){raw[k+' Submittal Date']=x.date;if(k==='MIR'||k==='WIR')raw[k+' Approval Date']=x.date;}
+  return {id:'r:'+x.no,light:true,doc:k,name:x.title||x.no,ref:x.no,role:x.role||'',disc:x.disc||'',acxDate:x.date||'',raw:raw};
+}
+function refOfRow(r){return {no:r[0],title:r[1],kind:r[2],status:r[3],date:r[4],disc:r[5],rev:r[6]};}
+function isRefId(id){return String(id).slice(0,2)==='r:';}
+/* a document by its id: a record, or a line of the list */
+function getDoc(id,m){
+  if(!isRefId(id))return mat(id);
+  var no=String(id).slice(2);
+  var x=m&&(m.refs||[]).filter(function(y){return K(y.no)===K(no);})[0];
+  if(x)return lightDoc(x);
+  var r=acxFind(no);
+  return r?lightDoc(refOfRow(r)):null;
+}
+/* the materials each line is linked to */
+function refLinks(){
+  var by={};
+  (MATS_ALL||DB.mats||[]).forEach(function(m){(m.refs||[]).forEach(function(x){(by[K(x.no)]=by[K(x.no)]||[]).push(m);});});
+  return by;
 }
 /* the Main Log's three WIR columns, one line per request */
 function wirRaw(m){
   /* said outright, or the old guess from a number (labelDocuments)
      would read a WIR number on it as a WIR */
   if(m.doc==null)m.doc='';
+  var l=(m.refs||[]).filter(function(x){return x.kind==='WIR';});
   m.raw=m.raw||{};
-  var l=m.wirs||[];
+  var typed=splitRefs(m.wirTyped||'');
   function put(c,v){if(v.some(Boolean))m.raw[c]=v.join('\n');else delete m.raw[c];}
-  put('WIR Number',l.map(function(x){return x.no;}));
-  put('WIR Approval Date',l.map(function(x){return x.date||'';}));
-  put('WIR Status',l.map(function(x){return x.status||'';}));
+  put('WIR Number',typed.concat(l.map(function(x){return x.no;})));
+  put('WIR Approval Date',typed.map(function(){return '';}).concat(l.map(function(x){return x.date||'';})));
+  put('WIR Status',typed.map(function(){return '';}).concat(l.map(function(x){return x.status||'';})));
 }
-window.wirPick=async function(matId,q){
-  var m=mat(matId);if(!m)return;
-  var list;
-  if(!WIRS){busy(true,'Reading the WIR list');try{list=await wirLoad();}catch(e){busy(false);return toast('Could not read the WIR list — '+(e.message||e));}busy(false);}
-  list=WIRS;
-  var has={};(m.wirs||[]).forEach(function(x){has[K(x.no)]=1;});
-  var need=K(q||'');
-  var rows=list.filter(function(w){
-    if(has[K(w[0])])return false;
-    if(!need)return m.disc&&K(w[4]||'')===K(plainDisc(m.disc));
-    return K(w[0]+' '+w[1]).indexOf(need)>=0;
+/* the work inspection requests linked before every kind shared the list */
+function liftRefs(){
+  var n=0;
+  (DB.mats||[]).forEach(function(m){
+    if(!(m.wirs||[]).length)return;
+    m.refs=m.refs||[];
+    var typed=[];
+    m.wirs.forEach(function(x){
+      if(!x.title&&!x.status&&!x.date){typed.push(x.no);return;}
+      if(!m.refs.some(function(y){return K(y.no)===K(x.no);}))
+        m.refs.push({no:x.no,title:x.title||'',kind:'WIR',status:x.status||'',date:x.date||'',disc:'',rev:''});
+    });
+    if(typed.length)m.wirTyped=typed.join('\n');
+    delete m.wirs;n++;
   });
-  sheet('Link a WIR to '+m.name,
-     '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'
-    +(list.length?(list.length+' work inspection requests from the last Aconex upload. '
-      +(need?'':'Showing those in '+esc(m.disc||'its discipline')+' — search by number or title for the rest.'))
-      :'No WIR yet — upload the Aconex register (More → Upload the register) and they are kept for linking.')
-    +'</div>'
-    +'<div class="f" style="margin-bottom:14px"><label for="wk">Search by number or title</label>'
-    +'<input id="wk" value="'+attr(q||'')+'" autocomplete="off" oninput="searchSoon(function(v){wirPick('+matId+',v);},this.value)"></div>'
-    +'<div class="panel"><div class="panel-b">'
-    +(rows.length?rows.slice(0,60).map(function(w){
-        return '<div class="line row-a" onclick="wirLink('+matId+','+jsq(w[0])+')">'
-          +'<span class="tag t-'+(statusTone(w[2])||'na')+'" style="min-width:118px;text-align:center;flex-shrink:0">'+esc(w[2]||'—')+'</span>'
-          +'<div class="line-m"><div>'+esc(w[1]||'(no title)')+'</div>'
-          +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'+esc(w[0])+(w[3]?(' · '+show(w[3])):'')+'</div></div></div>';
-      }).join('')+(rows.length>60?('<div class="dim" style="font-size:13px;padding-top:10px">and '+(rows.length-60)+' more — narrow the search</div>'):'')
-      :'<span class="dim">'+(list.length?'Nothing matches.':'')+'</span>')
-    +'</div></div>');
-  var f=document.getElementById('wk');if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
-};
-window.wirLink=function(matId,no){
-  var m=mat(matId);if(!m||!WIRS)return;
-  var w=WIRS.filter(function(x){return K(x[0])===K(no);})[0];if(!w)return;
-  m.wirs=m.wirs||[];
-  /* numbers typed into the log before are kept beside the linked ones */
-  if(!m.wirs.length)splitRefs((m.raw||{})['WIR Number']).forEach(function(n){m.wirs.push({no:n,title:'',status:'',date:''});});
-  if(!m.wirs.some(function(x){return K(x.no)===K(w[0]);}))m.wirs.push({no:w[0],title:w[1],status:w[2],date:w[3]});
-  wirRaw(m);touch();closeSheet();rPane();
-  toast('Linked '+w[0]);
-};
-window.wirUnlink=function(matId,no){
-  var m=mat(matId);if(!m)return;
-  m.wirs=(m.wirs||[]).filter(function(x){return K(x.no)!==K(no);});
-  wirRaw(m);touch();rPane();
-};
+  if(n)touch();
+  return n;
+}
 function wirLines(m){
-  var l=m.wirs||[];
+  var l=(m.refs||[]).filter(function(x){return x.kind==='WIR';});
   if(!l.length)return '';
   return '<div class="dlist" style="margin-top:8px">'+l.map(function(x){
     return '<div class="pr dl-row">'
@@ -1715,7 +1749,7 @@ function wirLines(m){
       +'<div style="flex:1;min-width:0"><div class="pr-v mono">'+esc(x.no)+'</div>'
       +(x.title?'<div class="pr-l">'+esc(x.title)+'</div>':'')+'</div>'
       +'<span class="pr-l" style="flex-shrink:0">'+(x.date?show(x.date):'')+'</span>'
-      +'<button class="btn-q no-print" onclick="wirUnlink('+m.id+','+jsq(x.no)+')">Unlink</button></div>';
+      +'<button class="btn-q no-print" onclick="unlink('+m.id+','+jsq('r:'+x.no)+')">Unlink</button></div>';
   }).join('')+'</div>';
 }
 applyRegisterBare=function(p,alsoEnded,tag){
@@ -2508,7 +2542,7 @@ function docsOf(m){
   var all=MATS_ALL||DB.mats||[];
   return ids.map(function(id){
     return all.filter(function(x){return String(x.id)===String(id);})[0];
-  }).filter(Boolean);
+  }).filter(Boolean).concat(((m&&m.refs)||[]).map(lightDoc));
 }
 /* inspection requests that no material has linked yet */
 function looseMir(){
@@ -3257,7 +3291,7 @@ function linkPanel(m){
      step — when the material's road has that step at all. */
   var stepOfDoc=function(d){return DOC_STEP[d.doc]||ROLE_STEP[d.role]||'';};
   var inStep=function(d){var k=stepOfDoc(d);return k&&stepApplies(m,k);};
-  var all=docsOf(m), list=all.filter(function(d){return d.doc!=='MIR'&&!inStep(d);});
+  var all=docsOf(m), list=all.filter(function(d){return d.doc!=='MIR'&&d.doc!=='WIR'&&!inStep(d);});
   var nmir=all.filter(function(d){return d.doc==='MIR';}).length;
   var stepped={};all.filter(inStep).forEach(function(d){var k=stepOfDoc(d);stepped[k]=(stepped[k]||0)+1;});
   return '<div class="sec"'+navAttr('Documents','na','pg-docs')+'>Documents</div><div class="panel">'
@@ -3272,8 +3306,8 @@ function linkPanel(m){
           +'<div class="line-m"><div>'+esc(d.name)+'</div>'
           +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'
           +esc(refOf(d))+(st?(' · '+esc(st)):'')+'</div></div>'
-          +'<button class="btn-q" onclick="jump(\'mat\','+d.id+')">Open</button>'
-          +'<button class="btn-q" onclick="unlink('+m.id+','+d.id+')">Unlink</button></div>';
+          +(d.light?'':'<button class="btn-q" onclick="jump(\'mat\','+d.id+')">Open</button>')
+          +'<button class="btn-q" onclick="unlink('+m.id+','+jsq(d.id)+')">Unlink</button></div>';
       }).join('')
       :'<span class="dim">Nothing else linked. A method statement that belongs to this material is '
       +'attached here, and one document can serve many materials.</span>')
@@ -3429,7 +3463,7 @@ window.logGroupsFor=function(m,keys){
       +'<div class="pgroup"'+navAttr(g[0],filled===g[1].length?'ok':filled?'wait':'na','pg-log-'+gi)+'><div class="pg-h"><span class="pg-t">'+esc(g[0])+'</span>'
       +'<span class="tag t-'+(filled===g[1].length?'ok':filled?'wait':'na')+'">'+filled+' of '+g[1].length+'</span>'
       +'<span style="flex:1"></span>'
-      +(g[0]==='Installation & WIR'?'<button class="btn btn-s btn-p no-print" style="margin-right:6px" onclick="wirPick('+m.id+')">Link a WIR</button>':'')
+      +(g[0]==='Installation & WIR'?'<button class="btn btn-s btn-p no-print" style="margin-right:6px" onclick="linkPick('+m.id+',\'\',false,\'wir\')">Link a WIR</button>':'')
       +'<button class="btn btn-s no-print" onclick="editLog('+m.id+','+gi+')">Edit</button></div>'
       +'<div class="props">'+g[1].map(function(f){
         var v=logShow(f,raw[f[0]]);
@@ -3627,6 +3661,11 @@ window.showLoosePaa=function(){
 window.unlink=function(matId,docId){
   var m=mat(matId);if(!m)return;
   m.docs=(m.docs||[]).filter(function(x){return String(x)!==String(docId);});
+  if(isRefId(docId)){
+    var no=String(docId).slice(2), was=(m.refs||[]).filter(function(y){return K(y.no)===K(no);})[0];
+    m.refs=(m.refs||[]).filter(function(y){return K(y.no)!==K(no);});
+    if(was&&was.kind==='WIR')wirRaw(m);
+  }
   /* the consignment the link made goes with it, unless something was
      written on it by hand — then it stays, no longer tied to the link */
   m.dels=(m.dels||[]).filter(function(c){
@@ -3685,9 +3724,9 @@ var ROLE_STEP={fat:'fat',ipi:'ipi',pid:'pid',fatp:'fat',pfm:'pfm',irn:'irn',post
 var STEP_FROM_DOCS={itp:'ITP',pid:'PID',pfm:'',post:''};
 /* what the button and the list say, step by step */
 var LINK_TEXT={fat:'FAT report',fatp:'FAT procedure',ipi:'in-process inspection report',pid:'PID',
-  pfm:'the meeting minutes',irn:'release note',post:'post-inspection dossier',mir:'an MIR'};
+  pfm:'the meeting minutes',irn:'release note',post:'post-inspection dossier',mir:'an MIR',wir:'WIR'};
 /* the kind Aconex itself gives the thing, where it has one */
-var ROLE_KIND={pid:'PID',mir:'MIR'};
+var ROLE_KIND={pid:'PID',mir:'MIR',wir:'WIR'};
 function roleName(r){var x=DOC_ROLES.filter(function(y){return y[0]===r;})[0];return x?x[1]:'';}
 /* a document's outcome and date, from its own kind's columns or, for a
    type with no home of its own, wherever the register put them */
@@ -3788,18 +3827,31 @@ var SEARCH_T=null;
 window.searchSoon=function(fn,v){clearTimeout(SEARCH_T);SEARCH_T=setTimeout(function(){fn(v);},250);};
 window.linkPick=function(matId,q,go,role){
   var m=mat(matId);if(!m)return;
+  /* the Aconex list is read the first time it is needed */
+  if(!ACX){
+    busy(true,'Reading the Aconex list');
+    acxLoad().then(function(){busy(false);linkPick(matId,q,go,role);},
+      function(e){busy(false);toast('Could not read the Aconex list — '+(e.message||e));});
+    return;
+  }
   var has={};(m.docs||[]).forEach(function(id){has[String(id)]=1;});
+  (m.refs||[]).forEach(function(x){has['r:'+K(x.no)]=1;});
   var need=K(q||'');
   /* linked from a step, only what that step can hold is offered:
      Aconex's reports, procedures and transmittals, or its own kind */
   /* an inspection request is its own kind: only those are offered */
-  var all=(DB.mats||[]).filter(function(d){return isDoc(d)&&(!role||(role==='mir'?d.doc==='MIR'
-    :(ASK_KINDS[d.doc]||d.doc===ROLE_KIND[role]||(role==='irn'&&/release/i.test(d.doc)))));});
+  var fits=function(d){return !role||((role==='mir'||role==='wir')?d.doc===ROLE_KIND[role]
+    :(ASK_KINDS[d.doc]||d.doc===ROLE_KIND[role]||(role==='irn'&&/release/i.test(d.doc))));};
+  var recs=(DB.mats||[]).filter(function(d){return isDoc(d)&&fits(d);});
+  /* a line already a record is offered once, as the record */
+  var seen={};recs.forEach(function(d){var r=refOf(d);if(r)seen[K(r)]=1;});
+  var all=recs.concat(acxItems().filter(function(d){return !seen[K(d.ref)]&&fits(d);}));
+  var mdisc=K(plainDisc(m.disc||''));
   var rl=role?("'"+role+"'"):'undefined';
   var rows=all.filter(function(d){
     /* from a step, one linked already but not yet said to be this can be */
-    if(has[String(d.id)]&&(!role||!ASK_KINDS[d.doc]||(d.role&&d.role!=='doc')))return false;
-    if(!need)return K(d.disc||'')===K(m.disc||'');   /* start with its own trade */
+    if(d.light?has['r:'+K(d.ref)]:(has[String(d.id)]&&(!role||!ASK_KINDS[d.doc]||(d.role&&d.role!=='doc'))))return false;
+    if(!need)return K(plainDisc(d.disc||''))===mdisc;   /* start with its own trade */
     return K(d.name+' '+refOf(d)+' '+(d.doc||'')).indexOf(need)>=0;
   });
   /* Enter on a search that leaves one document links it there and then */
@@ -3812,7 +3864,7 @@ window.linkPick=function(matId,q,go,role){
     var score=function(d){return (d.doc===want||d.doc===ROLE_KIND[role]?2:0)+(hint.test(d.name+' '+refOf(d))?1:0);};
     rows.sort(function(a,b){return score(b)-score(a);});}
   var already=need?all.filter(function(d){
-    return has[String(d.id)]&&K(d.name+' '+refOf(d)+' '+(d.doc||'')).indexOf(need)>=0;}):[];
+    return (d.light?has['r:'+K(d.ref)]:has[String(d.id)])&&K(d.name+' '+refOf(d)+' '+(d.doc||'')).indexOf(need)>=0;}):[];
   sheet((role?('Link '+(/^(the|an?) /.test(LINK_TEXT[role])?'':/^[aeiou]/i.test(LINK_TEXT[role])?'an ':'a ')+LINK_TEXT[role]):'Link a document')+' to '+m.name,
      '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'
     +(need?('Searching all '+all.length+' documents.')
@@ -3828,23 +3880,25 @@ window.linkPick=function(matId,q,go,role){
     +'or Enter, when the search leaves only one.</span></div>'
     +'<div class="panel"><div class="panel-b">'
     +(rows.length?rows.slice(0,60).map(function(d){
-        return '<div class="line row-a" onclick="linkAdd('+matId+','+d.id+(role?(',\''+role+'\''):'')+')">'
+        var st=d.light?d.status:docStatus(d);
+        return '<div class="line row-a" onclick="linkAdd('+matId+','+jsq(d.id)+(role?(',\''+role+'\''):'')+')">'
           +'<span class="tag t-na" style="min-width:54px;text-align:center">'+esc(d.doc)+'</span>'
           +'<div class="line-m"><div>'+esc(d.name)+'</div>'
-          +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'+esc(refOf(d))+'</div></div>'
+          +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'+esc(refOf(d))
+          +(st?(' · '+esc(st)):'')+(d.date?(' · '+show(d.date)):'')+'</div></div>'
           +'</div>';}).join('')
         +(rows.length>60?('<div class="dim" style="font-size:13px;padding-top:10px">and '
           +(rows.length-60)+' more — narrow the search</div>'):'')
       :(already.length
         ?'<span class="dim">Already linked to this material: <b>'+esc(already.map(function(d){return refOf(d)||d.name;}).join(', '))+'</b>.</span>'
-        :'<span class="dim">Not in the tracker. If it is in Aconex, upload the latest register '
+        :'<span class="dim">Not found. If it is in Aconex, upload the latest register '
          +'(More → Upload the register) and it comes in; then link it here.</span>'))
     +'</div></div>');
   var f=document.getElementById('lk');
   if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
 };
 window.askRole=function(matId,docId,ds){
-  var d=mat(docId), m=mat(matId);if(!d||!m)return;
+  var m=mat(matId), d=getDoc(docId,m);if(!d||!m)return;
   sheet('What is this document?',
      '<div style="font-size:13.5px;margin-bottom:14px"><b>'+esc(d.name)+'</b>'
     +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'+esc(refOf(d))+' · '+esc(d.doc)
@@ -3853,13 +3907,14 @@ window.askRole=function(matId,docId,ds){
     +'. Say what it is and it goes where it belongs on '+esc(m.name)+'.</div>'
     +'<div class="panel"><div class="panel-b">'
     +DOC_ROLES.map(function(r){
-      return '<div class="line row-a" onclick="linkAdd('+matId+','+docId+',\''+r[0]+'\''+(ds?(',\''+ds+'\''):'')+')">'
+      return '<div class="line row-a" onclick="linkAdd('+matId+','+jsq(docId)+',\''+r[0]+'\''+(ds?(',\''+ds+'\''):'')+')">'
         +'<div class="line-m"><div><b>'+esc(r[1])+'</b>'+(d.role===r[0]?' <span class="tag t-wait">as before</span>':'')+'</div>'
         +'<div class="dim" style="font-size:12.5px;margin-top:2px">'+esc(r[2])+'</div></div></div>';
     }).join('')+'</div></div>');
 };
 window.linkAdd=function(matId,docId,role,ds){
   var m=mat(matId);if(!m)return;
+  if(isRefId(docId))return linkRef(m,docId,role,ds);
   var d0=mat(docId);
   if(d0&&ASK_KINDS[d0.doc]&&!role)return askRole(matId,docId,ds);
   var was=d0?d0.role:'';
@@ -3880,6 +3935,33 @@ window.linkAdd=function(matId,docId,role,ds){
     +(d?servedBy(d).length:1)+' material'+((d&&servedBy(d).length!==1)?'s':''));
 };
 
+/* a line of the Aconex list linked to a material: a copy of it is kept
+   on the material, under its number, and the steps read it from there */
+function linkRef(m,docId,role,ds){
+  var no=String(docId).slice(2), r=acxFind(no);
+  var x=(m.refs||[]).filter(function(y){return K(y.no)===K(no);})[0];
+  if(!r&&!x)return toast('That document is not in the Aconex list');
+  var probe=x?lightDoc(x):lightDoc(refOfRow(r));
+  if(ASK_KINDS[probe.doc]&&!role)return askRole(m.id,docId,ds);
+  if(m.doc==null)m.doc='';
+  m.refs=m.refs||[];
+  if(!x){
+    x=refOfRow(r);
+    /* WIR numbers typed into the log before are kept beside the linked ones */
+    if(x.kind==='WIR'&&!m.wirTyped&&!(m.refs||[]).some(function(y){return y.kind==='WIR';})&&(m.raw||{})['WIR Number'])
+      m.wirTyped=splitRefs(m.raw['WIR Number']).filter(function(n){return K(n)!==K(x.no);}).join('\n');
+    m.refs.push(x);
+  }
+  if(role&&role!=='mir'&&role!=='wir')x.role=role;
+  var d=lightDoc(x);
+  var made=mirToDel(m,d);
+  if(x.kind==='WIR')wirRaw(m);
+  syncDocSteps(m);
+  touch();closeSheet();rPane();paintTabs();
+  if(ds)setTimeout(function(){daySheet(ds);},60);
+  if(made)return toast('Linked '+x.no+' — it is a consignment under Deliveries now; add its quantity there');
+  toast('Linked '+x.no+(x.role&&x.role!=='doc'?(' as '+roleName(x.role).replace(/ \(PID\)$/,'')):''));
+}
 /* ================================================================
    WHO BROUGHT WHOM
    ----------------------------------------------------------------
@@ -4040,6 +4122,8 @@ var FOLD={
 function foldDocs(m,raw){
   var by={};
   docsOf(m).forEach(function(d){
+    /* WIR lines are written by wirRaw, with the numbers typed by hand */
+    if(d.light&&d.doc==='WIR')return;
     var w=FOLD[d.doc];if(!w)return;
     (by[d.doc]=by[d.doc]||[]).push(d);
   });
@@ -6500,8 +6584,8 @@ function fatProcLines(m){
         +'<span class="tag t-'+t+'" style="min-width:118px;text-align:center;flex-shrink:0">'+esc(normStatus(st)||st||'Pending')+'</span>'
         +'<span style="flex:1;min-width:0"><span class="mono">'+esc(refOf(d))+'</span>'
         +'<div class="dim" style="font-size:12.5px;margin-top:2px">'+esc(d.name)+'</div></span>'
-        +'<button class="btn-q no-print" onclick="jump(\'mat\','+d.id+')">Open</button>'
-        +'<button class="btn-q no-print" onclick="unlink('+m.id+','+d.id+')">Unlink</button></div>';
+        +(d.light?'':'<button class="btn-q no-print" onclick="jump(\'mat\','+d.id+')">Open</button>')
+        +'<button class="btn-q no-print" onclick="unlink('+m.id+','+jsq(d.id)+')">Unlink</button></div>';
     }).join('')+'</div>';
 }
 /* a visit added from elsewhere (the calendar): planned, the step brought up to date */
@@ -6984,7 +7068,7 @@ function install(){
    once everything already carries a label. */
 function sortOut(){
   try{
-    var n=labelDocuments()+liftVisits()+liftTerminated()+liftMirLinks()+liftDocSteps();
+    var n=labelDocuments()+liftVisits()+liftTerminated()+liftMirLinks()+liftRefs()+liftDocSteps();
     if(n){rList();rPane();}
     else paintTabs();
   }catch(e){}
@@ -7320,7 +7404,7 @@ window.__v={lift:liftVisits,list:visitsOf};
 /* from a day of the calendar: link a document to the material it
    serves, then come back to that day for the next one */
 window.docLinkPick=function(docId,q,ds){
-  var d=mat(docId);if(!d)return;
+  var d=getDoc(docId);if(!d)return;
   var need=K(q||'');
   var all=(DB.mats||[]).filter(function(m){return !isDoc(m);});
   var rows=all.filter(function(m){
@@ -7332,12 +7416,12 @@ window.docLinkPick=function(docId,q,ds){
     +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'+esc(refOf(d))+(d.disc?' · '+esc(d.disc):'')+'</div></div>'
     +'<div class="f" style="margin-bottom:12px"><label for="lk">Search the materials by name, MAT number or discipline</label>'
     +'<input id="lk" value="'+attr(q||'')+'" autocomplete="off" '
-    +'oninput="searchSoon(function(v){docLinkPick('+docId+',v,\''+ds+'\');},this.value)">'
+    +'oninput="searchSoon(function(v){docLinkPick('+jsq(docId)+',v,\''+ds+'\');},this.value)">'
     +'<span class="dim" style="font-size:12px">'+(need?('Searching all '+all.length+' materials.')
       :('Showing the '+rows.length+(d.disc?' in '+esc(d.disc):'')+' — type to search them all.'))+'</span></div>'
     +'<div class="panel"><div class="panel-b">'
     +(rows.length?rows.slice(0,60).map(function(m){
-        return '<div class="line row-a" onclick="docLinkDo('+m.id+','+docId+',\''+ds+'\')">'
+        return '<div class="line row-a" onclick="docLinkDo('+m.id+','+jsq(docId)+',\''+ds+'\')">'
           +'<span class="tag t-na" style="min-width:40px;text-align:center">'+esc(m.cat||'—')+'</span>'
           +'<div class="line-m"><div>'+esc(m.name)+'</div>'
           +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'+esc(matNo(m))+'</div></div></div>';}).join('')
@@ -7348,10 +7432,10 @@ window.docLinkPick=function(docId,q,ds){
   var f=document.getElementById('lk');if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
 };
 window.docLinkDo=function(matId,docId,ds){
-  var d=mat(docId);
+  var d=getDoc(docId,mat(matId));
   if(d&&ASK_KINDS[d.doc])return askRole(matId,docId,ds);
-  window.linkAdd(matId,docId);
-  if(ds)setTimeout(function(){daySheet(ds);},60);
+  window.linkAdd(matId,docId,null,isRefId(docId)?ds:null);
+  if(ds&&!isRefId(docId))setTimeout(function(){daySheet(ds);},60);
 };
 window.docRef=refOf;
 /* the documents behind a step filled from them, one by one */
@@ -7360,7 +7444,7 @@ window.stepDocs=function(m,k){
   var kind=STEP_FROM_DOCS[k]||null;
   return docsOf(m).filter(function(d){return (kind&&d.doc===kind)||ROLE_STEP[d.role]===k;}).map(function(d){
     var st=docStatus(d,kind);
-    return {id:d.id,no:refOf(d),title:d.name,status:normStatus(st)||st||'Pending',date:docDate(d,kind)};
+    return {id:d.id,light:!!d.light,no:refOf(d),title:d.name,status:normStatus(st)||st||'Pending',date:docDate(d,kind)};
   });
 };
 /* ---------------------------------------------------------------

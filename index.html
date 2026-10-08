@@ -2519,8 +2519,8 @@ function roadProps(rec,steps,kind,after){
           +'<div style="flex:1;min-width:0"><div class="pr-v mono">'+esc(y.no)+'</div>'
           +'<div class="pr-l">'+esc(y.title)+'</div></div>'
           +'<span class="pr-l" style="flex-shrink:0">'+(y.date?show(y.date):'')+'</span>'
-          +'<button class="btn-q no-print" onclick="jump(\'mat\','+y.id+')">Open</button>'
-          +'<button class="btn-q no-print" onclick="unlink('+rec.id+','+y.id+')">Unlink</button></div>';
+          +(y.light?'':'<button class="btn-q no-print" onclick="jump(\'mat\','+y.id+')">Open</button>')
+          +'<button class="btn-q no-print" onclick="unlink('+rec.id+','+jsq(y.id)+')">Unlink</button></div>';
       }).join('')+'</div>';
     }else{
       btns=(open===st.k?'<button class="btn-q" onclick="openStep(null)">Close</button>'
