@@ -975,7 +975,7 @@ function rawOut(m){
   }
   /* FAT procedures linked to the material: their numbers, and the
      outcome that still holds them back */
-  var fp=(m.docs||[]).length?docsOf(m).filter(function(d){return ASK_KINDS[d.doc]&&d.role==='fatp';}):[];
+  var fp=(m.docs||[]).length?docsOf(m).filter(function(d){return d.role==='fatp';}):[];
   if(fp.length){
     set('FAT Package/Procedure Number/ITP',fp.map(refOf).join('\n'));
     var fs=fp.map(function(d){return normStatus(docStatus(d))||'Pending';});
@@ -3126,7 +3126,7 @@ function linkPanel(m){
   /* What has a place of its own on the page is not listed again here:
      inspection requests are consignments, and an ITP or PID shows in its
      step — when the material's road has that step at all. */
-  var stepOfDoc=function(d){return DOC_STEP[d.doc]||(ASK_KINDS[d.doc]&&ROLE_STEP[d.role])||'';};
+  var stepOfDoc=function(d){return DOC_STEP[d.doc]||ROLE_STEP[d.role]||'';};
   var inStep=function(d){var k=stepOfDoc(d);return k&&stepApplies(m,k);};
   var all=docsOf(m), list=all.filter(function(d){return d.doc!=='MIR'&&!inStep(d);});
   var nmir=all.filter(function(d){return d.doc==='MIR';}).length;
@@ -3137,7 +3137,7 @@ function linkPanel(m){
     +'<div class="panel-b">'
     +(list.length?list.map(function(d){
         var st=(d.raw&&d.raw['MAT Status'])||'';
-        var lab=(ASK_KINDS[d.doc]&&d.role&&d.role!=='doc')?roleName(d.role):d.doc;
+        var lab=(d.role&&d.role!=='doc')?roleName(d.role):d.doc;
         return '<div class="line">'
           +'<span class="tag t-na" style="min-width:54px;text-align:center">'+esc(lab)+'</span>'
           +'<div class="line-m"><div>'+esc(d.name)+'</div>'
@@ -3545,8 +3545,16 @@ var DOC_ROLES=[
   ['ipi','In-process inspection report','a visit under In-process inspection'],
   ['fatp','FAT procedure','fills FAT Package/Procedure Number and FAT Package Status'],
   ['pid','Pre-inspection dossier (PID)','fills the Pre-inspection dossier step'],
+  ['pfm','Pre-fabrication meeting minutes','fills the Pre-fabrication meeting step'],
+  ['irn','Inspection release note','a note under Inspection release note'],
+  ['post','Post-inspection dossier','fills the Post-inspection dossier step'],
   ['doc','Just a document','listed under Documents, nothing filled']];
-var ROLE_STEP={fat:'fat',ipi:'ipi',pid:'pid',fatp:'fat'};
+var ROLE_STEP={fat:'fat',ipi:'ipi',pid:'pid',fatp:'fat',pfm:'pfm',irn:'irn',post:'post'};
+/* the steps a linked document fills, and the kind Aconex gives it if any */
+var STEP_FROM_DOCS={itp:'ITP',pid:'PID',pfm:'',post:''};
+/* what the button and the list say, step by step */
+var LINK_TEXT={fat:'FAT report',fatp:'FAT procedure',ipi:'in-process inspection report',pid:'PID',
+  pfm:'the meeting minutes',irn:'release note',post:'post-inspection dossier'};
 /* the kind Aconex itself gives the thing, where it has one */
 var ROLE_KIND={pid:'PID'};
 function roleName(r){var x=DOC_ROLES.filter(function(y){return y[0]===r;})[0];return x?x[1]:'';}
@@ -3570,8 +3578,8 @@ var VISID=null;
 function syncDocVisits(m,docs){
   var changed=false;
   m.visits=m.visits||[];
-  ['fat','ipi'].forEach(function(k){
-    var want=docs.filter(function(d){return ASK_KINDS[d.doc]&&d.role===k;});
+  ['fat','ipi','irn'].forEach(function(k){
+    var want=docs.filter(function(d){return d.role===k;});
     var touched=false;
     m.visits=m.visits.filter(function(v){
       if(v.step!==k||!v.fromDoc)return true;
@@ -3581,7 +3589,8 @@ function syncDocVisits(m,docs){
       return false;
     });
     want.forEach(function(d){
-      var no=refOf(d), date=docDate(d), res=visitWord(docStatus(d));
+      /* a release note in Aconex has gone to the employer */
+      var no=refOf(d), date=docDate(d), res=k==='irn'?(normStatus(docStatus(d))==='Terminated'?'Pending':'Sent'):visitWord(docStatus(d));
       var v=m.visits.filter(function(x){return x.step===k&&String(x.fromDoc)===String(d.id);})[0];
       if(!v){
         m.visits.push({id:(VISID||(VISID=idMaker()))(),step:k,date:date,by:'',ref:no,result:res,
@@ -3600,8 +3609,8 @@ function syncDocSteps(m){
   if(!m||isDoc(m))return false;
   var changed=false, docs=docsOf(m);
   m.steps=m.steps||{};
-  Object.keys(DOC_STEP).forEach(function(kind){
-    var k=DOC_STEP[kind], list=docs.filter(function(d){return d.doc===kind||(ASK_KINDS[d.doc]&&ROLE_STEP[d.role]===k);});
+  Object.keys(STEP_FROM_DOCS).forEach(function(k){
+    var kind=STEP_FROM_DOCS[k], list=docs.filter(function(d){return (kind&&d.doc===kind)||ROLE_STEP[d.role]===k;});
     var cur=m.steps[k];
     if(!list.length){
       if(cur&&cur.fromDocs){delete m.steps[k];changed=true;}
@@ -3617,6 +3626,9 @@ function syncDocSteps(m){
     });
     var live=sts.filter(function(x){return x!=='Terminated';});
     var status=live.length?live.reduce(function(a,b){return (STEP_RANK[b]<STEP_RANK[a])?b:a;}):'Terminated';
+    /* the minutes' outcome in the meeting's own words, and the day the
+       meeting was held is not the day the minutes went in */
+    if(k==='pfm'){status=/^Approved/.test(status)?'Approved':status==='Terminated'?'Pending':'Issued';date=(cur&&cur.date)||date;}
     var next={ref:refs.join(', '),date:date,status:status,fromDocs:true};
     if(!cur||cur.ref!==next.ref||cur.date!==next.date||cur.status!==next.status||!cur.fromDocs){
       m.steps[k]=Object.assign({},cur||{},next);changed=true;
@@ -3649,7 +3661,8 @@ window.linkPick=function(matId,q,go,role){
   var need=K(q||'');
   /* linked from a step, only what that step can hold is offered:
      Aconex's reports, procedures and transmittals, or its own kind */
-  var all=(DB.mats||[]).filter(function(d){return isDoc(d)&&(!role||ASK_KINDS[d.doc]||d.doc===ROLE_KIND[role]);});
+  var all=(DB.mats||[]).filter(function(d){return isDoc(d)&&(!role||ASK_KINDS[d.doc]||d.doc===ROLE_KIND[role]
+    ||(role==='irn'&&/release/i.test(d.doc)));});
   var rl=role?("'"+role+"'"):'undefined';
   var rows=all.filter(function(d){
     /* from a step, one linked already but not yet said to be this can be */
@@ -3661,13 +3674,14 @@ window.linkPick=function(matId,q,go,role){
   if(go&&need&&rows.length===1)return linkAdd(matId,rows[0].id,role);
   /* the likeliest first: a title that says what the step is */
   if(role){
-    var want={fat:'Report',ipi:'Report',fatp:'Procedure',pid:'Transmittal'}[role];
-    var hint={fat:/FAT|final insp/i,fatp:/FAT/i,ipi:/in.?process|IPI/i,pid:/dossier|PID|TRN/i}[role];
+    var want={fat:'Report',ipi:'Report',fatp:'Procedure',pid:'Transmittal',post:'Transmittal',pfm:'Report'}[role];
+    var hint={fat:/FAT|final insp/i,fatp:/FAT/i,ipi:/in.?process|IPI/i,pid:/pre.?insp|dossier|PID|TRN/i,
+      pfm:/minutes|pre.?fab|MOM/i,irn:/release/i,post:/post.?insp|dossier/i}[role]||/$^/;
     var score=function(d){return (d.doc===want||d.doc===ROLE_KIND[role]?2:0)+(hint.test(d.name+' '+refOf(d))?1:0);};
     rows.sort(function(a,b){return score(b)-score(a);});}
   var already=need?all.filter(function(d){
     return has[String(d.id)]&&K(d.name+' '+refOf(d)+' '+(d.doc||'')).indexOf(need)>=0;}):[];
-  sheet((role?('Link a '+roleName(role).replace(/ \(PID\)$/,'').replace(/^In-process inspection report$/,'in-process inspection report')):'Link a document')+' to '+m.name,
+  sheet((role?('Link '+(/^the /.test(LINK_TEXT[role])?'':/^[aeiou]/i.test(LINK_TEXT[role])?'an ':'a ')+LINK_TEXT[role]):'Link a document')+' to '+m.name,
      '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'
     +(need?('Searching all '+all.length+' documents.')
           :('Showing the '+rows.length+' in '+esc(m.disc||'no discipline')
@@ -6337,14 +6351,15 @@ function visitPanel(m,k){
     +w.add+'</button>'
     +(k==='fat'?'<button class="btn btn-s" onclick="linkPick('+m.id+',\'\',false,\'fat\')">Link a FAT report</button>'
        +'<button class="btn btn-s" onclick="linkPick('+m.id+',\'\',false,\'fatp\')">Link a FAT procedure</button>'
-      :k==='ipi'?'<button class="btn btn-s" onclick="linkPick('+m.id+',\'\',false,\'ipi\')">Link a report</button>':'')
+      :k==='ipi'?'<button class="btn btn-s" onclick="linkPick('+m.id+',\'\',false,\'ipi\')">Link a report</button>'
+      :k==='irn'?'<button class="btn btn-s" onclick="linkPick('+m.id+',\'\',false,\'irn\')">Link a release note</button>':'')
     +(list.length>1?('<span class="dim" style="font-size:12.5px">'+list.length+' '+w.what+'s</span>'):'')
     +'</div></div></div>';
 }
 
 /* the FAT procedures linked to a material, inside its FAT step */
 function fatProcLines(m){
-  var fp=docsOf(m).filter(function(d){return ASK_KINDS[d.doc]&&d.role==='fatp';});
+  var fp=docsOf(m).filter(function(d){return d.role==='fatp';});
   if(!fp.length)return '';
   return '<div style="padding:8px 15px 4px;border-top:1px solid var(--line)">'
     +'<div class="dim" style="font-size:12px;font-weight:600;margin-bottom:4px">FAT procedure</div>'
@@ -7210,9 +7225,9 @@ window.docLinkDo=function(matId,docId,ds){
 window.docRef=refOf;
 /* the documents behind a step filled from them, one by one */
 window.stepDocs=function(m,k){
-  var kind=Object.keys(DOC_STEP).filter(function(x){return DOC_STEP[x]===k;})[0];
-  if(!kind)return [];
-  return docsOf(m).filter(function(d){return d.doc===kind||(ASK_KINDS[d.doc]&&ROLE_STEP[d.role]===k);}).map(function(d){
+  if(!(k in STEP_FROM_DOCS))return [];
+  var kind=STEP_FROM_DOCS[k]||null;
+  return docsOf(m).filter(function(d){return (kind&&d.doc===kind)||ROLE_STEP[d.role]===k;}).map(function(d){
     var st=docStatus(d,kind);
     return {id:d.id,no:refOf(d),title:d.name,status:normStatus(st)||st||'Pending',date:docDate(d,kind)};
   });
