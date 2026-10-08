@@ -2507,7 +2507,8 @@ function roadProps(rec,steps,kind,after){
       var sd=window.stepDocs(rec,st.k);
       var okN=sd.filter(function(y){return /^Approved/.test(y.status);}).length;
       word=sd.length===1?(sd[0].status||'Pending'):(okN+' of '+sd.length+' approved');
-      btns='<button class="btn btn-s" onclick="linkPick('+rec.id+',\''+(st.k==='itp'?'ITP':'PID')+'\')">Link another</button>';
+      btns=st.k==='itp'?'<button class="btn btn-s" onclick="linkPick('+rec.id+',\'ITP\')">Link another</button>'
+        :'<button class="btn btn-s" onclick="linkPick('+rec.id+',\'\',false,\'pid\')">Link another</button>';
       body='<div class="dlist">'+sd.map(function(y){
         var t=/^Approved/.test(y.status)?'ok':/Rejected|Resubmit|Terminated/.test(y.status)?'bad':'wait';
         return '<div class="pr dl-row">'
@@ -2521,7 +2522,10 @@ function roadProps(rec,steps,kind,after){
     }else{
       btns=(open===st.k?'<button class="btn-q" onclick="openStep(null)">Close</button>'
         :'<button class="btn btn-s'+(x.now?' btn-p':'')+'" onclick="openStep(\''+kind+':'+st.k+'\')">Edit</button>'
-         +(x.state!=='done'?'<button class="btn-q" onclick="quickDone(\''+kind+'\',\''+st.k+'\')">Mark done</button>':''));
+         +(x.state!=='done'?'<button class="btn-q" onclick="quickDone(\''+kind+'\',\''+st.k+'\')">Mark done</button>':''))
+        /* a dossier is linked from Aconex, here where it is shown */
+        +(kind==='mat'&&st.k==='pid'&&open!==st.k&&typeof window.linkPick==='function'
+          ?'<button class="btn btn-s" onclick="linkPick('+rec.id+',\'\',false,\'pid\')">Link a PID</button>':'');
       if(open===st.k)body=stepCard(rec,x,i,kind);
       else{
         var lfv=rec.logf||{};

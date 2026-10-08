@@ -3546,7 +3546,9 @@ var DOC_ROLES=[
   ['fatp','FAT procedure','fills FAT Package/Procedure Number and FAT Package Status'],
   ['pid','Pre-inspection dossier (PID)','fills the Pre-inspection dossier step'],
   ['doc','Just a document','listed under Documents, nothing filled']];
-var ROLE_STEP={fat:'fat',ipi:'ipi',pid:'pid'};
+var ROLE_STEP={fat:'fat',ipi:'ipi',pid:'pid',fatp:'fat'};
+/* the kind Aconex itself gives the thing, where it has one */
+var ROLE_KIND={pid:'PID'};
 function roleName(r){var x=DOC_ROLES.filter(function(y){return y[0]===r;})[0];return x?x[1]:'';}
 /* a document's outcome and date, from its own kind's columns or, for a
    type with no home of its own, wherever the register put them */
@@ -3641,21 +3643,31 @@ function liftMirLinks(){
 /* a search that redraws a short pause after the last key, not on every one */
 var SEARCH_T=null;
 window.searchSoon=function(fn,v){clearTimeout(SEARCH_T);SEARCH_T=setTimeout(function(){fn(v);},250);};
-window.linkPick=function(matId,q,go){
+window.linkPick=function(matId,q,go,role){
   var m=mat(matId);if(!m)return;
   var has={};(m.docs||[]).forEach(function(id){has[String(id)]=1;});
   var need=K(q||'');
-  var all=(DB.mats||[]).filter(isDoc);
+  /* linked from a step, only what that step can hold is offered:
+     Aconex's reports, procedures and transmittals, or its own kind */
+  var all=(DB.mats||[]).filter(function(d){return isDoc(d)&&(!role||ASK_KINDS[d.doc]||d.doc===ROLE_KIND[role]);});
+  var rl=role?("'"+role+"'"):'undefined';
   var rows=all.filter(function(d){
-    if(has[String(d.id)])return false;
+    /* from a step, one linked already but not yet said to be this can be */
+    if(has[String(d.id)]&&(!role||!ASK_KINDS[d.doc]||(d.role&&d.role!=='doc')))return false;
     if(!need)return K(d.disc||'')===K(m.disc||'');   /* start with its own trade */
     return K(d.name+' '+refOf(d)+' '+(d.doc||'')).indexOf(need)>=0;
   });
   /* Enter on a search that leaves one document links it there and then */
-  if(go&&need&&rows.length===1)return linkAdd(matId,rows[0].id);
+  if(go&&need&&rows.length===1)return linkAdd(matId,rows[0].id,role);
+  /* the likeliest first: a title that says what the step is */
+  if(role){
+    var want={fat:'Report',ipi:'Report',fatp:'Procedure',pid:'Transmittal'}[role];
+    var hint={fat:/FAT|final insp/i,fatp:/FAT/i,ipi:/in.?process|IPI/i,pid:/dossier|PID|TRN/i}[role];
+    var score=function(d){return (d.doc===want||d.doc===ROLE_KIND[role]?2:0)+(hint.test(d.name+' '+refOf(d))?1:0);};
+    rows.sort(function(a,b){return score(b)-score(a);});}
   var already=need?all.filter(function(d){
     return has[String(d.id)]&&K(d.name+' '+refOf(d)+' '+(d.doc||'')).indexOf(need)>=0;}):[];
-  sheet('Link a document to '+m.name,
+  sheet((role?('Link a '+roleName(role).replace(/ \(PID\)$/,'').replace(/^In-process inspection report$/,'in-process inspection report')):'Link a document')+' to '+m.name,
      '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'
     +(need?('Searching all '+all.length+' documents.')
           :('Showing the '+rows.length+' in '+esc(m.disc||'no discipline')
@@ -3664,13 +3676,13 @@ window.linkPick=function(matId,q,go){
     +'</div>'
     +'<div class="f" style="margin-bottom:14px"><label for="lk">Search by number, title or kind</label>'
     +'<input id="lk" value="'+attr(q||'')+'" autocomplete="off" '
-    +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();linkPick('+matId+',this.value,true);}" '
-    +'oninput="searchSoon(function(v){linkPick('+matId+',v);},this.value)">'
+    +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();linkPick('+matId+',this.value,true,'+rl+');}" '
+    +'oninput="searchSoon(function(v){linkPick('+matId+',v,false,'+rl+');},this.value)">'
     +'<span class="dim" style="font-size:12px">The list follows as you type. Press a document to link it — '
     +'or Enter, when the search leaves only one.</span></div>'
     +'<div class="panel"><div class="panel-b">'
     +(rows.length?rows.slice(0,60).map(function(d){
-        return '<div class="line row-a" onclick="linkAdd('+matId+','+d.id+')">'
+        return '<div class="line row-a" onclick="linkAdd('+matId+','+d.id+(role?(',\''+role+'\''):'')+')">'
           +'<span class="tag t-na" style="min-width:54px;text-align:center">'+esc(d.doc)+'</span>'
           +'<div class="line-m"><div>'+esc(d.name)+'</div>'
           +'<div class="dim mono" style="font-size:12.5px;margin-top:2px">'+esc(refOf(d))+'</div></div>'
@@ -6320,12 +6332,32 @@ function visitPanel(m,k){
       :'<div class="dim" style="padding:10px 0;font-size:13.5px">No '+w.what+' recorded yet. '
        +'This step happens more than once — each '+w.what+' is kept, and the newest one is what '
        +'the road and the log read.</div>')
+    +(k==='fat'?fatProcLines(m):'')
     +'<div class="cl-foot"><button class="btn btn-s" onclick="editVisit('+m.id+',\''+k+'\')">'
     +w.add+'</button>'
+    +(k==='fat'?'<button class="btn btn-s" onclick="linkPick('+m.id+',\'\',false,\'fat\')">Link a FAT report</button>'
+       +'<button class="btn btn-s" onclick="linkPick('+m.id+',\'\',false,\'fatp\')">Link a FAT procedure</button>'
+      :k==='ipi'?'<button class="btn btn-s" onclick="linkPick('+m.id+',\'\',false,\'ipi\')">Link a report</button>':'')
     +(list.length>1?('<span class="dim" style="font-size:12.5px">'+list.length+' '+w.what+'s</span>'):'')
     +'</div></div></div>';
 }
 
+/* the FAT procedures linked to a material, inside its FAT step */
+function fatProcLines(m){
+  var fp=docsOf(m).filter(function(d){return ASK_KINDS[d.doc]&&d.role==='fatp';});
+  if(!fp.length)return '';
+  return '<div style="padding:8px 15px 4px;border-top:1px solid var(--line)">'
+    +'<div class="dim" style="font-size:12px;font-weight:600;margin-bottom:4px">FAT procedure</div>'
+    +fp.map(function(d){
+      var st=docStatus(d), t=statusTone(st)||'na';
+      return '<div class="cl-item" style="cursor:default">'
+        +'<span class="tag t-'+t+'" style="min-width:118px;text-align:center;flex-shrink:0">'+esc(normStatus(st)||st||'Pending')+'</span>'
+        +'<span style="flex:1;min-width:0"><span class="mono">'+esc(refOf(d))+'</span>'
+        +'<div class="dim" style="font-size:12.5px;margin-top:2px">'+esc(d.name)+'</div></span>'
+        +'<button class="btn-q no-print" onclick="jump(\'mat\','+d.id+')">Open</button>'
+        +'<button class="btn-q no-print" onclick="unlink('+m.id+','+d.id+')">Unlink</button></div>';
+    }).join('')+'</div>';
+}
 /* a visit added from elsewhere (the calendar): planned, the step brought up to date */
 window.addVisit=function(m,k,date,result){
   m.visits=m.visits||[];
