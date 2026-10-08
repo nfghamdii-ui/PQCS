@@ -3267,7 +3267,7 @@ window.pickInsp=function(q){
   var list=need?all.filter(function(p){return key([p.name,p.agency,p.disc].join(' ')).indexOf(need)>=0;}):all;
   sheet('Inspector',
      '<div class="dim" style="font-size:13.5px;margin-bottom:14px">From your Personnel Approval list. '
-      +'The Main Log writes his company as the 3rd party service provider, and his name in the Inspector column.</div>'
+      +'The Main Log writes his company, then his name, as the 3rd party service provider.</div>'
     +'<div class="f" style="margin-bottom:14px"><label for="pk-i">Search '+all.length+' people — name, company or discipline</label>'
       +'<input id="pk-i" value="'+attr(q||'')+'" autocomplete="off" oninput="pickInspLater(this.value)"></div>'
     +(list.length?list.slice(0,60).map(function(p){
