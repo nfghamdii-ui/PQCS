@@ -1714,15 +1714,23 @@ async function acxMerge(rows){
 }
 /* the list as table rows — documents in their own right, made once per load */
 var ACX_ROWS=null;
+var ACX_ROWS_KEY='';
 function acxRows(){
   if(!ACX)return [];
-  if(ACX_ROWS)return ACX_ROWS;
-  ACX_ROWS=ACX.map(function(r){
+  /* a document that is still a record from before is shown as the
+     record, once — its line would be the same document twice */
+  var recs=(MATS_ALL||DB.mats||[]).filter(isDoc), key=recs.length+'|'+ACX.length;
+  if(ACX_ROWS&&ACX_ROWS_KEY===key)return ACX_ROWS;
+  var seen={};recs.forEach(function(d){var r=refOf(d);if(r)seen[K(r)]=1;});
+  ACX_ROWS=[];
+  ACX.forEach(function(r){
+    if(seen[K(r[0])])return;
     var x=refOfRow(r), d=lightDoc(x);
     d.cat=x.kind==='MIR'?catOfTitle(x.title):'';
     d.status=x.status;d.date=x.date;
-    return d;
+    ACX_ROWS.push(d);
   });
+  ACX_ROWS_KEY=key;
   return ACX_ROWS;
 }
 /* the pages that show the list's lines, and which lines each shows */
