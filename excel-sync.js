@@ -3735,6 +3735,128 @@ window.showLoosePaa=function(){
   TBLQ[TBL]=TBLQ[TBL]||{};TBLQ[TBL].lnk='Not linked';
   TBLN[TBL]=PAGE_ROWS;rPane();
 };
+/* ---------------------------------------------------------------
+   EVERY PAA INTO PERSONNEL APPROVAL. A PAA puts one person up for
+   approval — staff or third party — and its title names them, in a
+   dozen ways. The name read from the title is offered to be corrected
+   before the person is added; a title that already names someone on
+   the list is simply linked to them. A person added this way takes
+   the outcome of their PAA, and keeps taking it on every upload.
+   --------------------------------------------------------------- */
+var PAA_WORD=/^(engineer|eng|manager|mgr|manger|supervisor|officer|inspector|inspection|coordinator|cordinator|lead|auditor|assessor|evaluator|technical|senior|sr|jr|junior|qa|qc|hsse|hse|safety|quality|electrical|mechanical|civil|structural|planning|planner|billing|sustainability|leed|commissioning|testing|lifting|document|documents|controller|surveyor|foreman|project|site|director|specialist|third|party|3rd|tpi|certified|welding|steel|work|works|fat|scope|scopes|panel|panels|pipe|pipes|fittings|tank|tanks|elevator|elevators|escalator|escalators|bms|lv|mv|ddc|hdpe|lpg|cinema|theming|procurement|control|system|systems|management|sted|tuv|tüv|süd|sud|middle|east|llc|for|the|of|at|in|and|as|to|with|on|a|an|by|from|approval|paa|paaf|form|personnel|representative|rep|assistant|admin|administrator|accountant|architect|architectural|design|designer|draftsman|bim|modeler|interior|landscape|plumbing|hvac|fire|mep|team|leader|head|chief|general|deputy|resident|field|operation|operations|maintenance|logistics|store|storekeeper|keeper|driver|operator|technician|tech|helper|consultant|contractor|subcontractor|company|co|ltd|est|group|international|service|services|trading|contracting|arabia|saudi|ksa|riyadh|jeddah|makkah|expert|new|replacement|revised|resubmission|position|staff|professional|executive|analyst|estimator|quantity|cost|contracts|commercial|mep|instrumentation|telecom|elv|interface|environmental|health|rd|th|nd|activities|activity|structure|structures|first|fix|fisrt|mbl|uaac|riki|qm|ndt|coating|painting|blasting|insulation|onsite|main|engineering|fuel|sted|mr|mrs|dr|ms|pqcs|cv|full|time|supporting|logistic|secuity|security|construction|enviromental|section|office|ict|bp|arch|mech|expediter|vendor|industry|pmo|qgl|eng|makkah|maka|paf)$/i;
+function paaParse(title){
+  var t=String(title||'');
+  var third=/third.?party|3rd.?party|\bTPI\b|T[ÜU]V|\bSGS\b|bureau|intertek|inspector/i.test(t);
+  var tidy=function(x){return String(x||'').replace(/\s+/g,' ').replace(/^[\s\-_,:#.|]+|[\s\-_,:#|]+$/g,'')
+    .replace(/^(as|for( the)?|of)\s+/i,'').trim();};
+  var LET='A-Za-zÀ-ɏ';
+  var isWord=function(x){return new RegExp('^['+LET+']['+LET+".']*$").test(x)&&!PAA_WORD.test(x.replace(/\.+$/,''));};
+  /* a name run together (#RayanTawili) is two words; #, _ and | part things */
+  var s=t.replace(/([a-z])([A-Z][a-z])/g,'$1 $2').replace(/[#_|–—]/g,' - ')
+    .replace(/^\s*P4\s*-?\s*MAKK?AH?\s*-?\s*/i,'').replace(/^\s*PAAF?\b[\s\-:]*/i,'').replace(/^\s*(for|of)\b\s*/i,'');
+  var runs=[],cur=[];
+  function cut(){if(cur.length)runs.push(cur);cur=[];}
+  s.split(/\s+/).filter(Boolean).forEach(function(w){
+    if(/\d/.test(w)){cut();return;}
+    var bare=w.replace(new RegExp('^[^'+LET+']+|[^'+LET+'.]+$','g'),'');
+    /* Al-Qobi is one name; Ali-Lifting is a name, then a position */
+    var parts=bare.split('-').filter(Boolean);
+    if(parts.length>1&&parts.every(isWord)){cur.push(bare);if(/[,()\/:]$/.test(w))cut();return;}
+    parts.forEach(function(x,i){
+      if(/^[a-z]$/.test(x)||!isWord(x)){cut();return;}
+      cur.push(x);
+      if(i<parts.length-1)cut();
+    });
+    if(!parts.length||/[,()\/:]$/.test(w)||/^-+$/.test(w))cut();
+  });
+  cut();
+  var best=runs.filter(function(r){return r.length>=2;})[0]||runs.slice().sort(function(a,b){return b.length-a.length;})[0]||[];
+  best=best.slice(0,5);
+  var role=s;
+  best.forEach(function(w){role=role.replace(w,'');});
+  /* a name in capitals is written as a name */
+  var cap=function(w){return w.split('-').map(function(x){return /^[A-Z]{2,}$/.test(x)&&!/^(MD)$/.test(x)?(x[0]+x.slice(1).toLowerCase()):x;}).join('-');};
+  return {name:best.map(cap).join(' '),third:third,role:tidy(role.replace(/(\s-)+\s*$/,'').replace(/\s+-\s+-\s+/g,' - '))};
+}
+/* the outcome a person takes from their PAA files: approved once any is */
+function paaWord(d){
+  var w=normStatus(rawEnd(d,'Status'))||'';
+  return /^Approved/.test(w)?'Approved':'Pending';
+}
+function paaSyncPeople(){
+  var n=0;
+  (DB.people||[]).forEach(function(p){
+    if(!p.paaAuto||!(p.docs||[]).length)return;
+    var ds=(p.docs||[]).map(function(id){return mat(id);}).filter(Boolean);
+    if(!ds.length)return;
+    var st=ds.some(function(d){return paaWord(d)==='Approved';})?'Approved':'Pending';
+    if(p.status!=='Suspended'&&p.status!==st){p.status=st;n++;}
+  });
+  if(n)touch();
+  return n;
+}
+function paaLoose(){
+  return (DB.mats||[]).filter(function(d){return d.doc==='PAA'&&!paaOwners(d).length;});
+}
+/* the PAA files nobody has: those naming someone already here are linked
+   to them; the rest are listed with the name read from the title */
+var PAA_ROWS=[];
+window.paaImport=function(){
+  var linked=0, people=(DB.people||[]).filter(function(p){return p.name&&K(p.name).length>=5;});
+  paaLoose().forEach(function(d){
+    var t=K(d.name);
+    var p=people.filter(function(x){return t.indexOf(K(x.name))>=0;})[0];
+    if(p){p.docs=p.docs||[];p.docs.push(d.id);linked++;}
+  });
+  if(linked){touch();paaSyncPeople();}
+  PAA_ROWS=paaLoose().map(function(d){var x=paaParse(d.name);x.d=d;x.st=normStatus(rawEnd(d,'Status'))||rawEnd(d,'Status')||'';return x;});
+  if(!PAA_ROWS.length){rPane();return toast(linked?(linked+' PAA linked to people already on the list'):'Every PAA is with a person already');}
+  sheet('Bring in PAA — '+PAA_ROWS.length,
+     '<div class="dim" style="font-size:13.5px;margin-bottom:14px">'
+    +(linked?('<b>'+linked+'</b> named someone already here and were linked to them. '):'')
+    +'Each of these becomes a person in Personnel Approval, with its PAA. The name is read from the title — '
+    +'correct any that came out wrong, and untick any you do not want.</div>'
+    +'<div class="paa-imp">'+PAA_ROWS.map(function(x,i){
+      var dead=/Terminated|Rejected/.test(x.st);
+      return '<div class="paa-row">'
+        +'<input type="checkbox" id="pi-c-'+i+'"'+(dead?'':' checked')+' style="width:18px;height:18px;margin:0;flex:none">'
+        +'<div style="flex:1;min-width:0">'
+        +'<div class="dim" style="font-size:12.5px;margin-bottom:6px">'+esc(x.d.name)
+        +' <span class="tag t-'+(statusTone(x.st)||'na')+'">'+esc(x.st||'—')+'</span></div>'
+        +'<div class="paa-f"><input id="pi-n-'+i+'" value="'+attr(x.name)+'" placeholder="name" autocomplete="off">'
+        +'<input id="pi-r-'+i+'" value="'+attr(x.role)+'" placeholder="position" autocomplete="off">'
+        +'<select id="pi-t-'+i+'"><option'+(x.third?'':' selected')+'>Staff</option><option'+(x.third?' selected':'')+'>Third party</option></select></div>'
+        +'</div></div>';
+    }).join('')+'</div>'
+    +'<div class="f-act" style="margin-top:16px"><button class="btn btn-p" onclick="paaImportDo()">Add the ticked ones</button>'
+    +'<button class="btn-q" onclick="closeSheet()">Cancel</button></div>');
+  if(!document.getElementById('paa-css')){
+    var c=document.createElement('style');c.id='paa-css';
+    c.textContent='.paa-row{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}'
+      +'.paa-f{display:grid;grid-template-columns:1.2fr 1.4fr 130px;gap:8px}'
+      +'@media(max-width:700px){.paa-f{grid-template-columns:1fr}}';
+    document.head.appendChild(c);
+  }
+};
+window.paaImportDo=function(){
+  var id=idMaker(), made=0, joined=0;
+  DB.people=DB.people||[];
+  PAA_ROWS.forEach(function(x,i){
+    var c=document.getElementById('pi-c-'+i);if(!c||!c.checked)return;
+    var name=trim(document.getElementById('pi-n-'+i).value);if(!name)return;
+    var role=trim(document.getElementById('pi-r-'+i).value), kind=document.getElementById('pi-t-'+i).value;
+    /* two PAA for one person make one person with both */
+    var p=DB.people.filter(function(y){return K(y.name)===K(name);})[0];
+    if(p){p.docs=p.docs||[];if(p.docs.indexOf(x.d.id)<0)p.docs.push(x.d.id);joined++;return;}
+    DB.people.push({id:id(),name:name,agency:'',disc:'',role:role,kind:kind,status:paaWord(x.d),
+      ref:refOf(x.d),added:today(),docs:[x.d.id],paaAuto:true});
+    made++;
+  });
+  PAA_ROWS=[];
+  touch();closeSheet();rList();rPane();
+  toast(made+' added to Personnel Approval'+(joined?(', '+joined+' PAA joined to someone added'):''));
+};
+
 window.unlink=function(matId,docId){
   var m=mat(matId);if(!m)return;
   m.docs=(m.docs||[]).filter(function(x){return String(x)!==String(docId);});
@@ -5972,17 +6094,18 @@ var TABLES_DEF={
      var all=(DB.mats||[]).filter(function(m){return m.doc==='PAA';});
      var loose=all.filter(function(d){return !paaOwners(d).length;}).length;
      return '<button class="btn btn-s" onclick="setTab(\'paa\')">PAA files '+all.length+'</button>'
-       +(loose?('<button class="btn btn-s" style="border-color:#ffcc3e" onclick="showLoosePaa()">'
-         +loose+' not linked to an inspector</button>'):'');},
+       +(loose?('<button class="btn btn-s btn-p" onclick="paaImport()">Bring in '+loose+' PAA</button>'):'');},
    open:function(r){jump('insp',r.id);},
    cols:[
     col('Name','name',function(r){return r.name;},'text',240),
+    col('Type','kind',function(r){return r.kind||'';},'pick',120),
+    col('Position','role',function(r){return r.role||'';},'text',260),
     col('Agency','agency',function(r){return r.agency||'';},'pick',200),
     col('Discipline','disc',function(r){return r.disc||'';},'pick',160),
     asTag(col('Approval','status',function(r){return r.status||'Pending';},'pick',130)),
     col('Reference','ref',function(r){return r.ref||'';},'text',240),
     asNum(col('PAA','npaa',function(r){var n=(r.docs||[]).length;return n?String(n):'';},'text',80))],
-   show:['name','agency','disc','status','ref','npaa']}
+   show:['name','kind','role','agency','status','ref','npaa']}
 };
 
 /* ================================================================
@@ -7160,7 +7283,7 @@ function install(){
    once everything already carries a label. */
 function sortOut(){
   try{
-    var n=labelDocuments()+liftVisits()+liftTerminated()+liftMirLinks()+liftRefs()+liftDocSteps();
+    var n=labelDocuments()+liftVisits()+liftTerminated()+liftMirLinks()+liftRefs()+liftDocSteps()+paaSyncPeople();
     if(n){rList();rPane();}
     else paintTabs();
   }catch(e){}

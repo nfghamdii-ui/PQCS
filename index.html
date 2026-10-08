@@ -2613,6 +2613,8 @@ function inspPane(p){
   var tone=st==='Approved'?'ok':st==='Suspended'?'bad':'now';
   var head='<div class="head"><div class="wrap"><div class="head-t">'+esc(p.name)+'</div><div class="head-m">'
     +'<button class="chip '+(st==='Approved'?'set':'warn')+'" data-pop onclick="cycleInsp(event)">'+esc(st)+'</button>'
+    +'<button class="chip" data-pop onclick="pickPersonKind(event)">'+esc(p.kind||'staff or third party')+'</button>'
+    +'<button class="chip" data-pop onclick="editText(event,\'role\',\'Position\')">'+(p.role?esc(p.role):'position')+'</button>'
     +'<button class="chip" data-pop onclick="editText(event,\'agency\',\'Agency\')">'+(p.agency?esc(p.agency):'agency')+'</button>'
     +'<button class="chip" data-pop onclick="editText(event,\'disc\',\'Discipline\')">'+(p.disc?esc(p.disc):'discipline')+'</button>'
     +'<button class="chip" data-pop onclick="editText(event,\'ref\',\'Approval reference\')">'+(p.ref?('<span class="mono">'+esc(p.ref)+'</span>'):'approval reference')+'</button>'
@@ -3191,6 +3193,13 @@ window.fixName=function(){
   var n=(document.getElementById('fix-name')||{value:''}).value.trim();
   if(!n)return toast('Enter a name');
   p.name=n;touch();rList();rPane();
+};
+/* the project's own staff, or a third party brought in to inspect */
+window.pickPersonKind=function(ev){
+  var p=insp(SEL.insp);if(!p)return;
+  popPick(ev.currentTarget,'Type',['Staff','Third party'],p.kind||'',
+    'Everyone with a PAA is here; a third party is the one who can be assigned to inspect a material.',
+    function(v){p.kind=v;touch();rPane();rList();});
 };
 window.cycleInsp=function(ev){
   var p=insp(SEL.insp);if(!p)return;
