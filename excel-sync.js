@@ -1733,7 +1733,7 @@ var LINE_VIEWS={
   itp:function(d){return d.doc==='ITP';},mes:function(d){return d.doc==='MES';},
   wir:function(d){return d.doc==='WIR';},mas:function(d){return d.doc==='MAS';},
   odoc:function(d){return d.doc!=='MIR'&&!OTHER_PAGES.some(function(p){return p[1]===d.doc;});},
-  alldoc:function(d){return d.doc!=='MIR';}
+  alldoc:function(){return true;}
 };
 /* opened from a page or the calendar: what Aconex says, who it serves,
    and the way to link it — a line has no page of its own */
@@ -2634,8 +2634,8 @@ function viewFor(m){
   if(!isDoc(m))return 'mat';
   if(m.doc==='MIR')return isLinked(m)?'allmir':'mir';
   if(waitsForLink(m))return 'doc';
-  var p=OTHER_PAGES.filter(function(x){return x[1]===m.doc;})[0];
-  return p?p[0]:'odoc';
+  if(NOT_FOR_MAT[m.doc]){var p=OTHER_PAGES.filter(function(x){return x[1]===m.doc;})[0];if(p)return p[0];}
+  return 'alldoc';
 }
 /* A material's page is drawn from a set narrowed to materials, so its
    documents are looked up in the whole record set — or a link just
@@ -2711,6 +2711,14 @@ function liftTabs(){
   ob.textContent='Other \u25BE';
   ob.onclick=function(e){e.stopPropagation();otherMenu(ob);};
   tabs.appendChild(ob);
+  /* every document Aconex holds, of every kind, on one page */
+  var ab=document.createElement('button');
+  ab.className='tab';ab.id='tab-alldoc';ab.setAttribute('role','tab');
+  ab.setAttribute('aria-selected','false');
+  ab.appendChild(document.createTextNode('All documents '));
+  var an=document.createElement('span');an.className='n';an.id='n-alldoc';ab.appendChild(an);
+  ab.onclick=function(){setTab('alldoc');};
+  tabs.appendChild(ab);
   /* No Table tab: each list page is its own table now — vendors on
      Vendors, materials on Materials — so a second copy of them is gone. */
   [['avl','AVL'],['rep','Reports']].forEach(function(p){
@@ -2742,9 +2750,15 @@ function paintTabs(){
     else if(waitsForLink(m))n.doc++;
   });
   acxRows().forEach(function(d){if(LINE_VIEWS.mir(d))n.mir++;else if(LINE_VIEWS.doc(d))n.doc++;});
+  var at=document.getElementById('tab-alldoc');
+  if(at){
+    at.setAttribute('aria-selected',String(TAB==='mat'&&VIEW==='alldoc'));
+    var an=document.getElementById('n-alldoc');
+    if(an)an.textContent=ACX?String((MATS_ALL||DB.mats||[]).filter(isDoc).length+acxRows().length):'';
+  }
   var ot=document.getElementById('tab-other');
   if(ot)ot.setAttribute('aria-selected',String(TAB==='mat'&&(OTHER_TABS.some(function(p){return p[0]===VIEW;})
-    ||(isOtherView(VIEW)&&VIEW!=='paa'&&VIEW!=='pqd'))));
+    ||(isOtherView(VIEW)&&VIEW!=='paa'&&VIEW!=='pqd'&&VIEW!=='alldoc'))));
   var mt=document.getElementById('tab-mir');
   if(mt&&TAB==='mat'&&VIEW==='allmir')mt.setAttribute('aria-selected','true');
   /* the PQD page is the Vendors tab's second page */
@@ -2860,21 +2874,7 @@ var OTHER_TABS=[['ipi','In-Process Inspection'],['fat','FAT/Final Inspection'],
 function otherMenu(btn){
   var old=document.getElementById('other-menu');
   if(old){old.remove();return;}
-  var n={},all=0;
-  (DB.mats||[]).forEach(function(m){
-    if(!isDoc(m)||m.doc==='MIR')return;
-    all++;
-    var p=OTHER_PAGES.filter(function(x){return x[1]===m.doc;})[0];
-    var k=p?p[0]:'odoc';n[k]=(n[k]||0)+1;
-  });
-  acxRows().forEach(function(d){
-    if(d.doc==='MIR')return;
-    all++;
-    var p=OTHER_PAGES.filter(function(x){return x[1]===d.doc;})[0];
-    var k=p?p[0]:'odoc';n[k]=(n[k]||0)+1;
-  });
-  var items=OTHER_PAGES.filter(function(p){return p[0]!=='paa'&&p[0]!=='pqd'&&n[p[0]];}).map(function(p){return [p[0],p[2]];})
-    .concat(n.odoc?[['odoc','Other kinds']]:[]).concat([['alldoc','All documents']]);
+  /* every document, of every kind, is under All documents now */
   var box=document.createElement('div');
   box.id='other-menu';box.className='other-menu';box.setAttribute('role','menu');
   box.innerHTML=OTHER_TABS.map(function(it){
@@ -2882,17 +2882,7 @@ function otherMenu(btn){
     return '<button role="menuitem"'+(TAB==='mat'&&(VIEW===it[0]||(it[0]==='mir'&&VIEW==='allmir'))?' aria-current="true"':'')
       +' onclick="otherGo(\''+it[0]+'\')"><span>'+esc(it[1])+'</span>'
       +'<span class="n">'+(c?c.textContent:'')+'</span></button>';
-  }).join('')
-    +'<div style="border-top:1px solid var(--line);margin:4px 0"></div>'
-    +items.map(function(it){
-    var c=it[0]==='alldoc'?all:(n[it[0]]||0);
-    return '<button role="menuitem"'+(TAB==='mat'&&VIEW===it[0]?' aria-current="true"':'')
-      +' onclick="otherGo(\''+it[0]+'\')"><span>'+esc(it[1])+'</span>'
-      +'<span class="n">'+c+'</span></button>';
-  }).join('')
-    +(n.wir?('<button role="menuitem" style="color:var(--bad,#b3261e);border-top:1px solid var(--line);'
-      +'border-radius:0 0 7px 7px;margin-top:4px" onclick="dropWir()"><span>Remove all WIR</span>'
-      +'<span class="n">'+n.wir+'</span></button>'):'');
+  }).join('');
   document.body.appendChild(box);
   var r=btn.getBoundingClientRect();
   box.style.top=(r.bottom+4)+'px';
@@ -2974,7 +2964,7 @@ function install2(){
        materials, vendors, the inspections at the factory, the inspection
        on arrival, the release note — and the rest after. */
     ['tab-today','tab-mat','tab-mfr','tab-ipi','tab-fat','tab-mir','tab-irn',
-     'tab-doc','tab-other','tab-insp','tab-cal','tab-avl','tab-rep'].forEach(function(id){
+     'tab-doc','tab-other','tab-alldoc','tab-insp','tab-cal','tab-avl','tab-rep'].forEach(function(id){
       var b=document.getElementById(id);if(b)bar.insertBefore(b,tools);
     });
   }
@@ -3385,8 +3375,9 @@ function linkPanel(m){
         :(m.site||SITE_KIND[m.doc]
           ?(m.site?'<span class="dim">Marked as site work \u2014 it serves no material.</span>'
             :'<span class="dim">Site work \u2014 no material links it. If it belongs to one, link it from the material.</span>')
-          :'<span class="dim">Not linked to any material yet. Open the material and link it '
-           +'from there — the material is where a link is made and unmade.</span>'))
+          :'<span class="dim">Not linked to any material yet.</span>'))
+      /* linked from here as well as from the material */
+      +(NOT_FOR_MAT[m.doc]?'':'<div class="no-print" style="margin-top:12px"><button class="btn btn-s btn-p" onclick="docLinkPick('+m.id+',\'\',\'\')">Link to a material</button></div>')
       +(on.length||NOT_FOR_MAT[m.doc]||SITE_KIND[m.doc]?''
         :('<div class="no-print" style="margin-top:12px">'
           +(m.site
@@ -5946,7 +5937,8 @@ function docTable(label,keep,withKind,withLink){
     col('Number','no',function(r){return refOf(r);},'text',300),
     col('Discipline','disc',function(r){return r.disc;},'pick',150),
     asTag(col('Status','st',function(r){return rawEnd(r,'Status');},'pick',170)),
-    col('Revision','rev',function(r){return rawEnd(r,'Revision');},'pick',90));
+    col('Revision','rev',function(r){return rawEnd(r,'Revision');},'pick',90),
+    col('Date','dt',function(r){var x=r.light?r.date:acxDateOf(r);return x?show(x):'';},'text',110));
   if(withLink)cols.push(
     asTag(col('Linked','lnk',function(r){
         return NOT_FOR_MAT[r.doc]?'':isLinked(r)?'Linked':(r.site||SITE_KIND[r.doc])?'Site work':'Not linked';},'pick',120),
@@ -6052,7 +6044,7 @@ var TABLES_DEF={
  /* the work still to do; once linked a document is found under Other */
  doc:(function(d){d.extra=function(){return '<span class="chip flat">Not linked to a material yet</span>';};return d;})(
    docTable('Documents',waitsForLink,true,false)),
- alldoc:docTable('All documents',function(m){return isDoc(m)&&m.doc!=='MIR';},true,true),
+ alldoc:docTable('All documents',function(m){return isDoc(m);},true,true),
  odoc:docTable('Other kinds',oddKind,true,true),
 
  mfr:{label:'Vendors',rows:function(){return (DB.mfrs||[]).slice();},
@@ -6414,7 +6406,7 @@ function choices(c,rows){
     if(v)n[v]=(n[v]||0)+1;
   });
   return Object.keys(n).sort(function(a,b){return n[b]-n[a];})
-    .slice(0,40).map(function(v){return {v:v,n:n[v]};});
+    .slice(0,c.k==='kind'?120:40).map(function(v){return {v:v,n:n[v]};});
 }
 
 function filtered(){
