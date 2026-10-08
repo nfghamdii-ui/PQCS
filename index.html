@@ -1806,6 +1806,9 @@ function create(n){
 function assignments(p){
   var out=[], k=key(p.name);
   (DB.mats||[]).forEach(function(m){
+    if(m.insp&&String(m.insp)===String(p.id))out.push({t:m.name,s:'Assigned inspector',tab:'mat',id:m.id});
+  });
+  (DB.mats||[]).forEach(function(m){
     Object.keys(m.steps||{}).forEach(function(s){
       if(key(m.steps[s].by)===k)out.push({t:m.name,s:s,tab:'mat',id:m.id});});});
   (DB.mfrs||[]).forEach(function(v){
@@ -2382,6 +2385,7 @@ function matPane(m){
     body+=pgroup('Material',
       pr('Item description',esc(m.name))+pr('Category',esc(m.cat||''))
       +pr('Discipline',esc(m.disc||''))+pr('Vendor',v0?esc(v0.name):'')
+      +pr('Inspector',inspCell(m))
       +pr('Sub-contractor',esc(m.sub||''))+pr('Aconex reference',esc(m.ref||''),'mono')
       +pr('Quantity',m.qty?(esc(m.qty)+' '+esc(m.unit||'')):'')+pr('PO Number',esc(raw['PO Number']||''),'mono'));
     body+=(lg._mat||'')+roadProps(m,r.steps,'mat',lg);
@@ -3238,6 +3242,53 @@ window.pickMfrLater=function(v){
     var f=document.getElementById('pk-v');
     if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
   },220);
+};
+/* the third-party inspector assigned to a material, from Personnel
+   Approval; the Main Log carries his company as the service provider */
+function inspCell(m){
+  var p=m.insp?insp(m.insp):null;
+  return (p?(esc(p.name)+(p.agency?' <span class="dim">· '+esc(p.agency)+'</span>':'')
+      +((p.status||'Pending')!=='Approved'?' <span class="tag t-now">'+esc(String(p.status||'pending').toLowerCase())+'</span>':'')+' '):'')
+    +'<button class="btn-q no-print" style="padding:0 4px" onclick="pickInsp()">'+(p?'Change':'Assign')+'</button>';
+}
+window.pickInsp=function(q){
+  var m=mat(SEL.mat);if(!m)return;
+  var all=(DB.people||[]).filter(function(p){return p.name;}).sort(function(a,b){
+    var A=(a.status||'Pending')==='Approved'?0:1, B=(b.status||'Pending')==='Approved'?0:1;
+    return A-B||String(a.name).localeCompare(String(b.name));});
+  var need=key(q||'');
+  var list=need?all.filter(function(p){return key([p.name,p.agency,p.disc].join(' ')).indexOf(need)>=0;}):all;
+  sheet('Inspector',
+     '<div class="dim" style="font-size:13.5px;margin-bottom:14px">From your Personnel Approval list. '
+      +'The Main Log writes his company as the 3rd party service provider, and his name in the Inspector column.</div>'
+    +'<div class="f" style="margin-bottom:14px"><label for="pk-i">Search '+all.length+' people — name, company or discipline</label>'
+      +'<input id="pk-i" value="'+attr(q||'')+'" autocomplete="off" oninput="pickInspLater(this.value)"></div>'
+    +(list.length?list.slice(0,60).map(function(p){
+        var st=p.status||'Pending', cur=String(m.insp)===String(p.id);
+        return '<div class="row row-a" onclick="setInsp('+p.id+')">'
+          +'<span class="tag t-'+(st==='Approved'?'ok':st==='Suspended'?'bad':'now')+'" style="min-width:86px;text-align:center;flex-shrink:0">'+esc(st)+'</span>'
+          +'<div style="flex:1;min-width:0"><div>'+esc(p.name)+'</div>'
+          +'<div class="dim" style="font-size:12.5px;margin-top:2px">'+esc([p.agency,p.disc].filter(Boolean).join(' · ')||'no company recorded')+'</div></div>'
+          +(cur?'<span class="tag t-wait">current</span>':'')+'</div>';
+      }).join('')
+      :'<div class="dim" style="padding:20px 0">'+(all.length?'Nothing matches.':'Your Personnel Approval list is empty.')+'</div>')
+    +(m.insp?'<div class="f-act" style="margin-top:20px"><button class="btn-q" onclick="setInsp(\'\')">Remove the inspector</button></div>':''));
+};
+var piTimer=null;
+window.pickInspLater=function(v){
+  clearTimeout(piTimer);
+  piTimer=setTimeout(function(){
+    pickInsp(v);
+    var f=document.getElementById('pk-i');
+    if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
+  },220);
+};
+window.setInsp=function(id){
+  var m=mat(SEL.mat);if(!m)return;
+  m.insp=id?String(id):'';
+  touch();closeSheet();rPane();rList();
+  var p=id?insp(id):null;
+  if(p&&(p.status||'Pending')!=='Approved')toast(p.name+' is not yet approved by SEVEN — clause 2.2.17');
 };
 window.setMfr=function(id){
   var m=mat(SEL.mat);if(!m)return;

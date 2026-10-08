@@ -953,6 +953,12 @@ function rawOut(m){
     if(pa.ref)set('PA Document Number',pa.ref);
     if(pa.status&&pa.status!=='Pending'&&pa.status!=='Scheduled')set('Assessment Result',pa.status);
   }
+  /* the inspector assigned on the material: a third party, and his company */
+  var ip=m.insp?insp(m.insp):null;
+  if(ip){
+    set('3rd Party Assigned (Yes/No)','Yes');
+    if(ip.agency)set('3rd Party Service Provider Name',ip.agency);
+  }
   step('mts','MAT Number','MAT Submittal Date','MAT Status');
   step('itp','ITP Number','ITP Submittal Date','ITP Status');
   step('pid','PID Number','PID Submittal Date','PID Status');
@@ -3842,6 +3848,7 @@ function companyOfMat(m){
 }
 var LOG_EXTRA=[
   {t:'Local / Foreign',w:14,read:function(m){var v=companyOfMat(m);return v?(v.locality||''):'';}},
+  {t:'Inspector',w:24,read:function(m){var p=m.insp?insp(m.insp):null;return p?p.name:'';}},
   /* every report, oldest first, one to a line: reference, date, result */
   {t:'In-Process Inspection Reports',w:40,read:function(m){return visitLines(m,'ipi');}},
   {t:'Inspection Release Notes',w:34,read:function(m){return visitLines(m,'irn');}}
