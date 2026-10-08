@@ -1594,7 +1594,8 @@ var applyRegisterBare=function(){};
 function applyRegister(p,alsoEnded,tag){
   var n=applyRegisterBare(p,alsoEnded,tag);
   liftDocSteps();
-  if(p.light&&p.light.length){var w=p.light;p.light=null;acxMerge(w);}
+  /* a plan read some other way still saves its lines once */
+  if(p.light&&p.light.length&&!p.lightSaved){p.lightSaved=true;acxMerge(p.light);}
   return n;
 }
 /* ---------------------------------------------------------------
@@ -1877,6 +1878,9 @@ window.regRead=async function(ev){
     REG=planRegister(reg.rows);
     REG.rows=reg.rows;
     REG.file=f.name;REG.about=reg.about;REG.count=reg.rows.length;REG.sheet=reg.sheet;
+    /* the Aconex list is only a copy of the file: it is saved as the file
+       is read, whichever button follows, or none */
+    if(REG.light&&REG.light.length){REG.lightSaved=true;acxMerge(REG.light);}
     if(typeof busy==='function')busy(false);
     showRegister();
   }catch(e){
@@ -1952,6 +1956,8 @@ function showRegister(){
    +stat(p.newPlain.length,'New · no category')
    +stat(p.newC01.length,'New · C0 and C1')
    +stat(p.same.length,'Already matching')
+   /* everything else is a line of the Aconex list, saved after applying */
+   +stat((p.light||[]).length,'To the Aconex list')
    +(p.dead.length?('<div class="stat" style="cursor:pointer" onclick="document.getElementById(\'reg-dead\').scrollIntoView({behavior:\'smooth\'})">'
      +'<div class="stat-v">'+p.dead.length+'</div><div class="stat-l">Terminated in Aconex — see all</div></div>'):'')
    +'</div>';
@@ -2010,7 +2016,9 @@ function showRegister(){
     +p.count+' documents on the <b>'+esc(p.sheet)+'</b> sheet'
     +(a.on?(' · generated '+esc(a.on)):'')+(a.by?(' · by '+esc(a.by.split(',')[0])):'')
     +'. Nothing has been changed yet, and nothing new is created — a new document is shown, '
-    +'not added, because the register does not say which material it belongs to.</div>'+body);
+    +'not added, because the register does not say which material it belongs to.'
+    +((p.light||[]).length?(' The '+p.light.length+' documents other than materials, pre-qualifications and '
+      +'personnel approvals are being saved to the Aconex list now, to link from.'):'')+'</div>'+body);
 }
 window.regApply=function(alsoEnded){
   if(!REG)return;
