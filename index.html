@@ -2387,10 +2387,12 @@ function matPane(m){
     var lg=typeof window.logGroupsFor==='function'?window.logGroupsFor(m,r.steps.map(function(x){return x.s.k;})):{};
     body+=pgroup('Material',
       pr('Item description',esc(m.name))+pr('Category',esc(m.cat||''))
-      +pr('Discipline',esc(m.disc||''))+pr('Vendor',v0?esc(v0.name):'')
+      +pr('Discipline',esc(m.disc||''))+pr('Aconex reference',esc(m.ref||''),'mono')
+      /* who makes it, who it comes through, who puts it in */
+      +pr('Manufacturer',(v0?esc(v0.name)+' ':'')+'<button class="btn-q no-print" style="padding:0 4px" onclick="pickMfr(\'\')">'+(v0?'Change':'Assign')+'</button>')
       +pr('Supplier',supCell(m))
+      +pr('Subcontractor',subCell(m))
       +pr('Inspector',inspCell(m))
-      +pr('Sub-contractor',esc(m.sub||''))+pr('Aconex reference',esc(m.ref||''),'mono')
       +pr('Quantity',m.qty?(esc(m.qty)+' '+esc(m.unit||'')):'')+pr('PO Number',esc(raw['PO Number']||''),'mono'));
     body+=(lg._mat||'')+roadProps(m,r.steps,'mat',lg);
     body+=ncrPanel(m);
@@ -3279,6 +3281,47 @@ window.pickMfrLater=function(v){
 /* the supplier of a material — a trader or distributor on the vendor
    list; a vendor that is itself a supplier is its supplier unless
    another is named */
+/* the subcontractor who installs it, from the vendor list; its name is
+   what the Main Log writes as the Sub-contractor Name */
+function subCell(m){
+  return (m.sub?esc(m.sub)+' ':'')
+    +'<button class="btn-q no-print" style="padding:0 4px" onclick="pickSub()">'+(m.sub?'Change':'Assign')+'</button>';
+}
+window.pickSub=function(q){
+  var m=mat(SEL.mat);if(!m)return;
+  var all=(DB.mfrs||[]).filter(function(v){return kindOf(v)!=='agency';}).sort(function(a,b){
+    var A=(a.kind==='sub'||a.kind==='makesub')?0:1, B=(b.kind==='sub'||b.kind==='makesub')?0:1;
+    return A-B||String(a.name).localeCompare(String(b.name));});
+  var need=key(q||'');
+  var list=need?all.filter(function(v){return key(v.name).indexOf(need)>=0;}):all;
+  sheet('Subcontractor',
+     '<div class="dim" style="font-size:13.5px;margin-bottom:14px">The subcontractor who supplies or installs it on the project. '
+      +'The Main Log writes it as the Sub-contractor Name.</div>'
+    +'<div class="f" style="margin-bottom:14px"><label for="pk-b">Search '+all.length+' companies</label>'
+      +'<input id="pk-b" value="'+attr(q||'')+'" autocomplete="off" oninput="pickSubLater(this.value)"></div>'
+    +(list.length?list.slice(0,60).map(function(v){
+        return '<div class="row row-a" onclick="setSub('+v.id+')">'
+          +'<span class="tag t-na" style="min-width:96px;text-align:center;flex-shrink:0">'+esc(KINDS[kindOf(v)].l)+'</span>'
+          +'<div style="flex:1;min-width:0">'+esc(v.name)+'</div>'
+          +(key(m.sub||'')===key(v.name)?'<span class="tag t-wait">current</span>':'')+'</div>';
+      }).join(''):'<div class="dim" style="padding:20px 0">Nothing matches.</div>')
+    +(m.sub?'<div class="f-act" style="margin-top:20px"><button class="btn-q" onclick="setSub(\'\')">Remove the subcontractor</button></div>':''));
+};
+var pbTimer=null;
+window.pickSubLater=function(v){
+  clearTimeout(pbTimer);
+  pbTimer=setTimeout(function(){
+    pickSub(v);
+    var f=document.getElementById('pk-b');
+    if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
+  },220);
+};
+window.setSub=function(id){
+  var m=mat(SEL.mat);if(!m)return;
+  var v=id?mfr(id):null;
+  m.sub=v?v.name:'';
+  touch();closeSheet();rPane();rList();
+};
 function supCell(m){
   var s=m.supplier?mfr(m.supplier):null, v=m.mfr?mfr(m.mfr):null;
   var auto=!s&&v&&v.kind==='supplier'?v:null;
