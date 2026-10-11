@@ -1398,8 +1398,10 @@ var MFR_ROAD=[
   f:[['date','Survey date','date'],['ref','Report reference','text'],
      ['by','QMS auditor','person'],['qres','QMS report','sel',['','Pass','Failed']],
      ['by2','Technical expert','person'],['tres','Technical report','sel',['','Pass','Failed']],
-     /* a maker already on SEVEN's approved vendor list needs no visit */
-     ['status','Result','sel',['Pending','Scheduled','Passed','Failed','Waived','Not required (AVL)']],
+     ['status','Result','sel',['Pending','Scheduled','Passed','Failed','Waived']],
+     /* a maker already on SEVEN's approved vendor list needs no visit —
+        unless one is recorded after all, and then the visit is what counts */
+     ['avl','Approved in SEVEN AVL','sel',['','Yes']],
      ['ref2','Technical expert’s own report','text','optional']],
   warn:function(v,s){return (v.cat==='C3'&&s.status==='Waived')?'A waiver is allowed for C1 and C2 only. This manufacturer is C3.':'';}},
 
@@ -2964,6 +2966,14 @@ window.saveStep=function(kind,k){
   if(lf)rec.logf=lf;
   /* the same number typed twice is one report, not two */
   if(out.ref2&&out.ref2===out.ref)out.ref2='';
+  /* on the AVL and no visit recorded: nothing to visit. Anything of a
+     visit — its day, report, assessors or outcome — and the visit counts */
+  if(k==='pa'&&kind==='mfr'){
+    var visit=out.date||out.ref||out.by||out.by2||out.qres||out.tres
+      ||(out.status&&['Pending','Scheduled','Not required (AVL)'].indexOf(out.status)<0);
+    if(out.avl==='Yes'&&!visit)out.status='Not required (AVL)';
+    else if(out.status==='Not required (AVL)')out.status='Pending';
+  }
   rec.steps=rec.steps||{};rec.steps[k]=out;
   touch();OPEN=null;rList();rPane();
 };
