@@ -1337,7 +1337,7 @@ var ICON={
    pages is what made the last attempt tiring to use.
    ================================================================ */
 var STATUS=['Pending','Approved','Approved with comments','Resubmit','Rejected','Terminated'];
-function settled(st){return ['Approved','Approved with comments','Passed','Passed with comments','Waived','Sent','Closed','Received'].indexOf(st)>=0;}
+function settled(st){return ['Approved','Approved with comments','Passed','Passed with comments','Waived','Not required (AVL)','Sent','Closed','Received'].indexOf(st)>=0;}
 /* a terminated document is dead in Aconex: nothing is waiting on it,
    and the step needs a fresh submittal, so it reads as failed */
 function failed(st){return ['Rejected','Resubmit','Failed','Terminated'].indexOf(st)>=0;}
@@ -1398,7 +1398,8 @@ var MFR_ROAD=[
   f:[['date','Survey date','date'],['ref','Report reference','text'],
      ['by','QMS auditor','person'],['qres','QMS report','sel',['','Pass','Failed']],
      ['by2','Technical expert','person'],['tres','Technical report','sel',['','Pass','Failed']],
-     ['status','Result','sel',['Pending','Scheduled','Passed','Failed','Waived']],
+     /* a maker already on SEVEN's approved vendor list needs no visit */
+     ['status','Result','sel',['Pending','Scheduled','Passed','Failed','Waived','Not required (AVL)']],
      ['ref2','Technical expert’s own report','text','optional']],
   warn:function(v,s){return (v.cat==='C3'&&s.status==='Waived')?'A waiver is allowed for C1 and C2 only. This manufacturer is C3.':'';}},
 

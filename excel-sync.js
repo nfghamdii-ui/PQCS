@@ -4495,7 +4495,7 @@ var VEN_ALIAS={'Visit result':'Assessment','Visit report':'Assessment Reference'
 /* Written as typed, a status the road does not recognise stops it:
    "approved" is not "Approved". Each is read back into the words the
    page uses; anything it cannot place is kept as typed. */
-var VISIT_WORDS=['Pending','Scheduled','Passed','Failed','Waived'];
+var VISIT_WORDS=['Pending','Scheduled','Passed','Failed','Waived','Not required (AVL)'];
 function pqWord(s){return normStatus(s)||s;}
 function isoWordIn(s){var k=K(s);return /valid/.test(k)?'Valid':/expir/.test(k)?'Expired':s;}
 function visitWordIn(s){
@@ -5831,7 +5831,7 @@ function asTag(c,f){c.tone=f||statusTone;return c;}
 function asNum(c){c.num=true;return c;}
 function statusTone(v){
   var s=normStatus(v)||trim(v);
-  if(/^(Approved|Approved with comments|Passed|Passed with comments|Received|Valid|Waived|Closed)$/.test(s))return 'ok';
+  if(/^(Approved|Approved with comments|Passed|Passed with comments|Received|Valid|Waived|Not required \(AVL\)|Closed)$/.test(s))return 'ok';
   if(/^(Rejected|Resubmit|Terminated|Expired|Failed|Suspended)$/.test(s))return 'bad';
   if(/^(Pending|Under Review)$/.test(s))return 'wait';
   return '';
@@ -7761,7 +7761,7 @@ function dashChecks(mats,roads){
     if(!/^C[123]$/.test(v.cat||'')||!roadFor(v).some(function(s){return s.k==='pa';}))return;
     var pa=(v.steps||{}).pa||{}, st=pa.status||'';
     if(st==='Waived'&&v.cat==='C3')paL.push({id:v.id,name:v.name,tab:'mfr',note:'waived on a C3 vendor — allowed for C1 and C2 only'});
-    else if(!/Passed|Waived/.test(st))paL.push({id:v.id,name:v.name,tab:'mfr',
+    else if(!/Passed|Waived|AVL/.test(st))paL.push({id:v.id,name:v.name,tab:'mfr',
       note:(st?st.toLowerCase():'not recorded')+((v.logf||{})['PA Tentative Date']?(' — tentative '+show(v.logf['PA Tentative Date'])):'')});
   });
   rule('2.1.9','Vendor without a physical assessment','A survey by a lead auditor and a technical expert for categories 1–3.','now',paL);
