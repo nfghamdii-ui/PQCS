@@ -5584,7 +5584,7 @@ function sevenTpl(){
     .replace(/<mergeCells count="(\d+)">/,function(_,n){return '<mergeCells count="'+(+n+k)+'">';})
     .replace('</mergeCells>',SEVEN_NEW.map(function(_,j){var C=colName(at+j);return '<mergeCell ref="'+C+'4:'+C+'5"/>';}).join('')+'</mergeCells>');
   var cols=T.cols.replace(/<col min="(\d+)" max="(\d+)"/g,function(_,a,b){
-    a=+a;b=+b;if(a>at)a+=k;if(b>at)b+=k;return '<col min="'+a+'" max="'+b+'"';})
+    a=+a;b=+b;if(a>at)a+=k;if(b>at&&b<16384)b+=k;return '<col min="'+a+'" max="'+b+'"';})
     .replace(new RegExp('(<col min="\\d+" max="'+at+'"[^>]*/>)'),'$1<col min="'+(at+1)+'" max="'+(at+k)+'" width="22" style="1" customWidth="1"/>');
   var extra=SEVEN_NEW.map(function(){return T.data[at-1];});
   SEVEN_T={styles:T.styles,theme:T.theme,head:head,merges:merges,cols:cols,
@@ -5615,7 +5615,13 @@ function sevenBook(list,more){
   var merges=T.merges.replace(/<mergeCells count="(\d+)">/,function(_,n){return '<mergeCells count="'+(+n+1+X.length)+'">';})
     .replace('</mergeCells>','<mergeCell ref="'+colName(x0)+'3:'+colName(xl)+'3"/>'
       +X.map(function(_,i){return '<mergeCell ref="'+colName(x0+i)+'4:'+colName(x0+i)+'5"/>';}).join('')+'</mergeCells>');
-  var cols=T.cols.replace('</cols>','<col min="'+(x0+1)+'" max="'+(xl+1)+'" width="26" customWidth="1"/></cols>');
+  /* the template's last entry runs to the sheet's end: the tracker's own
+     columns go before it, and it starts after them — a column described
+     twice, or past the last one Excel has, is what it repairs */
+  var tail=/<col min="\d+" max="16384"([^>]*)\/>/.exec(T.cols);
+  var cols=T.cols.replace(/<col min="\d+" max="16384"[^>]*\/>/,'')
+    .replace('</cols>','<col min="'+(x0+1)+'" max="'+(xl+1)+'" width="26" customWidth="1"/>'
+      +(tail?'<col min="'+(xl+2)+'" max="16384"'+tail[1]+'/>':'')+'</cols>');
   /* one extra style: a terminated material's row, shaded red */
   var st=T.styles;
   var nf=+(/<fills count="(\d+)"/.exec(st)[1]), nx=+(/<cellXfs count="(\d+)"/.exec(st)[1]);
