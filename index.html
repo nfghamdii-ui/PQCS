@@ -2388,6 +2388,7 @@ function matPane(m){
     body+=pgroup('Material',
       pr('Item description',esc(m.name))+pr('Category',esc(m.cat||''))
       +pr('Discipline',esc(m.disc||''))+pr('Vendor',v0?esc(v0.name):'')
+      +pr('Supplier',supCell(m))
       +pr('Inspector',inspCell(m))
       +pr('Sub-contractor',esc(m.sub||''))+pr('Aconex reference',esc(m.ref||''),'mono')
       +pr('Quantity',m.qty?(esc(m.qty)+' '+esc(m.unit||'')):'')+pr('PO Number',esc(raw['PO Number']||''),'mono'));
@@ -2565,7 +2566,9 @@ function venDash(v,r,mine){
       pr('Name',esc(v.name))+pr('Kind',esc(KINDS[kindOf(v)].l))
       +pr('Category',esc(v.cat||''))+pr('Country',esc(v.country||''))
       +pr('Production site',esc(v.site||''))+pr('Local / Foreign',esc(v.locality||''))
-      +pr('Scope',esc(v.scope||''))+pr('Brought by',esc(v.by||'')))
+      +pr('Scope',esc(v.scope||''))+pr('Brought by',esc(v.by||''))
+      +pr('Telephone 1',esc(v.tel||''),'mono')+pr('Address',esc(v.addr||''))
+      +pr('Limitations',esc(v.lim||'')))
     +roadProps(v,r,'mfr',typeof window.venLogFor==='function'?window.venLogFor(v,r.map(function(x){return x.s.k;})):{});
 }
 
@@ -3272,6 +3275,49 @@ window.pickMfrLater=function(v){
     var f=document.getElementById('pk-v');
     if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
   },220);
+};
+/* the supplier of a material — a trader or distributor on the vendor
+   list; a vendor that is itself a supplier is its supplier unless
+   another is named */
+function supCell(m){
+  var s=m.supplier?mfr(m.supplier):null, v=m.mfr?mfr(m.mfr):null;
+  var auto=!s&&v&&v.kind==='supplier'?v:null;
+  return (s?esc(s.name)+' ':auto?(esc(auto.name)+' <span class="dim">\u00b7 the vendor</span> '):'')
+    +'<button class="btn-q no-print" style="padding:0 4px" onclick="pickSup()">'+(s?'Change':'Assign')+'</button>';
+}
+window.pickSup=function(q){
+  var m=mat(SEL.mat);if(!m)return;
+  var all=(DB.mfrs||[]).filter(function(v){return kindOf(v)!=='agency';}).sort(function(a,b){
+    var A=a.kind==='supplier'?0:1, B=b.kind==='supplier'?0:1;
+    return A-B||String(a.name).localeCompare(String(b.name));});
+  var need=key(q||'');
+  var list=need?all.filter(function(v){return key(v.name).indexOf(need)>=0;}):all;
+  sheet('Supplier',
+     '<div class="dim" style="font-size:13.5px;margin-bottom:14px">The trader or distributor the material comes through. '
+      +'The Main Log writes it in the Supplier column, beside the manufacturer.</div>'
+    +'<div class="f" style="margin-bottom:14px"><label for="pk-s">Search '+all.length+' companies</label>'
+      +'<input id="pk-s" value="'+attr(q||'')+'" autocomplete="off" oninput="pickSupLater(this.value)"></div>'
+    +(list.length?list.slice(0,60).map(function(v){
+        return '<div class="row row-a" onclick="setSup('+v.id+')">'
+          +'<span class="tag t-na" style="min-width:96px;text-align:center;flex-shrink:0">'+esc(KINDS[kindOf(v)].l)+'</span>'
+          +'<div style="flex:1;min-width:0">'+esc(v.name)+(v.country?' <span class="dim">\u00b7 '+esc(v.country)+'</span>':'')+'</div>'
+          +(String(m.supplier)===String(v.id)?'<span class="tag t-wait">current</span>':'')+'</div>';
+      }).join(''):'<div class="dim" style="padding:20px 0">Nothing matches.</div>')
+    +(m.supplier?'<div class="f-act" style="margin-top:20px"><button class="btn-q" onclick="setSup(\'\')">Remove the supplier</button></div>':''));
+};
+var psTimer=null;
+window.pickSupLater=function(v){
+  clearTimeout(psTimer);
+  psTimer=setTimeout(function(){
+    pickSup(v);
+    var f=document.getElementById('pk-s');
+    if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
+  },220);
+};
+window.setSup=function(id){
+  var m=mat(SEL.mat);if(!m)return;
+  m.supplier=id?String(id):'';
+  touch();closeSheet();rPane();rList();
 };
 /* the third-party inspector assigned to a material, from Personnel
    Approval; the Main Log carries his company as the service provider */
