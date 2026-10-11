@@ -1401,7 +1401,7 @@ var MFR_ROAD=[
      ['status','Result','sel',['Pending','Scheduled','Passed','Failed','Waived']],
      /* a maker already on SEVEN's approved vendor list needs no visit —
         unless one is recorded after all, and then the visit is what counts */
-     ['avl','Approved in SEVEN AVL','sel',['','Yes']],
+     ['avl','Approved in SEVEN AVL','sel',['','No visit needed','Visit anyway']],
      ['ref2','Technical expert’s own report','text','optional']],
   warn:function(v,s){return (v.cat==='C3'&&s.status==='Waived')?'A waiver is allowed for C1 and C2 only. This manufacturer is C3.':'';}},
 
@@ -2971,7 +2971,8 @@ window.saveStep=function(kind,k){
   if(k==='pa'&&kind==='mfr'){
     var visit=out.date||out.ref||out.by||out.by2||out.qres||out.tres
       ||(out.status&&['Pending','Scheduled','Not required (AVL)'].indexOf(out.status)<0);
-    if(out.avl==='Yes'&&!visit)out.status='Not required (AVL)';
+    /* on the AVL, and it is decided here whether to go all the same */
+    if((out.avl==='No visit needed'||out.avl==='Yes')&&!visit)out.status='Not required (AVL)';
     else if(out.status==='Not required (AVL)')out.status='Pending';
   }
   rec.steps=rec.steps||{};rec.steps[k]=out;

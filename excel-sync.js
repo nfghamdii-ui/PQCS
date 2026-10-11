@@ -4420,6 +4420,9 @@ function companyOfMat(m){
 }
 var LOG_EXTRA=[
   {t:'Local / Foreign',w:14,read:function(m){var v=companyOfMat(m);return v?(v.locality||''):'';}},
+  /* the vendor on SEVEN's approved list, and whether it is visited all the same */
+  {t:'SEVEN AVL',w:18,read:function(m){var v=m.mfr?mfr(m.mfr):null;var a=v?(((v.steps||{}).pa||{}).avl||''):'';
+    return a==='Yes'?'No visit needed':a;}},
   /* every report, oldest first, one to a line: reference, date, result */
   {t:'In-Process Inspection Reports',w:40,read:function(m){return visitLines(m,'ipi');}},
   {t:'Inspection Release Notes',w:34,read:function(m){return visitLines(m,'irn');}}
