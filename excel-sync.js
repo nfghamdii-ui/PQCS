@@ -1326,6 +1326,19 @@ function catOfTitle(t){
   while((m=b.exec(t)))found.push(m[1]);
   return found.length?('C'+found.sort().pop()):'';
 }
+/* A certificate or an accreditation past its date reads Expired, not
+   Valid: the day it lapses, not the day somebody notices. */
+function liftExpired(){
+  var n=0;
+  (DB.mfrs||[]).forEach(function(v){
+    ['iso','scope'].forEach(function(k){
+      var s=(v.steps||{})[k];
+      if(s&&s.date&&s.status!=='Expired'&&daysTo(s.date)<0){s.status='Expired';n++;}
+    });
+  });
+  if(n)touch();
+  return n;
+}
 /* the rule before, to know a category it read wrong */
 function catOfTitleOld(t){
   var m=/CATEGOR\w*[\s:\-]*\(?"?\s*C?\s*([0-3])/i.exec(String(t||''));
@@ -7340,7 +7353,7 @@ function install(){
    once everything already carries a label. */
 function sortOut(){
   try{
-    var n=labelDocuments()+liftVisits()+liftTerminated()+liftMirLinks()+liftRefs()+liftDocSteps()+paaSyncPeople()+liftCats();
+    var n=labelDocuments()+liftVisits()+liftTerminated()+liftMirLinks()+liftRefs()+liftDocSteps()+paaSyncPeople()+liftCats()+liftExpired();
     if(n){rList();rPane();}
     else paintTabs();
   }catch(e){}

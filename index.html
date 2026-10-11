@@ -2966,6 +2966,8 @@ window.saveStep=function(kind,k){
   if(lf)rec.logf=lf;
   /* the same number typed twice is one report, not two */
   if(out.ref2&&out.ref2===out.ref)out.ref2='';
+  /* a certificate past its date has expired, whatever was chosen */
+  if((k==='iso'||k==='scope')&&out.date&&daysTo(out.date)<0)out.status='Expired';
   /* on the AVL and no visit recorded: nothing to visit. Anything of a
      visit — its day, report, assessors or outcome — and the visit counts */
   if(k==='pa'&&kind==='mfr'){
