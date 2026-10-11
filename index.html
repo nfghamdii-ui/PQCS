@@ -3305,7 +3305,15 @@ window.pickSub=function(q){
           +'<div style="flex:1;min-width:0">'+esc(v.name)+'</div>'
           +(key(m.sub||'')===key(v.name)?'<span class="tag t-wait">current</span>':'')+'</div>';
       }).join(''):'<div class="dim" style="padding:20px 0">Nothing matches.</div>')
-    +(m.sub?'<div class="f-act" style="margin-top:20px"><button class="btn-q" onclick="setSub(\'\')">Remove the subcontractor</button></div>':''));
+    +'<div class="f-act" style="margin-top:20px">'
+    /* a name not on the vendor list (UAAC, as the log has it) is kept as typed */
+    +(q&&!all.some(function(v){return key(v.name)===need;})?'<button class="btn btn-s" onclick="setSubName(document.getElementById(\'pk-b\').value)">Use “'+esc(q)+'” as typed</button>':'')
+    +(m.sub?'<button class="btn-q" onclick="setSub(\'\')">Remove the subcontractor</button>':'')+'</div>');
+};
+window.setSubName=function(n){
+  var m=mat(SEL.mat);if(!m)return;
+  m.sub=String(n||'').trim();
+  touch();closeSheet();rPane();rList();
 };
 var pbTimer=null;
 window.pickSubLater=function(v){
