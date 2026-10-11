@@ -7138,12 +7138,20 @@ function editMatSheet(){
       +'<datalist id="disc-list">'
       +Object.keys(discs).sort().map(function(d){return '<option value="'+attr(d)+'">';}).join('')
       +'</datalist></div>'
-    +'<div class="f wide"><label for="ed-ven">Vendor '
+    +'<div class="f wide"><label for="ed-ven">Manufacturer '
       +'<span class="dim">— type to narrow the list</span></label>'
       +'<input id="ed-ven" list="ven-list" value="'+attr(cur?cur.name:'')+'" '
       +'placeholder="none" autocomplete="off">'
       +'<datalist id="ven-list">'
       +vendors.map(function(v){return '<option value="'+attr(v.name)+'">';}).join('')
+      +'</datalist></div>'
+    /* who it comes through, and who inspects it */
+    +'<div class="f wide"><label for="ed-sup">Supplier '
+      +'<span class="dim">— type to narrow the list</span></label>'
+      +'<input id="ed-sup" list="sup-list" value="'+attr(m.supplier&&mfr(m.supplier)?mfr(m.supplier).name:'')+'" placeholder="none" autocomplete="off">'
+      +'<datalist id="sup-list">'
+      +vendors.slice().sort(function(a,b){return (a.kind==='supplier'?0:1)-(b.kind==='supplier'?0:1);})
+        .map(function(v){return '<option value="'+attr(v.name)+'">';}).join('')
       +'</datalist></div>'
     +'<div class="f wide"><label for="ed-sub">Sub-contractor '
       +'<span class="dim">— type to narrow the list</span></label>'
@@ -7157,6 +7165,13 @@ function editMatSheet(){
         (DB.mats||[]).forEach(function(x){if(x.sub&&!seen[K(x.sub)]){seen[K(x.sub)]=1;out.push(x.sub);}});
         return out.sort().map(function(n){return '<option value="'+attr(n)+'">';}).join('');
       })()
+      +'</datalist></div>'
+    +'<div class="f wide"><label for="ed-insp">Inspector '
+      +'<span class="dim">— from Personnel Approval</span></label>'
+      +'<input id="ed-insp" list="insp-list" value="'+attr(m.insp&&insp(m.insp)?insp(m.insp).name:'')+'" placeholder="none" autocomplete="off">'
+      +'<datalist id="insp-list">'
+      +(DB.people||[]).filter(function(p){return p.name;}).map(function(p){
+        return '<option value="'+attr(p.name)+'"'+(p.agency?(' label="'+attr(p.agency)+'"'):'')+'>';}).join('')
       +'</datalist></div>'
     +'<div class="f wide"><label for="ed-ref">Aconex reference</label>'
       +'<input id="ed-ref" class="mono" value="'+attr(m.ref||'')+'" autocomplete="off"></div>'
@@ -7179,6 +7194,24 @@ window.saveMatSheet=function(){
   m.catFrom=m.cat?'set by you':'';m.catSure=true;
   m.disc=v('ed-disc');
   m.sub=v('ed-sub');
+  /* the supplier is a company on the vendor list, made a supplier if new;
+     the inspector a person on Personnel Approval, added as pending if new */
+  var sw=v('ed-sup');
+  if(!sw)m.supplier='';
+  else{
+    var sf=(DB.mfrs||[]).filter(function(x){return K(x.name)===K(sw);})[0];
+    if(!sf){sf={id:idMaker()(),name:sw,kind:'supplier',cat:'',country:'',site:'',scope:'',steps:{},pq:{},added:today()};
+      DB.mfrs.push(sf);toast('Added '+sw+' to the vendors as a supplier');}
+    m.supplier=String(sf.id);
+  }
+  var iw=v('ed-insp');
+  if(!iw)m.insp='';
+  else{
+    var ip=(DB.people||[]).filter(function(x){return K(x.name)===K(iw);})[0];
+    if(!ip){ip={id:idMaker()(),name:iw,agency:'',disc:'',status:'Pending',ref:'',added:today()};
+      DB.people=DB.people||[];DB.people.push(ip);toast(iw+' added to Personnel Approval as pending');}
+    m.insp=String(ip.id);
+  }
   m.ref=v('ed-ref');
   m.qty=v('ed-qty');
   m.unit=v('ed-unit');

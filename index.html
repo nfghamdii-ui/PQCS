@@ -2389,7 +2389,8 @@ function matPane(m){
       pr('Item description',esc(m.name))+pr('Category',esc(m.cat||''))
       +pr('Discipline',esc(m.disc||''))+pr('Aconex reference',esc(m.ref||''),'mono')
       /* who makes it, who it comes through, who puts it in */
-      +pr('Manufacturer',(v0?esc(v0.name)+' ':'')+'<button class="btn-q no-print" style="padding:0 4px" onclick="pickMfr(\'\')">'+(v0?'Change':'Assign')+'</button>')
+      /* shown here, chosen in Edit; the companies' own details are on their pages */
+      +pr('Manufacturer',v0?esc(v0.name):'')
       +pr('Supplier',supCell(m))
       +pr('Subcontractor',subCell(m))
       +pr('Inspector',inspCell(m))
@@ -3284,8 +3285,7 @@ window.pickMfrLater=function(v){
 /* the subcontractor who installs it, from the vendor list; its name is
    what the Main Log writes as the Sub-contractor Name */
 function subCell(m){
-  return (m.sub?esc(m.sub)+' ':'')
-    +'<button class="btn-q no-print" style="padding:0 4px" onclick="pickSub()">'+(m.sub?'Change':'Assign')+'</button>';
+  return m.sub?esc(m.sub):'';
 }
 window.pickSub=function(q){
   var m=mat(SEL.mat);if(!m)return;
@@ -3333,8 +3333,7 @@ window.setSub=function(id){
 function supCell(m){
   var s=m.supplier?mfr(m.supplier):null, v=m.mfr?mfr(m.mfr):null;
   var auto=!s&&v&&v.kind==='supplier'?v:null;
-  return (s?esc(s.name)+' ':auto?(esc(auto.name)+' <span class="dim">\u00b7 the vendor</span> '):'')
-    +'<button class="btn-q no-print" style="padding:0 4px" onclick="pickSup()">'+(s?'Change':'Assign')+'</button>';
+  return s?esc(s.name):auto?(esc(auto.name)+' <span class="dim">\u00b7 the vendor</span>'):'';
 }
 window.pickSup=function(q){
   var m=mat(SEL.mat);if(!m)return;
@@ -3375,8 +3374,7 @@ window.setSup=function(id){
 function inspCell(m){
   var p=m.insp?insp(m.insp):null;
   return (p?(esc(p.name)+(p.agency?' <span class="dim">· '+esc(p.agency)+'</span>':'')
-      +((p.status||'Pending')!=='Approved'?' <span class="tag t-now">'+esc(String(p.status||'pending').toLowerCase())+'</span>':'')+' '):'')
-    +'<button class="btn-q no-print" style="padding:0 4px" onclick="pickInsp()">'+(p?'Change':'Assign')+'</button>';
+      +((p.status||'Pending')!=='Approved'?' <span class="tag t-now">'+esc(String(p.status||'pending').toLowerCase())+'</span>':'')):'');
 }
 window.pickInsp=function(q){
   var m=mat(SEL.mat);if(!m)return;
