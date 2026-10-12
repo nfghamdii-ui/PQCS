@@ -5652,12 +5652,19 @@ function sevenBook(list,more){
     .replace('</cellXfs>','<xf numFmtId="0" fontId="5" fillId="'+nf+'" borderId="6" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">'
       +'<alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs>');
   var RED=nx;
+  /* where the PQD number sits: after SEVEN's first twelve columns and the
+     ones added after Manufacturer City */
+  var PQD_COL=SEVEN_AT+SEVEN_NEW.length;
   var rows=list.map(function(m,i){
     var vals=sevenRow(m,i), r=7+i;
     var dead=vals.some(function(x){return /terminat/i.test(String(x));});
     var lines=vals.reduce(function(a,x){return Math.max(a,String(x).split('\n').length);},1);
     return '<row r="'+r+'"'+(lines>1?' ht="'+(lines*15)+'" customHeight="1"':'')+'>'
-      +vals.map(function(x,c){return sevenCell(colName(c)+r,x,dead?RED:sevenStyle(T,c));}).join('')+'</row>';
+      +vals.map(function(x,c){
+        /* a vendor that must be pre-qualified and has no PQD number: its
+           PQD cell is red, so the gap shows on the sheet */
+        var gap=c===PQD_COL&&!x&&(function(){var v=m.mfr?mfr(m.mfr):null;return v&&needsQual(v)&&!pqOf(v).ref;})();
+        return sevenCell(colName(c)+r,x,(dead||gap)?RED:sevenStyle(T,c));}).join('')+'</row>';
   }).join('');
   var last=6+Math.max(list.length,1);
   var name=(DB.project||'Materials').replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,31)||'Materials';
