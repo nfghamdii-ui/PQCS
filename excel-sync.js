@@ -5485,7 +5485,9 @@ function sevenRow(m,i){
   var tot=parseFloat(g('Total Quantity')), rem=parseFloat(g('Remaining'));
   return [i+1,'',g('Item Description'),m.cat||'',g('Common Package (Yes/No)'),g('Discipline'),
     g('Finishing (Internal/External)'),g('Package (Lump Sum / Provisional Sum / Prime Cost)'),
-    g('Sub-contractor Name'),g('Supply & Install / Supply / Install Only'),g('Manufacturer'),city,(v&&v.kind!=='supplier'?(v.addr||''):''),supplierOf(m),supplierCity(m),supplierAddr(m),supplierTel(m),
+    g('Sub-contractor Name'),g('Supply & Install / Supply / Install Only'),g('Manufacturer'),
+    (v&&v.kind!=='supplier'?(v.country||''):''),(v&&v.kind!=='supplier'?(v.addr||''):''),
+    supplierOf(m),supplierCountry(m),supplierCity(m),supplierTel(m),
     g('PQD Number'),g('PQD Revision'),g('PQD Status'),g('PQD Submittal Date'),
     g('MAT Number'),g('MAT Submittal Date'),g('MAT Revision'),g('MAT Status'),
     g('PA Tentative Date'),city,g('PA Document Number'),g('PA Date'),
@@ -5544,11 +5546,11 @@ function sevenPlain(rows){
 var SEVEN_PLAIN={3:2,30:2,31:2};
 /* the supplier of a material: the one named on it, or its vendor when
    the vendor is a supplier */
-/* the supplier's address, from its vendor page */
-function supplierAddr(m){
+/* the supplier's country, from its vendor page */
+function supplierCountry(m){
   var s=m.supplier?mfr(m.supplier):null, v=m.mfr?mfr(m.mfr):null;
   var x=s||(v&&v.kind==='supplier'?v:null);
-  return x?(x.addr||''):'';
+  return x?(x.country||''):'';
 }
 /* the supplier's telephone, from its vendor page */
 function supplierTel(m){
@@ -5556,11 +5558,11 @@ function supplierTel(m){
   var x=s||(v&&v.kind==='supplier'?v:null);
   return x?(x.tel||''):'';
 }
-/* where the supplier is, as the manufacturer's city is read */
+/* the supplier's city, from the City field of its vendor page */
 function supplierCity(m){
   var s=m.supplier?mfr(m.supplier):null, v=m.mfr?mfr(m.mfr):null;
   var x=s||(v&&v.kind==='supplier'?v:null);
-  return x?(x.site||x.country||''):'';
+  return x?(x.addr||''):'';
 }
 function supplierOf(m){
   var s=m.supplier?mfr(m.supplier):null;
@@ -5571,14 +5573,15 @@ function supplierOf(m){
 /* SEVEN's template with a Supplier column added after Manufacturer City,
    inside the Subcontractor / Manufacturer / Supplier heading: every cell,
    merge and width after it moves one column right. Made once. */
-var SEVEN_AT=12, SEVEN_NEW=['Manufacturer Address','Supplier','Supplier City','Supplier Address','Supplier Telephone'], SEVEN_T=null;
+var SEVEN_AT=12, SEVEN_NEW=['Manufacturer City','Supplier','Supplier Country','Supplier City','Supplier Telephone'], SEVEN_T=null;
 function sevenTpl(){
   if(SEVEN_T)return SEVEN_T;
   var T=window.SEVEN_TPL;if(!T)return null;
   var at=SEVEN_AT, k=SEVEN_NEW.length, L=colName(at-1), E=colName(at+k-1);
   function ix(c){var n=0;for(var i=0;i<c.length;i++)n=n*26+(c.charCodeAt(i)-64);return n-1;}
   function sh(c){var i=ix(c);return i>=at?colName(i+k):c;}
-  var head=T.head.replace(/<c r="([A-Z]+)(\d+)"/g,function(_,c,r){return '<c r="'+sh(c)+r+'"';});
+  var head=T.head.replace(/<c r="([A-Z]+)(\d+)"/g,function(_,c,r){return '<c r="'+sh(c)+r+'"';})
+    .replace('>Manufacturer City<','>Manufacturer Country<');
   function cells(r){
     return SEVEN_NEW.map(function(t,j){var C=colName(at+j);
       return r==1?'<c r="'+C+'1" s="68"/>':r==2?'<c r="'+C+'2" s="71"/>'
@@ -5599,7 +5602,11 @@ function sevenTpl(){
     a=+a;b=+b;if(a>at)a+=k;if(b>at&&b<16384)b+=k;return '<col min="'+a+'" max="'+b+'"';})
     .replace(new RegExp('(<col min="\\d+" max="'+at+'"[^>]*/>)'),'$1<col min="'+(at+1)+'" max="'+(at+k)+'" width="22" style="1" customWidth="1"/>');
   var extra=SEVEN_NEW.map(function(){return T.data[at-1];});
-  SEVEN_T={styles:T.styles,theme:T.theme,head:head,merges:merges,cols:cols,
+  /* one typeface across the workbook: every font is Century Gothic, and
+     none is tied to the theme's, which would put Calibri back */
+  var styles=T.styles.replace(/<name val="[^"]*"\/>/g,'<name val="Century Gothic"/>')
+    .replace(/<scheme val="[^"]*"\/>/g,'');
+  SEVEN_T={styles:styles,theme:T.theme,head:head,merges:merges,cols:cols,
     data:T.data.slice(0,at).concat(extra,T.data.slice(at))};
   return SEVEN_T;
 }
@@ -7284,7 +7291,7 @@ function editVendorSheet(){
     /* how to reach the company, and what it may not supply */
     +'<div class="f"><label for="ev-tel">Telephone 1</label>'
       +'<input id="ev-tel" class="mono" value="'+attr(v.tel||'')+'" autocomplete="off"></div>'
-    +'<div class="f wide"><label for="ev-addr">Address</label>'
+    +'<div class="f wide"><label for="ev-addr">City</label>'
       +'<input id="ev-addr" value="'+attr(v.addr||'')+'" autocomplete="off"></div>'
     +'<div class="f wide"><label for="ev-lim">Limitations</label>'
       +'<input id="ev-lim" value="'+attr(v.lim||'')+'" autocomplete="off"></div>'
