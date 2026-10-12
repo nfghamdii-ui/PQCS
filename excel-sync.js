@@ -935,7 +935,9 @@ function rawOut(m){
   if(v){
     if(v.kind==='sub'){if(!raw['Sub-contractor Name'])set('Sub-contractor Name',v.name);}
     /* a supplier is named as the supplier; the maker is the factory behind it */
-    else if(v.kind==='supplier'){var ob=(((v.steps||{}).origin)||{}).by;if(ob)set('Manufacturer',ob);}
+    /* named as the manufacturer while a supplier is named apart: the
+       manufacturer, whatever kind it is recorded as */
+    else if(v.kind==='supplier'&&!m.supplier){var ob=(((v.steps||{}).origin)||{}).by;if(ob)set('Manufacturer',ob);}
     else set('Manufacturer',v.name);
     /* a maker that also installs is the subcontractor too, unless another is named */
     if(v.kind==='makesub'&&!raw['Sub-contractor Name'])set('Sub-contractor Name',v.name);
@@ -5486,7 +5488,7 @@ function sevenRow(m,i){
   return [i+1,'',g('Item Description'),m.cat||'',g('Common Package (Yes/No)'),g('Discipline'),
     g('Finishing (Internal/External)'),g('Package (Lump Sum / Provisional Sum / Prime Cost)'),
     g('Sub-contractor Name'),g('Supply & Install / Supply / Install Only'),g('Manufacturer'),
-    (v&&v.kind!=='supplier'?(v.country||''):''),(v&&v.kind!=='supplier'?(v.addr||''):''),
+    (v&&(v.kind!=='supplier'||m.supplier)?(v.country||''):''),(v&&(v.kind!=='supplier'||m.supplier)?(v.addr||''):''),
     supplierOf(m),supplierCountry(m),supplierCity(m),supplierTel(m),
     g('PQD Number'),g('PQD Revision'),g('PQD Status'),g('PQD Submittal Date'),
     g('MAT Number'),g('MAT Submittal Date'),g('MAT Revision'),g('MAT Status'),
