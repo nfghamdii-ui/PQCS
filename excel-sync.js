@@ -7140,7 +7140,8 @@ function venVal(v){
   return same.length>1?(v.name+' ('+(same.indexOf(v)+1)+')'):v.name;
 }
 function venNote(v){
-  var t=[KINDS[kindOf(v)].l,v.scope||''].filter(Boolean).join(' · ');
+  /* what it is, where its pre-qualification stands, what it does */
+  var t=[KINDS[kindOf(v)].l,pqOf(v).status||'no PQD status',v.scope||''].filter(Boolean).join(' · ');
   return t;
 }
 function venOpt(v){return '<option value="'+attr(venVal(v))+'" label="'+attr(venNote(v))+'">';}
