@@ -5654,7 +5654,7 @@ function sevenBook(list,more){
   var RED=nx;
   /* and one more: the manufacturer's own cell with its name in red — the
      cell's style as it is, its font red — for a vendor with no PQD number */
-  var MAN_COL=10;
+  var MAN_COL=10, SUP_COL=SEVEN_AT+SEVEN_NEW.indexOf('Supplier');
   var xfs=(/<cellXfs[^>]*>([\s\S]*?)<\/cellXfs>/.exec(st)[1].match(/<xf [^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g))||[];
   var fonts=(/<fonts[^>]*>([\s\S]*?)<\/fonts>/.exec(st)[1].match(/<font>[\s\S]*?<\/font>|<font\/>/g))||[];
   var baseXf=xfs[sevenStyle(T,MAN_COL)]||xfs[0], fid=+((/fontId="(\d+)"/.exec(baseXf)||[0,0])[1]);
@@ -5675,7 +5675,10 @@ function sevenBook(list,more){
       +vals.map(function(x,c){
         /* a vendor that must be pre-qualified and has no PQD number: its
            name is written in red, so the gap shows on the sheet */
-        var gap=c===MAN_COL&&x&&(function(){var v=m.mfr?mfr(m.mfr):null;return v&&needsQual(v)&&!pqOf(v).ref;})();
+        var gap=x&&(c===MAN_COL||c===SUP_COL)&&(function(){
+          var v=c===MAN_COL?(m.mfr?mfr(m.mfr):null)
+            :(m.supplier?mfr(m.supplier):(m.mfr&&mfr(m.mfr)&&mfr(m.mfr).kind==='supplier'?mfr(m.mfr):null));
+          return v&&needsQual(v)&&!pqOf(v).ref;})();
         return sevenCell(colName(c)+r,x,dead?RED:gap?REDTXT:sevenStyle(T,c));}).join('')+'</row>';
   }).join('');
   var last=6+Math.max(list.length,1);
