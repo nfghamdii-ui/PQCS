@@ -6091,7 +6091,8 @@ var TABLES_DEF={
     col('Item Description','name',function(r){return r.name;},'text',420),
     col('Category','cat',function(r){return r.cat;},'pick',90),
     col('Discipline','disc',function(r){return r.disc;},'pick',150),
-    col('Vendor','ven',function(r){var v=r.mfr?mfr(r.mfr):null;return v?v.name:'';},'pick',180),
+    col('Manufacturer','ven',function(r){var v=r.mfr?mfr(r.mfr):null;return v?v.name:'';},'pick',180),
+    col('Supplier','supp',function(r){return supplierOf(r);},'pick',180),
     asTag(col('Vendor status','vst',function(r){var v=r.mfr?mfr(r.mfr):null;return v?mfrState(v).word:'no vendor';},'pick',150),
       function(v,r){var x=r.mfr?mfr(r.mfr):null;return x?MS_TONE[mfrState(x).tone]:'now';}),
     col('Stage','stage',stageOf,'pick',190),
@@ -6118,7 +6119,7 @@ var TABLES_DEF={
     asNum(col('Delivered','got',function(r){return (r.dels||[]).length?String(received(r)):'';},'text',100)),
     asNum(col('Documents','ndoc',function(r){return String((r.docs||[]).length||'');},'text',100)),
     asNum(col('Consignments','ndel',function(r){return String((r.dels||[]).length||'');},'text',110))],
-   show:['name','cat','disc','ven','vst','stage','who','prog','logp','matst','itpst','mesno','messt']},
+   show:['name','cat','disc','ven','supp','vst','stage','who','prog','logp','matst','itpst','mesno','messt']},
 
  /* The MIR tab is the work still to do, as Documents is: a request
     leaves it once a material links it, and every request, linked or
