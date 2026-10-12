@@ -7132,6 +7132,22 @@ window.editRecord=function(){
   return editMatSheet();
 };
 
+/* A vendor as the pickers offer it: its name — numbered when another
+   company has the same name — and under it what it is and does */
+function venVal(v){
+  var same=(DB.mfrs||[]).filter(function(x){return K(x.name)===K(v.name);});
+  return same.length>1?(v.name+' ('+(same.indexOf(v)+1)+')'):v.name;
+}
+function venNote(v){
+  var t=[KINDS[kindOf(v)].l,v.scope||''].filter(Boolean).join(' · ');
+  return t;
+}
+function venOpt(v){return '<option value="'+attr(venVal(v))+'" label="'+attr(venNote(v))+'">';}
+/* only a company on the vendor list: a name typed that is not one is refused */
+function venFind(typed){
+  return (DB.mfrs||[]).filter(function(x){return K(venVal(x))===K(typed);})[0]
+    ||(function(){var by=(DB.mfrs||[]).filter(function(x){return K(x.name)===K(typed);});return by.length===1?by[0]:null;})();
+}
 /* ---------------------------------------------------------------- material */
 function editMatSheet(){
   var m=mat(SEL.mat);if(!m)return;
@@ -7152,19 +7168,19 @@ function editMatSheet(){
       +'</datalist></div>'
     +'<div class="f wide"><label for="ed-ven">Manufacturer '
       +'<span class="dim">— type to narrow the list</span></label>'
-      +'<input id="ed-ven" list="ven-list" value="'+attr(cur?cur.name:'')+'" '
+      +'<input id="ed-ven" list="ven-list" value="'+attr(cur?venVal(cur):'')+'" '
       +'placeholder="none" autocomplete="off">'
       +'<datalist id="ven-list">'
-      +vendors.map(function(v){return '<option value="'+attr(v.name)+'">';}).join('')
-      +'</datalist></div>'
+      +vendors.map(venOpt).join('')
+      +'</datalist><span class="err" id="e-ed-ven"></span></div>'
     /* who it comes through, and who inspects it */
     +'<div class="f wide"><label for="ed-sup">Supplier '
       +'<span class="dim">— type to narrow the list</span></label>'
-      +'<input id="ed-sup" list="sup-list" value="'+attr(m.supplier&&mfr(m.supplier)?mfr(m.supplier).name:'')+'" placeholder="none" autocomplete="off">'
+      +'<input id="ed-sup" list="sup-list" value="'+attr(m.supplier&&mfr(m.supplier)?venVal(mfr(m.supplier)):'')+'" placeholder="none" autocomplete="off">'
       +'<datalist id="sup-list">'
       +vendors.slice().sort(function(a,b){return (a.kind==='supplier'?0:1)-(b.kind==='supplier'?0:1);})
-        .map(function(v){return '<option value="'+attr(v.name)+'">';}).join('')
-      +'</datalist></div>'
+        .map(venOpt).join('')
+      +'</datalist><span class="err" id="e-ed-sup"></span></div>'
     +'<div class="f wide"><label for="ed-sub">Sub-contractor '
       +'<span class="dim">— type to narrow the list</span></label>'
       +'<input id="ed-sub" list="sub-list" value="'+attr(m.sub||'')+'" placeholder="none" autocomplete="off">'
@@ -7200,6 +7216,14 @@ function editMatSheet(){
 window.saveMatSheet=function(){
   var m=mat(SEL.mat);if(!m)return;
   function v(id){return trim((document.getElementById(id)||{}).value);}
+  /* the manufacturer and the supplier are companies on the vendor list —
+     a name that is not one stops the save, and says so */
+  var venHit=v('ed-ven')?venFind(v('ed-ven')):null, supHit=v('ed-sup')?venFind(v('ed-sup')):null, refused=false;
+  [['ed-ven',venHit],['ed-sup',supHit]].forEach(function(p){
+    var e=document.getElementById('e-'+p[0]);if(e)e.textContent='';
+    if(v(p[0])&&!p[1]){refused=true;if(e)e.textContent='Not on the vendor list — add it under Vendors first, then choose it here';}
+  });
+  if(refused)return;
   var name=v('ed-name');
   if(name){m.name=name;if(m.raw)m.raw['Item Description']=name;}
   m.cat=v('ed-cat');
@@ -7208,14 +7232,7 @@ window.saveMatSheet=function(){
   m.sub=v('ed-sub');
   /* the supplier is a company on the vendor list, made a supplier if new;
      the inspector a person on Personnel Approval, added as pending if new */
-  var sw=v('ed-sup');
-  if(!sw)m.supplier='';
-  else{
-    var sf=(DB.mfrs||[]).filter(function(x){return K(x.name)===K(sw);})[0];
-    if(!sf){sf={id:idMaker()(),name:sw,kind:'supplier',cat:'',country:'',site:'',scope:'',steps:{},pq:{},added:today()};
-      DB.mfrs.push(sf);toast('Added '+sw+' to the vendors as a supplier');}
-    m.supplier=String(sf.id);
-  }
+  m.supplier=supHit?String(supHit.id):'';
   var iw=v('ed-insp');
   if(!iw)m.insp='';
   else{
@@ -7229,18 +7246,7 @@ window.saveMatSheet=function(){
   m.unit=v('ed-unit');
   /* the vendor is named, not numbered — an unknown name is made rather
      than dropped, because typing one is how a person says it exists */
-  var want=v('ed-ven');
-  if(!want)m.mfr='';
-  else{
-    var found=(DB.mfrs||[]).filter(function(x){return K(x.name)===K(want);})[0];
-    if(!found){
-      found={id:idMaker()(),name:want,kind:'maker',cat:m.cat||'',country:'',site:'',
-        scope:'',steps:{},pq:{},added:today()};
-      DB.mfrs.push(found);
-      toast('Added '+want+' to the vendors');
-    }
-    m.mfr=String(found.id);
-  }
+  m.mfr=venHit?String(venHit.id):'';
   touch();closeSheet();rList();rPane();
 };
 
@@ -7631,7 +7637,10 @@ function ddDraw(){
   list.innerHTML=DD.items.length?DD.items.map(function(it,i){
     return '<div class="dd-i'+(i===DD.at?' at':'')+(it.sel?' sel':'')+'" data-i="'+i+'" role="option"'
       +(it.sel?' aria-selected="true"':'')+'>'
-      +'<span>'+esc(it.text)+'</span>'+(it.note?'<span class="dd-n">'+esc(it.note)+'</span>':'')+'</div>';
+      /* a suggestion's note (a company's kind and scope) reads under its name */
+      +(DD.kind==='text'&&it.note
+        ?'<span class="dd-t"><span>'+esc(it.text)+'</span><span class="dd-s">'+esc(it.note)+'</span></span>'
+        :'<span>'+esc(it.text)+'</span>'+(it.note?'<span class="dd-n">'+esc(it.note)+'</span>':''))+'</div>';
   }).join(''):'<div class="dd-none">Nothing matches</div>';
   var at=list.querySelector('.dd-i.at');
   if(at){var t=at.offsetTop,b=t+at.offsetHeight;
@@ -7719,6 +7728,8 @@ function installDropdowns(){
   +'.dd-i.at{box-shadow:inset 0 0 0 1px var(--line-2)}'
   +'.dd-i.sel{font-weight:600;box-shadow:inset 3px 0 0 #ffcc3e}'
   +'.dd-n{font-size:12px;color:var(--ink-4);flex-shrink:0}'
+  +'.dd-t{display:flex;flex-direction:column;min-width:0}'
+  +'.dd-s{font-size:12px;color:var(--ink-4);margin-top:2px;line-height:1.35}'
   +'.dd-none{padding:9px 11px;font-size:13px;color:var(--ink-4)}'
   +'.dd-q{margin:2px 2px 6px;padding:8px 10px;border:1px solid var(--line-2);border-radius:7px;font:inherit;font-size:13.5px;'
   +'outline:none;background:var(--card);color:var(--ink)}'
