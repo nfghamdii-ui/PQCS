@@ -7455,13 +7455,20 @@ function install(){
    labelling them at load time labels nothing. It runs when the workspace
    opens and again after every reload of it — and does nothing at all
    once everything already carries a label. */
+/* Each runs on its own: one that trips over an odd record must not stop
+   the rest (it did — a lapsed certificate stayed Valid behind it). */
+var SORT_ERR=[];
 function sortOut(){
-  try{
-    var n=labelDocuments()+liftVisits()+liftTerminated()+liftMirLinks()+liftRefs()+liftDocSteps()+paaSyncPeople()+liftCats()+liftExpired();
-    if(n){rList();rPane();}
-    else paintTabs();
-  }catch(e){}
+  if(!DB)return;                     /* nothing has arrived yet */
+  var n=0;
+  [liftExpired,labelDocuments,liftVisits,liftTerminated,liftMirLinks,liftRefs,liftDocSteps,paaSyncPeople,liftCats]
+    .forEach(function(f){
+      try{n+=f()||0;}
+      catch(e){SORT_ERR.push((f.name||'?')+': '+(e&&e.message||e));if(window.console)console.error('sortOut',f.name,e);}
+    });
+  try{if(n){rList();rPane();}else paintTabs();}catch(e){}
 }
+window.sortErrors=function(){return SORT_ERR.slice();};
 /* ================================================================
    GOING BACK TO WHERE YOU WERE
    ----------------------------------------------------------------
