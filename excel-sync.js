@@ -5652,9 +5652,21 @@ function sevenBook(list,more){
     .replace('</cellXfs>','<xf numFmtId="0" fontId="5" fillId="'+nf+'" borderId="6" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">'
       +'<alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs>');
   var RED=nx;
-  /* where the PQD number sits: after SEVEN's first twelve columns and the
-     ones added after Manufacturer City */
-  var PQD_COL=SEVEN_AT+SEVEN_NEW.length;
+  /* and one more: the manufacturer's own cell with its name in red — the
+     cell's style as it is, its font red — for a vendor with no PQD number */
+  var MAN_COL=10;
+  var xfs=(/<cellXfs[^>]*>([\s\S]*?)<\/cellXfs>/.exec(st)[1].match(/<xf [^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g))||[];
+  var fonts=(/<fonts[^>]*>([\s\S]*?)<\/fonts>/.exec(st)[1].match(/<font>[\s\S]*?<\/font>|<font\/>/g))||[];
+  var baseXf=xfs[sevenStyle(T,MAN_COL)]||xfs[0], fid=+((/fontId="(\d+)"/.exec(baseXf)||[0,0])[1]);
+  var nfo=fonts.length, redFont=(fonts[fid]||'<font></font>').replace(/<color [^>]*\/>/,'');
+  redFont=redFont.replace(/^<font\/>$/,'<font></font>').replace('<font>','<font><color rgb="FFFF0000"/>');
+  /* the colour goes after the size, as the schema orders a font */
+  redFont=redFont.replace(/<font><color rgb="FFFF0000"\/>(<b\/>)?(<i\/>)?(<u\/>)?(<sz [^>]*\/>)?/,function(_,b,i,u,sz){
+    return '<font>'+(b||'')+(i||'')+(u||'')+(sz||'')+'<color rgb="FFFF0000"/>';});
+  st=st.replace(/<fonts count="\d+"/,'<fonts count="'+(nfo+1)+'"').replace('</fonts>',redFont+'</fonts>')
+    .replace(/<cellXfs count="\d+">/,'<cellXfs count="'+(nx+2)+'">')
+    .replace('</cellXfs>',baseXf.replace(/fontId="\d+"/,'fontId="'+nfo+'"').replace(/applyFont="\d"/,'applyFont="1"')+'</cellXfs>');
+  var REDTXT=nx+1;
   var rows=list.map(function(m,i){
     var vals=sevenRow(m,i), r=7+i;
     var dead=vals.some(function(x){return /terminat/i.test(String(x));});
@@ -5662,9 +5674,9 @@ function sevenBook(list,more){
     return '<row r="'+r+'"'+(lines>1?' ht="'+(lines*15)+'" customHeight="1"':'')+'>'
       +vals.map(function(x,c){
         /* a vendor that must be pre-qualified and has no PQD number: its
-           PQD cell is red, so the gap shows on the sheet */
-        var gap=c===PQD_COL&&!x&&(function(){var v=m.mfr?mfr(m.mfr):null;return v&&needsQual(v)&&!pqOf(v).ref;})();
-        return sevenCell(colName(c)+r,x,(dead||gap)?RED:sevenStyle(T,c));}).join('')+'</row>';
+           name is written in red, so the gap shows on the sheet */
+        var gap=c===MAN_COL&&x&&(function(){var v=m.mfr?mfr(m.mfr):null;return v&&needsQual(v)&&!pqOf(v).ref;})();
+        return sevenCell(colName(c)+r,x,dead?RED:gap?REDTXT:sevenStyle(T,c));}).join('')+'</row>';
   }).join('');
   var last=6+Math.max(list.length,1);
   var name=(DB.project||'Materials').replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,31)||'Materials';
