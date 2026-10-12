@@ -5485,7 +5485,7 @@ function sevenRow(m,i){
   var tot=parseFloat(g('Total Quantity')), rem=parseFloat(g('Remaining'));
   return [i+1,'',g('Item Description'),m.cat||'',g('Common Package (Yes/No)'),g('Discipline'),
     g('Finishing (Internal/External)'),g('Package (Lump Sum / Provisional Sum / Prime Cost)'),
-    g('Sub-contractor Name'),g('Supply & Install / Supply / Install Only'),g('Manufacturer'),city,supplierOf(m),supplierCity(m),supplierTel(m),
+    g('Sub-contractor Name'),g('Supply & Install / Supply / Install Only'),g('Manufacturer'),city,(v&&v.kind!=='supplier'?(v.addr||''):''),supplierOf(m),supplierCity(m),supplierAddr(m),supplierTel(m),
     g('PQD Number'),g('PQD Revision'),g('PQD Status'),g('PQD Submittal Date'),
     g('MAT Number'),g('MAT Submittal Date'),g('MAT Revision'),g('MAT Status'),
     g('PA Tentative Date'),city,g('PA Document Number'),g('PA Date'),
@@ -5544,6 +5544,12 @@ function sevenPlain(rows){
 var SEVEN_PLAIN={3:2,30:2,31:2};
 /* the supplier of a material: the one named on it, or its vendor when
    the vendor is a supplier */
+/* the supplier's address, from its vendor page */
+function supplierAddr(m){
+  var s=m.supplier?mfr(m.supplier):null, v=m.mfr?mfr(m.mfr):null;
+  var x=s||(v&&v.kind==='supplier'?v:null);
+  return x?(x.addr||''):'';
+}
 /* the supplier's telephone, from its vendor page */
 function supplierTel(m){
   var s=m.supplier?mfr(m.supplier):null, v=m.mfr?mfr(m.mfr):null;
@@ -5565,7 +5571,7 @@ function supplierOf(m){
 /* SEVEN's template with a Supplier column added after Manufacturer City,
    inside the Subcontractor / Manufacturer / Supplier heading: every cell,
    merge and width after it moves one column right. Made once. */
-var SEVEN_AT=12, SEVEN_NEW=['Supplier','Supplier City','Supplier Telephone'], SEVEN_T=null;
+var SEVEN_AT=12, SEVEN_NEW=['Manufacturer Address','Supplier','Supplier City','Supplier Address','Supplier Telephone'], SEVEN_T=null;
 function sevenTpl(){
   if(SEVEN_T)return SEVEN_T;
   var T=window.SEVEN_TPL;if(!T)return null;
