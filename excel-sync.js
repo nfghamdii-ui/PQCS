@@ -5483,7 +5483,8 @@ function sevenRow(m,i){
   var r=appRow(m), v=m.mfr?mfr(m.mfr):null;
   var g=function(c){var x=r[c];return x==null?'':x;};
   var unit=function(q,u){q=g(q);return q===''?'':(q+(g(u)?' '+g(u):''));};
-  var city=v?(v.site||v.country||''):'';
+  /* where the factory is, for the assessment: country and city */
+  var city=v?([v.country,v.addr].filter(Boolean).join(' - ')||v.site||''):'';
   var tot=parseFloat(g('Total Quantity')), rem=parseFloat(g('Remaining'));
   return [i+1,'',g('Item Description'),m.cat||'',g('Common Package (Yes/No)'),g('Discipline'),
     g('Finishing (Internal/External)'),g('Package (Lump Sum / Provisional Sum / Prime Cost)'),
