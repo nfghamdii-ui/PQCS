@@ -5483,8 +5483,7 @@ function sevenRow(m,i){
   var r=appRow(m), v=m.mfr?mfr(m.mfr):null;
   var g=function(c){var x=r[c];return x==null?'':x;};
   var unit=function(q,u){q=g(q);return q===''?'':(q+(g(u)?' '+g(u):''));};
-  /* where the factory is, for the assessment: country and city */
-  var city=v?([v.country,v.addr].filter(Boolean).join(' - ')||v.site||''):'';
+
   var tot=parseFloat(g('Total Quantity')), rem=parseFloat(g('Remaining'));
   return [i+1,'',g('Item Description'),m.cat||'',g('Common Package (Yes/No)'),g('Discipline'),
     g('Finishing (Internal/External)'),g('Package (Lump Sum / Provisional Sum / Prime Cost)'),
@@ -5493,7 +5492,8 @@ function sevenRow(m,i){
     supplierOf(m),supplierCountry(m),supplierCity(m),supplierTel(m),
     g('PQD Number'),g('PQD Revision'),g('PQD Status'),g('PQD Submittal Date'),
     g('MAT Number'),g('MAT Submittal Date'),g('MAT Revision'),g('MAT Status'),
-    g('PA Tentative Date'),city,g('PA Document Number'),g('PA Date'),
+    /* the factory being assessed: its country, then its city */
+    g('PA Tentative Date'),(v?(v.country||''):''),(v?(v.addr||v.site||''):''),g('PA Document Number'),g('PA Date'),
     g('3rd Party Assessment Done'),g('Client Assessment Done'),g('PMC/LDC Assessment Done'),
     g('Contractor Assessment Done'),g('Assessment Result'),
     g('Sample'),g('Mock-up Delivered Date'),g('Mock-up First in Place'),g('Mock-up Approved by PMC'),g('Mock-up per Client DLA'),
@@ -5573,44 +5573,64 @@ function supplierOf(m){
   var v=m.mfr?mfr(m.mfr):null;
   return v&&v.kind==='supplier'?v.name:'';
 }
-/* SEVEN's template with a Supplier column added after Manufacturer City,
-   inside the Subcontractor / Manufacturer / Supplier heading: every cell,
-   merge and width after it moves one column right. Made once. */
-var SEVEN_AT=12, SEVEN_NEW=['Manufacturer City','Supplier','Supplier Country','Supplier City','Supplier Telephone'], SEVEN_T=null;
-function sevenTpl(){
-  if(SEVEN_T)return SEVEN_T;
-  var T=window.SEVEN_TPL;if(!T)return null;
-  var at=SEVEN_AT, k=SEVEN_NEW.length, L=colName(at-1), E=colName(at+k-1);
+/* SEVEN's template with columns of the tracker's added inside its own
+   headings: every cell, merge and width after them moves right, and the
+   new cells take the look of the column before them. */
+function tplInsert(T,at,names,rename){
+  var k=names.length, L=colName(at-1);
   function ix(c){var n=0;for(var i=0;i<c.length;i++)n=n*26+(c.charCodeAt(i)-64);return n-1;}
   function sh(c){var i=ix(c);return i>=at?colName(i+k):c;}
-  var head=T.head.replace(/<c r="([A-Z]+)(\d+)"/g,function(_,c,r){return '<c r="'+sh(c)+r+'"';})
-    .replace('>Manufacturer City<','>Manufacturer Country<');
+  var head=T.head.replace(/<c r="([A-Z]+)(\d+)"/g,function(_,c,r){return '<c r="'+sh(c)+r+'"';});
+  if(rename)head=head.replace(rename[0],rename[1]);
+  var sty={};
+  head.replace(new RegExp('<c r="'+L+'(\\d+)" s="(\\d+)"','g'),function(_,r,st){sty[r]=st;});
+  /* the column before was the heading's right edge: the edge moves on */
+  var mid={'78':'77','74':'73'}[sty[3]];
   function cells(r){
-    return SEVEN_NEW.map(function(t,j){var C=colName(at+j);
-      return r==1?'<c r="'+C+'1" s="68"/>':r==2?'<c r="'+C+'2" s="71"/>'
-        :r==3?'<c r="'+C+'3" s="'+(j===k-1?78:77)+'"/>'
-        :r==4?'<c r="'+C+'4" s="54" t="inlineStr"><is><t xml:space="preserve">'+xml(t)+'</t></is></c>'
-        :r==5?'<c r="'+C+'5" s="55"/>':'<c r="'+C+'6" s="22" t="inlineStr"><is><t xml:space="preserve"> </t></is></c>';
+    return names.map(function(t,j){
+      var C=colName(at+j), st=sty[r]||'0';
+      if(r===3&&mid)st=(j===k-1?sty[3]:mid);
+      return r===4?'<c r="'+C+'4" s="'+st+'" t="inlineStr"><is><t xml:space="preserve">'+xml(t)+'</t></is></c>'
+        :r===6?'<c r="'+C+'6" s="'+st+'" t="inlineStr"><is><t xml:space="preserve"> </t></is></c>'
+        :'<c r="'+C+r+'" s="'+st+'"/>';
     }).join('');
   }
   head=head.replace(new RegExp('<c r="'+L+'(\\d+)"[^>]*?(?:/>|>.*?</c>)','g'),function(cell,r){return +r<=6?cell+cells(+r):cell;});
-  /* the heading's right edge moves to the last new column */
-  head=head.replace('<c r="'+L+'3" s="78"','<c r="'+L+'3" s="77"');
+  if(mid)head=head.replace('<c r="'+L+'3" s="'+sty[3]+'"','<c r="'+L+'3" s="'+mid+'"');
+  var tall=T.merges.indexOf('ref="'+L+'4:'+L+'5"')>=0;
   var merges=T.merges.replace(/ref="([A-Z]+)(\d+):([A-Z]+)(\d+)"/g,function(_,a,r1,b,r2){
-    if(a==='I'&&r1==='3'&&b===L&&r2==='3')return 'ref="I3:'+E+'3"';
-    return 'ref="'+sh(a)+r1+':'+sh(b)+r2+'"';})
-    .replace(/<mergeCells count="(\d+)">/,function(_,n){return '<mergeCells count="'+(+n+k)+'">';})
-    .replace('</mergeCells>',SEVEN_NEW.map(function(_,j){var C=colName(at+j);return '<mergeCell ref="'+C+'4:'+C+'5"/>';}).join('')+'</mergeCells>');
-  var cols=T.cols.replace(/<col min="(\d+)" max="(\d+)"/g,function(_,a,b){
-    a=+a;b=+b;if(a>at)a+=k;if(b>at&&b<16384)b+=k;return '<col min="'+a+'" max="'+b+'"';})
-    .replace(new RegExp('(<col min="\\d+" max="'+at+'"[^>]*/>)'),'$1<col min="'+(at+1)+'" max="'+(at+k)+'" width="22" style="1" customWidth="1"/>');
-  var extra=SEVEN_NEW.map(function(){return T.data[at-1];});
+    var nb=ix(b)>=at?ix(b)+k:ix(b);
+    /* a heading ending on the column before now ends on the last new one */
+    if(r1==='3'&&r2==='3'&&ix(b)===at-1&&ix(a)<=at-1)nb=at-1+k;
+    return 'ref="'+sh(a)+r1+':'+colName(nb)+r2+'"';})
+    .replace(/<mergeCells count="(\d+)">/,function(_,n){return '<mergeCells count="'+(+n+(tall?k:0))+'">';})
+    .replace('</mergeCells>',(tall?names.map(function(_,j){var C=colName(at+j);return '<mergeCell ref="'+C+'4:'+C+'5"/>';}).join(''):'')+'</mergeCells>');
+  var width='22';
+  var cols=T.cols.replace(/<col min="(\d+)" max="(\d+)"([^>]*)\/>/g,function(all,a,b,rest){
+    a=+a;b=+b;
+    if(a<=at&&b>=at){var w=/width="([^"]+)"/.exec(rest);if(w)width=w[1];}
+    if(a>at)a+=k;if(b>at&&b<16384)b+=k;return '<col min="'+a+'" max="'+b+'"'+rest+'/>';})
+    .replace(new RegExp('(<col min="\\d+" max="'+at+'"[^>]*/>)'),'$1<col min="'+(at+1)+'" max="'+(at+k)+'" width="'+width+'" style="1" customWidth="1"/>');
+  var extra=names.map(function(){return T.data[at-1];});
+  return {styles:T.styles,theme:T.theme,head:head,merges:merges,cols:cols,
+    data:T.data.slice(0,at).concat(extra,T.data.slice(at))};
+}
+/* After Manufacturer City (which holds the country now): the
+   manufacturer's city and the supplier's company, country, city and
+   telephone. After the assessment's Factory City (the country now): the
+   factory's city. The later one first, so the earlier does not move it. */
+var SEVEN_AT=12, SEVEN_NEW=['Manufacturer City','Supplier','Supplier Country','Supplier City','Supplier Telephone'], SEVEN_T=null;
+var SEVEN_PA_AT=22, SEVEN_PA_NEW=['Factory City'];
+function sevenTpl(){
+  if(SEVEN_T)return SEVEN_T;
+  var T=window.SEVEN_TPL;if(!T)return null;
+  var T1=tplInsert(T,SEVEN_PA_AT,SEVEN_PA_NEW,['>Factory City<','>Factory Country<']);
+  var T2=tplInsert(T1,SEVEN_AT,SEVEN_NEW,['>Manufacturer City<','>Manufacturer Country<']);
   /* one typeface across the workbook: every font is Century Gothic, and
      none is tied to the theme's, which would put Calibri back */
-  var styles=T.styles.replace(/<name val="[^"]*"\/>/g,'<name val="Century Gothic"/>')
+  T2.styles=T.styles.replace(/<name val="[^"]*"\/>/g,'<name val="Century Gothic"/>')
     .replace(/<scheme val="[^"]*"\/>/g,'');
-  SEVEN_T={styles:styles,theme:T.theme,head:head,merges:merges,cols:cols,
-    data:T.data.slice(0,at).concat(extra,T.data.slice(at))};
+  SEVEN_T=T2;
   return SEVEN_T;
 }
 function sevenStyle(T,c){
