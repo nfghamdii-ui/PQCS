@@ -5601,15 +5601,18 @@ function sevenLog(){
   return sevenBook(sevenMaterials(),more);
 }
 /* a plain sheet in the same workbook: grey bold heading, bordered cells */
-function sevenPlain(rows,widths,tint){
+function sevenPlain(rows,widths,tint,red){
   var wide=rows.reduce(function(a,r){return Math.max(a,r.length);},0);
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
     +(widths?'<cols>'+widths.map(function(w,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>';}).join('')+'</cols>'
       :'<cols><col min="1" max="1" width="44" customWidth="1"/><col min="2" max="'+Math.max(2,wide)+'" width="22" customWidth="1"/></cols>')
     +'<sheetData>'+rows.map(function(row,r){
-      /* an outcome shaded by what it says: passed, failed, still to come */
+      /* a row with anything terminated on it is shaded red across, as on
+         the main sheet; otherwise an outcome is shaded by what it says */
+      var dead=r>0&&red!=null&&row.some(function(v){var x=v&&typeof v==='object'&&'v' in v?v.v:v;return /terminat/i.test(String(x==null?'':x));});
       return '<row r="'+(r+1)+'">'+row.map(function(v,c){
+        if(dead){if(v&&typeof v==='object'&&'v' in v)v=v.v;return sevenCell(colName(c)+(r+1),v,red);}
         var tag=v&&typeof v==='object'&&'t' in v?v.t:'';
         if(v&&typeof v==='object'&&'t' in v)v=v.v;
         var w=String(v==null?'':v).trim(), st=r===0?51:2;
@@ -5860,7 +5863,7 @@ function sevenBook(list,more){
     {name:'xl/styles.xml',text:st},
     {name:'xl/worksheets/sheet1.xml',text:sheetXml}
   ].concat(more.map(function(m,i){return {name:'xl/worksheets/sheet'+(i+2)+'.xml',
-    text:m.xml?m.xml(TWS):sevenPlain(m.rows,m.widths,m.tint?TINT:null)};}));
+    text:m.xml?m.xml(TWS):sevenPlain(m.rows,m.widths,m.tint?TINT:null,RED)};}));
   return zipUp(files);
 }
 var REPORTS=[
