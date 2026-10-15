@@ -5038,7 +5038,8 @@ function twSecOf(x){
     return '';
   }
   /* the physical assessments are read from the vendors themselves */
-  if(x.c==='visit')return k==='Pre-fab'?'7':(k==='FAT'||k==='IPI')?'9':'';
+  /* the meetings too: read from each material's own step, below */
+  if(x.c==='visit')return (k==='FAT'||k==='IPI')?'9':'';
   if(x.c==='apqd')return '2';
   /* a release is an inspection request linked to a material, which is
      that material's consignment; one linked to nothing stays out */
@@ -5065,11 +5066,21 @@ function twItems(t0,end){
     else if(soon&&!pa.date&&!(v.logf||{})['PA Tentative Date'])undated.push({label:v.name+' ( upcoming )',disc:code,dates:[]});
   });
   sec['1']=sec['1'].concat(undated);
+  /* the meeting on the day it is held, as entered on the material's step
+     before its minutes reach Aconex, whatever the minutes' state */
+  (DB.mats||[]).forEach(function(m){
+    if(isDoc(m))return;
+    var d=((m.steps||{}).pfm||{}).date;
+    if(d&&d>=t0&&d<=end)sec['7'].push({label:m.name,disc:twDisc(matNo(m),m.disc),dates:[d]});
+  });
   var items=typeof calItems==='function'?calItems(t0,end):[];
   items.forEach(function(x){
     var k=twSecOf(x);if(!k||!x.d||x.d<t0||x.d>end)return;
     /* a PQD only when first submitted; a release for C2 and C3 only */
     if(k==='2'&&x.rev!=null&&x.rev!==''&&!/^0*$/.test(String(x.rev).trim()))return;
+    /* a meeting comes from the material's step only: minutes in Aconex
+       are of one already held */
+    if(k==='7')return;
     if(k==='10'&&x.c!=='del')return;
     if(k==='10'&&x.cat!=null&&x.cat!==''&&x.cat!=='C2'&&x.cat!=='C3')return;
     var name=x.name||String(x.t||'').replace(/^[^·]*·\s*/,'')||x.t;
