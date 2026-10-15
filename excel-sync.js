@@ -5559,18 +5559,22 @@ function sevenLog(){
   if(loose.length>1)more.push({name:'Not linked',rows:loose});
   /* the physical assessments that took place, oldest first */
   var pas=paSheetRows();
-  if(pas.length>1)more.push({name:'Physical Assessment',rows:pas,widths:[5,34,10,16,32,30,22,12,12,20,12,20,12,12,32]});
+  if(pas.length>1)more.push({name:'Physical Assessment',rows:pas,widths:[5,34,10,16,32,30,22,12,12,20,12,20,12,12,32],tint:true});
   return sevenBook(sevenMaterials(),more);
 }
 /* a plain sheet in the same workbook: grey bold heading, bordered cells */
-function sevenPlain(rows,widths){
+function sevenPlain(rows,widths,tint){
   var wide=rows.reduce(function(a,r){return Math.max(a,r.length);},0);
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
     +(widths?'<cols>'+widths.map(function(w,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>';}).join('')+'</cols>'
       :'<cols><col min="1" max="1" width="44" customWidth="1"/><col min="2" max="'+Math.max(2,wide)+'" width="22" customWidth="1"/></cols>')
     +'<sheetData>'+rows.map(function(row,r){
-      return '<row r="'+(r+1)+'">'+row.map(function(v,c){return sevenCell(colName(c)+(r+1),v,r===0?51:2);}).join('')+'</row>';
+      /* an outcome shaded by what it says: passed, failed, still to come */
+      return '<row r="'+(r+1)+'">'+row.map(function(v,c){
+        var w=String(v==null?'':v).trim(), st=r===0?51:2;
+        if(r&&tint)st=/^Pass(ed)?$/i.test(w)?tint.pass:/^Failed$/i.test(w)?tint.fail:/^Upcoming$/i.test(w)?tint.soon:st;
+        return sevenCell(colName(c)+(r+1),v,st);}).join('')+'</row>';
     }).join('')+'</sheetData></worksheet>';
 }
 /* A data cell's style: the template's own, except the green and red its
@@ -5718,6 +5722,19 @@ function sevenBook(list,more){
     .replace(/<cellXfs count="\d+">/,'<cellXfs count="'+(nx+2)+'">')
     .replace('</cellXfs>',baseXf.replace(/fontId="\d+"/,'fontId="'+nfo+'"').replace(/applyFont="\d"/,'applyFont="1"')+'</cellXfs>');
   var REDTXT=nx+1;
+  /* three more, for the Physical Assessment sheet: the plain cell shaded
+     green for a pass, pink for a failure, yellow for a visit to come */
+  var TINT={};
+  (function(){
+    var base=xfs[2]||xfs[0], fills=[['pass','FFE2EFDA'],['fail','FFFFCCCC'],['soon','FFFFF2CC']];
+    var nf2=+(/<fills count="(\d+)"/.exec(st)[1]), nx2=+(/<cellXfs count="(\d+)"/.exec(st)[1]);
+    st=st.replace(/<fills count="\d+">/,'<fills count="'+(nf2+fills.length)+'">')
+      .replace('</fills>',fills.map(function(f){return '<fill><patternFill patternType="solid"><fgColor rgb="'+f[1]+'"/><bgColor indexed="64"/></patternFill></fill>';}).join('')+'</fills>')
+      .replace(/<cellXfs count="\d+">/,'<cellXfs count="'+(nx2+fills.length)+'">')
+      .replace('</cellXfs>',fills.map(function(f,i){
+        return base.replace(/fillId="\d+"/,'fillId="'+(nf2+i)+'"').replace(/applyFill="\d"/,'').replace('<xf ','<xf applyFill="1" ');}).join('')+'</cellXfs>');
+    fills.forEach(function(f,i){TINT[f[0]]=nx2+i;});
+  })();
   var rows=list.map(function(m,i){
     var vals=sevenRow(m,i), r=7+i;
     var dead=vals.some(function(x){return /terminat/i.test(String(x));});
@@ -5779,7 +5796,7 @@ function sevenBook(list,more){
     {name:'xl/theme/theme1.xml',text:T.theme},
     {name:'xl/styles.xml',text:st},
     {name:'xl/worksheets/sheet1.xml',text:sheetXml}
-  ].concat(more.map(function(m,i){return {name:'xl/worksheets/sheet'+(i+2)+'.xml',text:sevenPlain(m.rows,m.widths)};}));
+  ].concat(more.map(function(m,i){return {name:'xl/worksheets/sheet'+(i+2)+'.xml',text:sevenPlain(m.rows,m.widths,m.tint?TINT:null)};}));
   return zipUp(files);
 }
 var REPORTS=[
