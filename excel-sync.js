@@ -5077,32 +5077,11 @@ function twItems(t0,end){
   });
   return sec;
 }
-/* The two-week look-ahead as a sheet of the Main Log: the fourteen days
-   from Saturday as columns, each section on a grey line, Fridays shaded,
-   the document mark on the day, the period at the foot. */
-function twSheetRows(){
-  var t0=twStart(), days=[];
-  for(var i=0;i<14;i++)days.push(addDays(t0,i));
-  var end=days[13], sec=twItems(t0,end);
-  var DAY=['SUN','MON','TUE','WED','THU','FRI','SAT'];
-  var fri=function(d){return new Date(d+'T00:00:00').getDay()===5;};
-  var rows=[['S No','DOCUMENT DESCRIPTION','Discipline'].concat(days.map(function(d,i){
-    return (i<7?'W1 ':'W2 ')+DAY[new Date(d+'T00:00:00').getDay()]+' '+(+d.slice(8,10));}))];
-  TW_SECTIONS.forEach(function(x){
-    rows.push([{v:x[0],t:'sec'},{v:x[1],t:'sec'},{v:'',t:'sec'}].concat(days.map(function(){return {v:'',t:'sec'};})));
-    var items=sec[x[0]];
-    if(!items.length)items=[{label:'No update',disc:'',dates:[]}];
-    items.forEach(function(it,j){
-      rows.push([x[0]+'.'+('0'+(j+1)).slice(-2),it.label,it.disc].concat(days.map(function(d){
-        return {v:it.dates.indexOf(d)>=0?TW_MARK:'',t:fri(d)?'fri':''};})));
-    });
-  });
-  var fmt=function(d){var x=new Date(d+'T00:00:00');
-    return ('0'+x.getDate()).slice(-2)+'-'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][x.getMonth()]+'-'+x.getFullYear();};
-  rows.push(['','Period',''].concat([fmt(t0)+' to '+fmt(end)]));
-  return rows;
-}
-function twlasBook(){
+/* The TWLAS sheet and the styles it is drawn in. Given S, a style
+   number of its own (1 to 12) is written as S[n], so the same sheet can
+   go into another workbook whose styles it has been added to. */
+function twSheetXml(S){
+  function sx(n){return S?S[n]:n;}
   var t0=twStart(), days=[];
   for(var i=0;i<14;i++)days.push(addDays(t0,i));
   var end=days[13], sec=twItems(t0,end);
@@ -5136,7 +5115,7 @@ function twlasBook(){
     /* 12 a Friday */          +'<xf numFmtId="0" fontId="3" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
     +'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
   var rows=[], merges=[], r=0;
-  function txt(ref,v,st){return v===''||v==null?'<c r="'+ref+'" s="'+st+'"/>'
+  function txt(ref,v,st){st=sx(st);return v===''||v==null?'<c r="'+ref+'" s="'+st+'"/>'
     :'<c r="'+ref+'" s="'+st+'" t="inlineStr"><is><t xml:space="preserve">'+xml(String(v))+'</t></is></c>';}
   function dayCol(i){return colName(3+i);}
   /* the three heading rows */
@@ -5148,7 +5127,7 @@ function twlasBook(){
       return txt(dayCol(i)+'2',DAY[new Date(d+'T00:00:00').getDay()],fri?5:4);}).join('')+'</row>');
   rows.push('<row r="3" ht="18" customHeight="1">'+txt('A3','',1)+txt('B3','',1)+txt('C3','',1)
     +days.map(function(d,i){var fri=new Date(d+'T00:00:00').getDay()===5;
-      return '<c r="'+dayCol(i)+'3" s="'+(fri?5:4)+'"><v>'+(+d.slice(8,10))+'</v></c>';}).join('')+'</row>');
+      return '<c r="'+dayCol(i)+'3" s="'+sx(fri?5:4)+'"><v>'+(+d.slice(8,10))+'</v></c>';}).join('')+'</row>');
   merges.push('A1:A3','B1:B3','C1:C3',dayCol(0)+'1:'+dayCol(6)+'1',dayCol(7)+'1:'+dayCol(13)+'1');
   r=3;
   TW_SECTIONS.forEach(function(x){
@@ -5182,6 +5161,10 @@ function twlasBook(){
     +'<mergeCells count="'+merges.length+'">'+merges.map(function(m){return '<mergeCell ref="'+m+'"/>';}).join('')+'</mergeCells>'
     +'<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>'
     +'<pageSetup orientation="landscape" fitToHeight="0"/></worksheet>';
+  return {styles:styles,sheet:sheet};
+}
+function twlasBook(){
+  var o=twSheetXml(null), styles=o.styles, sheet=o.sheet;
   return zipUp([
     {name:'[Content_Types].xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       +'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
@@ -5611,7 +5594,7 @@ function sevenLog(){
   var pas=paSheetRows();
   if(pas.length>1)more.push({name:'Physical Assessment',rows:pas,widths:[5,34,10,16,32,30,22,12,12,20,12,20,12,12,32],tint:true});
   /* this week and next, in the TWLAS layout */
-  more.push({name:'TWLAS',rows:twSheetRows(),widths:[8,70,11,10,10,10,10,10,10,10,10,10,10,10,10,10,10],tint:true});
+  more.push({name:'TWLAS',xml:function(S){return twSheetXml(S).sheet;}});
   /* every company, where its certificate stands, and how many materials it serves */
   var ven=vendorSheetRows();
   if(ven.length>1)more.push({name:'Vendors',rows:ven,widths:[5,36,22,10,16,16,18,32,18,22,14,14,14,14,10],tint:true});
@@ -5793,6 +5776,28 @@ function sevenBook(list,more){
         return base.replace(/fillId="\d+"/,'fillId="'+(nf2+i)+'"').replace(/applyFill="\d"/,'').replace('<xf ','<xf applyFill="1" ');}).join('')+'</cellXfs>');
     fills.forEach(function(f,i){TINT[f[0]]=nx2+i;});
   })();
+  /* and the TWLAS sheet's own: its fonts (in the workbook's typeface, the
+     mark's symbol font kept), fills, border and twelve styles, renumbered */
+  var TWS=[0];
+  (function(){
+    var tw=twSheetXml(null).styles;
+    function items(tag,re){var m=new RegExp('<'+tag+'[^>]*>([\\s\\S]*?)</'+tag+'>').exec(tw);return m?(m[1].match(re)||[]):[];}
+    function count(tag){return +(new RegExp('<'+tag+' count="(\\d+)"').exec(st)[1]);}
+    var tf=items('fonts',/<font>[\s\S]*?<\/font>/g), tl=items('fills',/<fill>[\s\S]*?<\/fill>/g),
+        tb=items('borders',/<border\/>|<border>[\s\S]*?<\/border>/g), tx=items('cellXfs',/<xf [^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g);
+    var nF=count('fonts'), nL=count('fills'), nB=count('borders'), nX=count('cellXfs');
+    function add(tag,list){
+      st=st.replace(new RegExp('<'+tag+' count="\\d+"'),'<'+tag+' count="'+(count(tag)+list.length)+'"')
+        .replace('</'+tag+'>',list.join('')+'</'+tag+'>');
+    }
+    add('fonts',tf.map(function(f){return f.replace('<name val="Calibri"/>','<name val="Century Gothic"/>');}));
+    add('fills',tl);add('borders',tb);
+    add('cellXfs',tx.map(function(x){
+      return x.replace(/fontId="(\d+)"/,function(_,n){return 'fontId="'+(nF+(+n))+'"';})
+        .replace(/fillId="(\d+)"/,function(_,n){return 'fillId="'+(nL+(+n))+'"';})
+        .replace(/borderId="(\d+)"/,function(_,n){return 'borderId="'+(nB+(+n))+'"';});}));
+    TWS=tx.map(function(_,i){return nX+i;});
+  })();
   var rows=list.map(function(m,i){
     var vals=sevenRow(m,i), r=7+i;
     var dead=vals.some(function(x){return /terminat/i.test(String(x));});
@@ -5854,7 +5859,8 @@ function sevenBook(list,more){
     {name:'xl/theme/theme1.xml',text:T.theme},
     {name:'xl/styles.xml',text:st},
     {name:'xl/worksheets/sheet1.xml',text:sheetXml}
-  ].concat(more.map(function(m,i){return {name:'xl/worksheets/sheet'+(i+2)+'.xml',text:sevenPlain(m.rows,m.widths,m.tint?TINT:null)};}));
+  ].concat(more.map(function(m,i){return {name:'xl/worksheets/sheet'+(i+2)+'.xml',
+    text:m.xml?m.xml(TWS):sevenPlain(m.rows,m.widths,m.tint?TINT:null)};}));
   return zipUp(files);
 }
 var REPORTS=[
