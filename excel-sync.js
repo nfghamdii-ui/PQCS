@@ -5298,7 +5298,8 @@ function dShort(iso){
 function fatTrackerBook(){
   var list=(DB.mats||[]).filter(function(m){
     if(isDoc(m))return false;
-    var has=(m.visits||[]).some(function(v){return v.step==='fat';})||((m.steps||{}).fat&&((m.steps.fat.date)||(m.steps.fat.status)));
+    var has=(m.visits||[]).some(function(v){return v.step==='fat'||v.step==='ipi';})||((m.steps||{}).fat&&((m.steps.fat.date)||(m.steps.fat.status)))
+      ||((m.steps||{}).ipi&&(m.steps||{}).ipi.date);
     return has;
   });
   var rowsData=list.map(function(m){
@@ -5313,11 +5314,17 @@ function fatTrackerBook(){
     first=String(first).split('\n')[0];
     var fab=raw['Fabrication 1st Batch Started Date']||raw['Fabrication Planned Date']||'';
     var pfm=((m.steps||{}).pfm||{}).date||'';
+    /* the in-process inspection visits, each with its result, oldest first */
+    var ipis=(m.visits||[]).filter(function(x){return x.step==='ipi'&&x.date;});
+    var ip=(m.steps||{}).ipi||{};
+    if(ip.date&&!ipis.some(function(x){return x.date===ip.date;}))ipis.push({date:ip.date,result:ip.status});
+    var ipi=ipis.sort(function(a,b){return String(a.date).localeCompare(String(b.date));})
+      .map(function(x){var r=x.result||x.status||'';return dShort(x.date)+(r?' ('+r+')':'');}).join(', ');
     return {m:m,date:last.date||'',remark:remark,cells:[
       m.name,v?v.name:'',m.cat||'',v?[v.site,v.country].filter(Boolean).join(' / '):'',v?v.name:'',
       who?(who.agency||'TBA'):(remark==='upcoming'?'TBA':'N/A'),by||(remark==='upcoming'?'TBA':'N/A'),
       who?(who.status||'Pending'):(remark==='upcoming'?'TBA':'N/A'),
-      pfm?dShort(pfm):'',fab?dShort(fab):'',last.date?dShort(last.date):'',first?dShort(first):'',remark]};
+      pfm?dShort(pfm):'',fab?dShort(fab):'',ipi,last.date?dShort(last.date):'',first?dShort(first):'',remark]};
   }).sort(function(a,b){
     var A=a.remark==='upcoming'?1:0,B=b.remark==='upcoming'?1:0;
     return A-B||String(a.date).localeCompare(String(b.date));
@@ -5329,7 +5336,7 @@ function fatTrackerBook(){
     note:{color:'FF0000',align:'left',border:false,wrap:false,sz:11},note2:{align:'left',border:false,wrap:false,sz:8}};
   var head=['S#','Material','Manufacturer / Supplier Name','Material Category','Country / Location','Manufacturer / Supplier Assessment',
     'Third Party Inspection Agency','Third Party Inspection Name','TPIA Approval','Pre-fabrication Dates (Kick-off meeting)',
-    'Fabrication Dates (Start of Fabrication)','Factory Acceptance Test (FAT) / Final Inspection Date','First Delivery Date','Remark/Comments'];
+    'Fabrication Dates (Start of Fabrication)','In-process Inspection Dates','Factory Acceptance Test (FAT) / Final Inspection Date','First Delivery Date','Remark/Comments'];
   var rows=[
     [{v:'Project:   '+(DB.project||''),st:'title'}].concat(head.slice(1).map(function(){return {v:'',st:'title'};})),
     [{v:'Final Inspection  /  FAT Schedule Tracker',st:'sub'}].concat(head.slice(1).map(function(){return {v:'',st:'sub'};})),
@@ -5344,8 +5351,8 @@ function fatTrackerBook(){
   var heights={1:22,2:18,3:52};
   for(var i=4;i<4+rowsData.length;i++)heights[i]=30;
   return styledBook({name:'FAT Schedule',styles:S,rows:rows,heights:heights,
-    cols:[5,26,16,10,16,20,18,18,11,13,13,18,12,18],
-    merges:['A1:N1','A2:N2'],freeze:{x:2,y:3}});
+    cols:[5,26,16,10,16,20,18,18,11,13,13,16,18,12,18],
+    merges:['A1:O1','A2:O2'],freeze:{x:2,y:3}});
 }
 
 /* ---------------- Physical Assessment Summary ---------------- */
