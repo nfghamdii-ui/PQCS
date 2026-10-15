@@ -5322,25 +5322,35 @@ function fatTrackerBook(){
 }
 
 /* ---------------- Physical Assessment Summary ---------------- */
-/* The surveys that took place (passed or failed), oldest first: one
-   row each, read by the report and by the Main Log's own sheet alike. */
+/* The factory surveys, one row each, read by the report and by the Main
+   Log's own sheet alike: those that took place (passed or failed), oldest
+   first; then those still to come (scheduled, or with a tentative date);
+   then the makers on SEVEN's AVL that need no visit. */
+function paStage(v){
+  var pa=(v.steps||{}).pa||{}, st=pa.status||'';
+  if(/Passed|Failed/.test(st))return 0;
+  if(/AVL/.test(st))return 2;
+  if(st==='Scheduled'||(v.logf||{})['PA Tentative Date'])return 1;
+  return -1;
+}
+function paWhen(v){var pa=(v.steps||{}).pa||{};return pa.date||(paStage(v)===1?((v.logf||{})['PA Tentative Date']||''):'');}
 function paSummaryData(){
   var list=(DB.mfrs||[]).filter(function(v){
     var k=kindOf(v);if(k!=='maker'&&k!=='makesub')return false;
-    var pa=(v.steps||{}).pa||{};
-    return /Passed|Failed/.test(pa.status||'');
+    return paStage(v)>=0;
   }).sort(function(a,b){
-    var A=((a.steps||{}).pa||{}).date||'', B=((b.steps||{}).pa||{}).date||'';
-    /* the oldest at the top; a survey with no date after the dated ones */
+    var g=paStage(a)-paStage(b);if(g)return g;
+    var A=paWhen(a), B=paWhen(b);
+    /* the oldest at the top; one with no date after the dated ones */
     if(A!==B){if(!A)return 1;if(!B)return -1;return A<B?-1:1;}
     return String(a.name).localeCompare(String(b.name));
   });
   var word=function(s){return /Pass/.test(s||'')?'Pass':/Fail/.test(s||'')?'Failed':(s||'');};
   return list.map(function(v,i){
     var pq=pqOf(v), pa=(v.steps||{}).pa||{};
-    var done=/Passed|Failed|Waived/.test(pa.status||'');
-    var overall=word(pa.status);
-    var tech=pa.tres||overall, qms=pa.qres||overall;
+    var stage=paStage(v), done=stage===0, when=paWhen(v);
+    var overall=done?word(pa.status):stage===2?'Not required (AVL)':'';
+    var tech=pa.tres||(done?overall:''), qms=pa.qres||(done?overall:'');
     var rejected=/Rejected|Terminated/.test(pq.status||'');
     /* the vendor's category, or the highest among its materials */
     var cat=v.cat||matsOf(v).map(function(m){return m.cat||'';}).filter(Boolean).sort().pop()||'';
@@ -5348,11 +5358,11 @@ function paSummaryData(){
       {v:i+1,st:'cell'},{v:v.name,st:rejected?'bad':'left'},{v:cat,st:'cell'},
       {v:pq.status||'',st:pq.ref?'cell':'none'},{v:pq.ref||'',st:pq.ref?'cell':'none'},
       {v:v.scope||'',st:'scope'},{v:[v.country,v.addr||v.site].filter(Boolean).join(' - '),st:'cell'},
-      {v:done?'Done':(pa.status==='Scheduled'?'Scheduled':''),st:done?'done':'cell'},
-      {v:pa.date?show(pa.date):'',d:pa.date||'',st:'cell'},
+      {v:done?'Done':stage===1?'Upcoming':'Not required (AVL)',st:done?'done':'cell'},
+      {v:when?show(when):'',d:when||'',st:'cell'},
       {v:pa.by2||'',st:'cell'},{v:tech,st:/Failed/.test(tech)?'fail':'cell'},
       {v:pa.by||'',st:'cell'},{v:qms,st:/Failed/.test(qms)?'fail':'cell'},
-      {v:done?overall:'',st:/Failed/.test(overall)?'fail':'cell'},{v:pa.ref||'',st:'cell'}];
+      {v:overall,st:/Failed/.test(overall)?'fail':'cell'},{v:pa.ref||'',st:'cell'}];
   });
 }
 var PA_HEAD=['S#','Suppliers proposed for participation','Material Category','Status','Ref Document No','Scope','Location',
