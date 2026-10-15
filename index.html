@@ -1399,7 +1399,7 @@ var MFR_ROAD=[
      ['by','QMS auditor','person'],['qres','QMS report','sel',['','Pass','Failed']],
      ['by2','Technical expert','person'],['tres','Technical report','sel',['','Pass','Failed']],
      /* left empty when nothing is to be said yet */
-     ['status','Result','sel',['','Pending','Scheduled','Passed','Failed','Waived']],
+     ['status','Result','sel',['','Pending','Upcoming','Scheduled','Passed','Failed','Waived']],
      /* a maker already on SEVEN's approved vendor list needs no visit —
         unless one is recorded after all, and then the visit is what counts */
      ['avl','Approved in SEVEN AVL','sel',['','No visit needed','Visit anyway']],
@@ -1970,7 +1970,7 @@ function week(){
   function put(date,text,tone){if(date&&date>=t0&&date<=addDays(t0,6))out.push({d:date,t:text,k:tone});}
   (DB.mfrs||[]).forEach(function(v){
     var st=v.steps||{};
-    if(st.pa&&st.pa.date&&st.pa.status==='Scheduled')put(st.pa.date,'Survey · '+v.name,'now');
+    if(st.pa&&st.pa.date&&/^(Scheduled|Upcoming)$/.test(st.pa.status||''))put(st.pa.date,'Survey · '+v.name,'now');
     if(st.iso&&st.iso.date)put(st.iso.date,'ISO expires · '+v.name,'bad');
   });
   (DB.mats||[]).forEach(function(m){
@@ -2058,7 +2058,7 @@ function calItems(from,to){
      narrowed to the kinds wanted */
   (DB.mfrs||[]).forEach(function(v){
     var st=v.steps||{}, go="jump('mfr',"+v.id+")";
-    if(st.pa&&st.pa.date&&st.pa.status==='Scheduled')put(st.pa.date,'Survey · '+v.name,'wait',go,{c:'visit',kind:'Survey',name:v.name,st:'Scheduled'});
+    if(st.pa&&st.pa.date&&/^(Scheduled|Upcoming)$/.test(st.pa.status||''))put(st.pa.date,'Survey · '+v.name,'wait',go,{c:'visit',kind:'Survey',name:v.name,st:st.pa.status});
     if(st.iso&&st.iso.date)put(st.iso.date,'ISO expires · '+v.name,'bad',go,{c:'exp'});
     if(st.scope&&st.scope.date)put(st.scope.date,'Accreditation expires · '+v.name,'bad',go,{c:'exp'});
   });
@@ -3801,7 +3801,7 @@ window.lookAhead=function(){
   function add(date,what,who){if(date&&date>=t0&&date<=end)rows.push({d:date,w:what,who:who});}
   (DB.mfrs||[]).forEach(function(v){
     var s=v.steps||{};
-    if(s.pa&&s.pa.date&&s.pa.status==='Scheduled')add(s.pa.date,'Factory survey — '+v.name,s.pa.by||'');
+    if(s.pa&&s.pa.date&&/^(Scheduled|Upcoming)$/.test(s.pa.status||''))add(s.pa.date,'Factory survey — '+v.name,s.pa.by||'');
     if(s.iso&&s.iso.date)add(s.iso.date,'ISO 9001 expires — '+v.name,'');
   });
   (DB.mats||[]).forEach(function(m){

@@ -952,10 +952,11 @@ function rawOut(m){
     VEN_LOG.forEach(function(f){if(lf[f[0]])set(f[0],lf[f[0]]);});
     /* the factory survey, from the vendor's own step */
     var pa=(v.steps||{}).pa||{};
-    if(pa.status==='Scheduled'){if(pa.date&&!raw['PA Tentative Date'])set('PA Tentative Date',pa.date);}
+    /* a survey still to come (scheduled, or upcoming) dates the tentative column */
+    if(/^(Scheduled|Upcoming)$/.test(pa.status||'')){if(pa.date&&!raw['PA Tentative Date'])set('PA Tentative Date',pa.date);}
     else if(pa.date)set('PA Date',pa.date);
     if(pa.ref)set('PA Document Number',pa.ref);
-    if(pa.status&&pa.status!=='Pending'&&pa.status!=='Scheduled')set('Assessment Result',pa.status);
+    if(pa.status&&!/^(Pending|Scheduled|Upcoming)$/.test(pa.status))set('Assessment Result',pa.status);
   }
   /* the inspector assigned on the material: a third party — his company,
      then his name, in the one cell */
@@ -4515,7 +4516,7 @@ var VEN_ALIAS={'Visit result':'Assessment','Visit report':'Assessment Reference'
 /* Written as typed, a status the road does not recognise stops it:
    "approved" is not "Approved". Each is read back into the words the
    page uses; anything it cannot place is kept as typed. */
-var VISIT_WORDS=['Pending','Scheduled','Passed','Failed','Waived','Not required (AVL)'];
+var VISIT_WORDS=['Pending','Upcoming','Scheduled','Passed','Failed','Waived','Not required (AVL)'];
 function pqWord(s){return normStatus(s)||s;}
 function isoWordIn(s){var k=K(s);return /valid/.test(k)?'Valid':/expir/.test(k)?'Expired':s;}
 function visitWordIn(s){
@@ -5039,7 +5040,7 @@ function twItems(t0,end){
     var pa=stp.pa||{};
     /* the tentative date — the visit as planned, before the official one
        and its report; failing that, a survey recorded as Scheduled */
-    var tent=(v.logf||{})['PA Tentative Date']||(pa.status==='Scheduled'?pa.date:'');
+    var tent=(v.logf||{})['PA Tentative Date']||(/^(Scheduled|Upcoming)$/.test(pa.status||'')?pa.date:'');
     if(tent)put('1',v.name+(tent>=today()?' ( upcoming )':''),code,[tent]);
     var pqs=MFR_ROAD.filter(function(x){return x.k==='pqd';})[0];
     /* a first submission only: a resubmission (revision 1 and on) is not new */
@@ -5330,7 +5331,7 @@ function paStage(v){
   var pa=(v.steps||{}).pa||{}, st=pa.status||'';
   if(/Passed|Failed/.test(st))return 0;
   if(/AVL|Waived/.test(st))return 2;
-  if(st==='Scheduled'||(v.logf||{})['PA Tentative Date'])return 1;
+  if(st==='Scheduled'||st==='Upcoming'||(v.logf||{})['PA Tentative Date'])return 1;
   return -1;
 }
 function paWhen(v){var pa=(v.steps||{}).pa||{};return pa.date||(paStage(v)===1?((v.logf||{})['PA Tentative Date']||''):'');}
