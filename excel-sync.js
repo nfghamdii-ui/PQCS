@@ -5350,7 +5350,7 @@ function paSummaryData(){
   return list.map(function(v,i){
     var pq=pqOf(v), pa=(v.steps||{}).pa||{};
     var stage=paStage(v), done=stage===0, when=paWhen(v);
-    var overall=done?word(pa.status):stage===2?(pa.status==='Waived'?'Waived':'Not required (AVL)'):'';
+    var overall=done?word(pa.status):stage===2?(pa.status==='Waived'?'Waived':'AVL'):'';
     var tech=pa.tres||(done?overall:''), qms=pa.qres||(done?overall:'');
     var rejected=/Rejected|Terminated/.test(pq.status||'');
     /* the vendor's category, or the highest among its materials */
@@ -5359,7 +5359,7 @@ function paSummaryData(){
       {v:i+1,st:'cell'},{v:v.name,st:rejected?'bad':'left'},{v:cat,st:'cell'},
       {v:pq.status||'',st:pq.ref?'cell':'none'},{v:pq.ref||'',st:pq.ref?'cell':'none'},
       {v:v.scope||'',st:'scope'},{v:[v.country,v.addr||v.site].filter(Boolean).join(' - '),st:'cell'},
-      {v:done?'Done':stage===1?'Upcoming':overall,st:done?'done':'cell'},
+      {v:done?'Done':stage===1?'Upcoming':overall==='AVL'?'Not required (AVL)':overall,st:done?'done':'cell'},
       {v:when?show(when):'',d:when||'',st:'cell'},
       {v:pa.by2||'',st:'cell'},{v:tech,st:/Failed/.test(tech)?'fail':'cell'},
       {v:pa.by||'',st:'cell'},{v:qms,st:/Failed/.test(qms)?'fail':'cell'},
@@ -5574,7 +5574,7 @@ function sevenPlain(rows,widths,tint){
       /* an outcome shaded by what it says: passed, failed, still to come */
       return '<row r="'+(r+1)+'">'+row.map(function(v,c){
         var w=String(v==null?'':v).trim(), st=r===0?51:2;
-        if(r&&tint)st=/^Pass(ed)?$/i.test(w)?tint.pass:/^Failed$/i.test(w)?tint.fail:/^Upcoming$/i.test(w)?tint.soon:/^Waived$/i.test(w)?tint.waived:st;
+        if(r&&tint)st=/^Pass(ed)?$/i.test(w)?tint.pass:/^Failed$/i.test(w)?tint.fail:/^Upcoming$/i.test(w)?tint.soon:/^Waived$/i.test(w)?tint.waived:/^(AVL|Not required \(AVL\))$/i.test(w)?tint.avl:st;
         return sevenCell(colName(c)+(r+1),v,st);}).join('')+'</row>';
     }).join('')+'</sheetData></worksheet>';
 }
@@ -5727,7 +5727,7 @@ function sevenBook(list,more){
      green for a pass, pink for a failure, yellow for a visit to come */
   var TINT={};
   (function(){
-    var base=xfs[2]||xfs[0], fills=[['pass','FFE2EFDA'],['fail','FFFFCCCC'],['soon','FFFFF2CC'],['waived','FFDDEBF7']];
+    var base=xfs[2]||xfs[0], fills=[['pass','FFE2EFDA'],['fail','FFFFCCCC'],['soon','FFFFF2CC'],['waived','FFDDEBF7'],['avl','FFE4DFEC']];
     var nf2=+(/<fills count="(\d+)"/.exec(st)[1]), nx2=+(/<cellXfs count="(\d+)"/.exec(st)[1]);
     st=st.replace(/<fills count="\d+">/,'<fills count="'+(nf2+fills.length)+'">')
       .replace('</fills>',fills.map(function(f){return '<fill><patternFill patternType="solid"><fgColor rgb="'+f[1]+'"/><bgColor indexed="64"/></patternFill></fill>';}).join('')+'</fills>')
