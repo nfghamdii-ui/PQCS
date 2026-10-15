@@ -5383,6 +5383,24 @@ function paSummaryBook(){
     cols:[4,30,10,18,34,16,16,12,12,16,13,16,13,9,32],
     merges:['A1:O1','D2:E2','H2:O2'],freeze:{x:2,y:3},filter:'A3:O'+(3+data.length)});
 }
+/* The vendors as a sheet of the Main Log: who they are, their
+   pre-qualification, their ISO 9001 certificate and where it stands, and
+   the materials each one makes or supplies. */
+function vendorSheetRows(){
+  var mats=(MATS_ALL||DB.mats||[]).filter(function(m){return !isDoc(m);});
+  var head=['S#','Vendor','Kind','Category','Country','City','Telephone 1','PQD Number','PQD Status',
+    'ISO Number','ISO Expires','ISO Status','No. of MAT'];
+  var list=(DB.mfrs||[]).filter(function(v){return kindOf(v)!=='agency';})
+    .sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
+  return [head].concat(list.map(function(v,i){
+    var pq=pqOf(v), iso=(v.steps||{}).iso||{};
+    var st=iso.date?(daysTo(iso.date)<0?'Expired':'Valid'):(iso.status||(iso.ref?'Valid':'Not recorded'));
+    if(!needsQual(v)&&!iso.date&&!iso.ref)st='Not required (C0)';
+    var n=mats.filter(function(m){return String(m.mfr)===String(v.id)||String(m.supplier)===String(v.id);}).length;
+    return [i+1,v.name,KINDS[kindOf(v)].l,v.cat||'',v.country||'',v.addr||'',v.tel||'',pq.ref||'',pq.status||'',
+      iso.ref||'',iso.date||'',st,n];
+  }));
+}
 /* the same, as a sheet of the Main Log: plain cells, the two pairs of
    Status and Ref Document No told apart */
 function paSheetRows(){
@@ -5561,6 +5579,9 @@ function sevenLog(){
   /* the physical assessments that took place, oldest first */
   var pas=paSheetRows();
   if(pas.length>1)more.push({name:'Physical Assessment',rows:pas,widths:[5,34,10,16,32,30,22,12,12,20,12,20,12,12,32],tint:true});
+  /* every company, where its certificate stands, and how many materials it serves */
+  var ven=vendorSheetRows();
+  if(ven.length>1)more.push({name:'Vendors',rows:ven,widths:[5,36,22,10,16,16,18,32,18,22,14,14,10],tint:true});
   return sevenBook(sevenMaterials(),more);
 }
 /* a plain sheet in the same workbook: grey bold heading, bordered cells */
@@ -5574,7 +5595,7 @@ function sevenPlain(rows,widths,tint){
       /* an outcome shaded by what it says: passed, failed, still to come */
       return '<row r="'+(r+1)+'">'+row.map(function(v,c){
         var w=String(v==null?'':v).trim(), st=r===0?51:2;
-        if(r&&tint)st=/^Pass(ed)?$/i.test(w)?tint.pass:/^Failed$/i.test(w)?tint.fail:/^Upcoming$/i.test(w)?tint.soon:/^Waived$/i.test(w)?tint.waived:/^(AVL|Not required \(AVL\))$/i.test(w)?tint.avl:st;
+        if(r&&tint)st=/^Pass(ed)?$/i.test(w)?tint.pass:/^Failed$/i.test(w)?tint.fail:/^Upcoming$/i.test(w)?tint.soon:/^Waived$/i.test(w)?tint.waived:/^Valid$/i.test(w)?tint.pass:/^Expired$/i.test(w)?tint.fail:/^(AVL|Not required \(AVL\))$/i.test(w)?tint.avl:st;
         return sevenCell(colName(c)+(r+1),v,st);}).join('')+'</row>';
     }).join('')+'</sheetData></worksheet>';
 }
