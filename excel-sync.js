@@ -5037,9 +5037,13 @@ function twSecOf(x){
     if(/\bPA\b|assessment|survey|audit|factory visit/i.test(t))return '1';
     return '';
   }
-  if(x.c==='visit')return k==='Survey'||k==='PA'?'1':k==='Pre-fab'?'7':(k==='FAT'||k==='IPI')?'9':'';
+  /* the physical assessments are read from the vendors themselves */
+  if(x.c==='visit')return k==='Pre-fab'?'7':(k==='FAT'||k==='IPI')?'9':'';
   if(x.c==='apqd')return '2';
-  if(x.c==='del'||x.c==='amir')return '10';
+  /* a release is an inspection request linked to a material, which is
+     that material's consignment; one linked to nothing stays out */
+  if(x.c==='del')return '10';
+  if(x.c==='amir')return '';
   if(x.c==='adoc')return k==='PID'?'6':k==='IRN'?'10':byTitle();
   if(x.c==='mine'){var s=byTitle();return s||(x.k==='na'&&/meet/i.test(t)?'7':'');}
   return '';
@@ -5048,15 +5052,28 @@ function twSecOf(x){
    shows on a day shows here on the same day, in its section. */
 function twItems(t0,end){
   var sec={}, seen={};TW_SECTIONS.forEach(function(x){sec[x[0]]=[];});
+  /* a factory's physical assessment: on its day when that day falls in the
+     fortnight (the tentative day, or the visit's own), and one still to
+     come with no day yet listed all the same, unmarked */
+  var undated=[];
+  (DB.mfrs||[]).forEach(function(v){
+    var pa=(v.steps||{}).pa||{}, code=twDisc(pqOf(v).ref,'');
+    var soon=/^(Scheduled|Upcoming)$/.test(pa.status||'');
+    var days=[(v.logf||{})['PA Tentative Date'],pa.date].filter(function(d){return d&&d>=t0&&d<=end;})
+      .filter(function(d,i,a){return a.indexOf(d)===i;});
+    if(days.length)sec['1'].push({label:v.name+(soon||(!/^(Passed|Failed|Waived)/.test(pa.status||'')&&days.some(function(d){return d>=today();}))?' ( upcoming )':''),disc:code,dates:days});
+    else if(soon&&!pa.date&&!(v.logf||{})['PA Tentative Date'])undated.push({label:v.name+' ( upcoming )',disc:code,dates:[]});
+  });
+  sec['1']=sec['1'].concat(undated);
   var items=typeof calItems==='function'?calItems(t0,end):[];
   items.forEach(function(x){
     var k=twSecOf(x);if(!k||!x.d||x.d<t0||x.d>end)return;
     /* a PQD only when first submitted; a release for C2 and C3 only */
     if(k==='2'&&x.rev!=null&&x.rev!==''&&!/^0*$/.test(String(x.rev).trim()))return;
+    if(k==='10'&&x.c!=='del')return;
     if(k==='10'&&x.cat!=null&&x.cat!==''&&x.cat!=='C2'&&x.cat!=='C3')return;
     var name=x.name||String(x.t||'').replace(/^[^·]*·\s*/,'')||x.t;
-    var label=k==='1'?name+(x.d>=today()?' ( upcoming )':'')
-      :k==='2'?name+(x.st?' — '+x.st:'')
+    var label=k==='2'?name+(x.st?' — '+x.st:'')
       :(k==='10'||x.c==='adoc')&&x.no?name+' — '+x.no
       :x.c==='mine'?x.t:name;
     var key=k+'|'+label;
