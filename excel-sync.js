@@ -209,6 +209,7 @@ function oneStatus(p){
   return '';
 }
 function normCat(v){
+  if(/mock.?up/i.test(trim(v)))return 'Mock-up';
   var t=trim(v).toUpperCase().replace(/CATEGORY/,'').replace(/[^C0-9]/g,'');
   var m=/C([0-3])/.exec(t);
   return m?('C'+m[1]):'';
@@ -924,7 +925,7 @@ function rawOut(m){
   COLS.forEach(function(c){var v=(m.raw||{})[c];if(v!=null&&v!=='')raw[c]=v;});
   var v=m.mfr?mfr(m.mfr):null, s=m.steps||{};
   set('Item Description',m.name);
-  set('Material Category',m.cat?('Category '+m.cat):'');
+  set('Material Category',m.cat?(m.cat==='Mock-up'?'Mock-up':'Category '+m.cat):'');
   set('Discipline',m.disc||'');
   set('Sub-contractor Name',m.sub||'');
   /* The log is written out only now, and the vendor linked on the
@@ -7289,7 +7290,7 @@ function editMatSheet(){
     +'<div class="f wide"><label for="ed-name">Name</label>'
       +'<input id="ed-name" value="'+attr(m.name||'')+'" autocomplete="off"></div>'
     +'<div class="f"><label for="ed-cat">Category</label><select id="ed-cat">'
-      +'<option value="">—</option>'+optList(['C0','C1','C2','C3'],m.cat)+'</select></div>'
+      +'<option value="">—</option>'+optList(['C0','C1','C2','C3','Mock-up'],m.cat)+'</select></div>'
     +'<div class="f"><label for="ed-disc">Discipline</label>'
       +'<input id="ed-disc" list="disc-list" value="'+attr(m.disc||'')+'" autocomplete="off">'
       +'<datalist id="disc-list">'

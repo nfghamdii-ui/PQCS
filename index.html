@@ -3159,10 +3159,12 @@ window.editText=function(ev,k,label,hint){
     rec[k]=v;touch();rPane();rList();});
 };
 var CAT_OPTS=[{v:'C0',l:'C0'},{v:'C1',l:'C1'},{v:'C2',l:'C2'},{v:'C3',l:'C3'},{v:'',l:'clear'}];
+/* a material can also be a mock-up: kept to follow, with no steps to clear */
+var MAT_CAT_OPTS=[{v:'C0',l:'C0'},{v:'C1',l:'C1'},{v:'C2',l:'C2'},{v:'C3',l:'C3'},{v:'Mock-up',l:'Mock-up'},{v:'',l:'clear'}];
 window.editCat=function(ev){
   var m=mat(SEL.mat);if(!m)return;
   var f=lookCat(m.name);
-  popPick(ev.currentTarget,'Inspection category',CAT_OPTS,m.cat||'',
+  popPick(ev.currentTarget,'Inspection category',MAT_CAT_OPTS,m.cat||'',
     f?('Attachment 1 lists <b>'+esc(f.c.n)+'</b> as '+esc(topCat(f.c.c))+'.')
      :'No entry in Attachment 1 matches this name. Clause 2.2.8 leaves the choice with SEVEN.',
     function(v){m.cat=v;m.catFrom=v?'set by you':'';m.catSure=true;touch();rPane();rList();});
@@ -3614,7 +3616,7 @@ window.vendorWork=function(gap,mine){
   if(gap!==undefined)VW.gap=gap;
   if(mine!==undefined)VW.mine=mine;
   var held={};
-  (DB.mats||[]).forEach(function(m){if(m.mfr&&m.cat!=='C0')held[m.mfr]=(held[m.mfr]||0)+1;});
+  (DB.mats||[]).forEach(function(m){if(m.mfr&&/^C[123]$/.test(m.cat||''))held[m.mfr]=(held[m.mfr]||0)+1;});
   var rows=[];
   (DB.mfrs||[]).forEach(function(v){
     if(!needsQual(v))return;
@@ -3692,9 +3694,9 @@ function findings(){
   });
   (DB.mats||[]).forEach(function(m){
     if(!m.cat)add(50,'now','set it',m.name,'no category, so its road is unknown',m.id,'mat');
-    if(m.cat&&m.cat!=='C0'&&!m.mfr)add(52,'now','name it',m.name,'no vendor named, and one is required above category 0',m.id,'mat');
+    if(/^C[123]$/.test(m.cat||'')&&!m.mfr)add(52,'now','name it',m.name,'no vendor named, and one is required above category 0',m.id,'mat');
     /* the material inherits whatever its vendor is short of */
-    if(m.cat&&m.cat!=='C0'&&m.mfr&&needsQual(mfrOf(m))){
+    if(/^C[123]$/.test(m.cat||'')&&m.mfr&&needsQual(mfrOf(m))){
       var ms=mfrState(mfrOf(m));
       /* A vendor that blocks a material still says so on the material.
          One that is merely short of something — yours to chase if nobody
