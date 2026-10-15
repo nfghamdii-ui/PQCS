@@ -5077,6 +5077,31 @@ function twItems(t0,end){
   });
   return sec;
 }
+/* The two-week look-ahead as a sheet of the Main Log: the fourteen days
+   from Saturday as columns, each section on a grey line, Fridays shaded,
+   the document mark on the day, the period at the foot. */
+function twSheetRows(){
+  var t0=twStart(), days=[];
+  for(var i=0;i<14;i++)days.push(addDays(t0,i));
+  var end=days[13], sec=twItems(t0,end);
+  var DAY=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  var fri=function(d){return new Date(d+'T00:00:00').getDay()===5;};
+  var rows=[['S No','DOCUMENT DESCRIPTION','Discipline'].concat(days.map(function(d,i){
+    return (i<7?'W1 ':'W2 ')+DAY[new Date(d+'T00:00:00').getDay()]+' '+(+d.slice(8,10));}))];
+  TW_SECTIONS.forEach(function(x){
+    rows.push([{v:x[0],t:'sec'},{v:x[1],t:'sec'},{v:'',t:'sec'}].concat(days.map(function(){return {v:'',t:'sec'};})));
+    var items=sec[x[0]];
+    if(!items.length)items=[{label:'No update',disc:'',dates:[]}];
+    items.forEach(function(it,j){
+      rows.push([x[0]+'.'+('0'+(j+1)).slice(-2),it.label,it.disc].concat(days.map(function(d){
+        return {v:it.dates.indexOf(d)>=0?TW_MARK:'',t:fri(d)?'fri':''};})));
+    });
+  });
+  var fmt=function(d){var x=new Date(d+'T00:00:00');
+    return ('0'+x.getDate()).slice(-2)+'-'+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][x.getMonth()]+'-'+x.getFullYear();};
+  rows.push(['','Period',''].concat([fmt(t0)+' to '+fmt(end)]));
+  return rows;
+}
 function twlasBook(){
   var t0=twStart(), days=[];
   for(var i=0;i<14;i++)days.push(addDays(t0,i));
@@ -5585,6 +5610,8 @@ function sevenLog(){
   /* the physical assessments that took place, oldest first */
   var pas=paSheetRows();
   if(pas.length>1)more.push({name:'Physical Assessment',rows:pas,widths:[5,34,10,16,32,30,22,12,12,20,12,20,12,12,32],tint:true});
+  /* this week and next, in the TWLAS layout */
+  more.push({name:'TWLAS',rows:twSheetRows(),widths:[8,70,11,10,10,10,10,10,10,10,10,10,10,10,10,10,10],tint:true});
   /* every company, where its certificate stands, and how many materials it serves */
   var ven=vendorSheetRows();
   if(ven.length>1)more.push({name:'Vendors',rows:ven,widths:[5,36,22,10,16,16,18,32,18,22,14,14,14,14,10],tint:true});
@@ -5600,7 +5627,10 @@ function sevenPlain(rows,widths,tint){
     +'<sheetData>'+rows.map(function(row,r){
       /* an outcome shaded by what it says: passed, failed, still to come */
       return '<row r="'+(r+1)+'">'+row.map(function(v,c){
+        var tag=v&&typeof v==='object'&&'t' in v?v.t:'';
+        if(v&&typeof v==='object'&&'t' in v)v=v.v;
         var w=String(v==null?'':v).trim(), st=r===0?51:2;
+        if(r&&tint&&tag&&tint[tag]!=null)return sevenCell(colName(c)+(r+1),v,tint[tag]);
         if(r&&tint)st=/^Pass(ed)?$/i.test(w)?tint.pass:/^Failed$/i.test(w)?tint.fail:/^Upcoming$/i.test(w)?tint.soon:/^Waived$/i.test(w)?tint.waived:/^Valid$/i.test(w)?tint.pass:/^Expired$/i.test(w)?tint.fail:/^(AVL|Not required \(AVL\))$/i.test(w)?tint.avl:st;
         return sevenCell(colName(c)+(r+1),v,st);}).join('')+'</row>';
     }).join('')+'</sheetData></worksheet>';
@@ -5754,7 +5784,7 @@ function sevenBook(list,more){
      green for a pass, pink for a failure, yellow for a visit to come */
   var TINT={};
   (function(){
-    var base=xfs[2]||xfs[0], fills=[['pass','FFE2EFDA'],['fail','FFFFCCCC'],['soon','FFFFF2CC'],['waived','FFDDEBF7'],['avl','FFE4DFEC']];
+    var base=xfs[2]||xfs[0], fills=[['pass','FFE2EFDA'],['fail','FFFFCCCC'],['soon','FFFFF2CC'],['waived','FFDDEBF7'],['avl','FFE4DFEC'],['sec','FFBFBFBF'],['fri','FFD9D9D9']];
     var nf2=+(/<fills count="(\d+)"/.exec(st)[1]), nx2=+(/<cellXfs count="(\d+)"/.exec(st)[1]);
     st=st.replace(/<fills count="\d+">/,'<fills count="'+(nf2+fills.length)+'">')
       .replace('</fills>',fills.map(function(f){return '<fill><patternFill patternType="solid"><fgColor rgb="'+f[1]+'"/><bgColor indexed="64"/></patternFill></fill>';}).join('')+'</fills>')
@@ -5831,7 +5861,8 @@ var REPORTS=[
  {k:'log',t:'The general log',back:false,   /* written out only: Aconex is the source */
   d:'SEVEN\u2019s Material Live Tracking Sheet, in the client\u2019s own format \u2014 its headings, colours '
     +'and 76 columns \u2014 with every material on a row, by discipline, and the tracker\u2019s own columns '
-    +'after them. A Summary sheet, and the documents linked to nothing, go in the same workbook.',
+    +'after them. In the same workbook: a Summary, the documents linked to nothing, the physical '
+    +'assessments, the vendors, and the two-week look-ahead (TWLAS).',
   go:async function(){
     try{await acxLoad();}catch(e){}
     var name=(DB.project||'Project Materials').replace(/[^\w \-]/g,'').trim();
@@ -5852,19 +5883,6 @@ var REPORTS=[
     +'third-party agency and inspector and their approval, the pre-fabrication, fabrication, FAT and '
     +'first delivery dates, and whether the FAT is done, upcoming or to be repeated.',
   go:function(){download(fatTrackerBook(),(DB.project||'Project')+' — FAT Schedule Tracker '+today()+'.xlsx');}},
- {k:'pasum',t:'Physical Assessment Summary',
-  d:'Every vendor whose factory is surveyed: its pre-qualification and number, scope and location, '
-    +'then the physical assessment — done or not, the technical and QMS assessors and their '
-    +'reports, the result and the report’s number.',
-  go:function(){download(paSummaryBook(),(DB.project||'Project')+' — Physical Assessment Summary '+today()+'.xlsx');}},
- {k:'ahead',t:'Two-week look-ahead (TWLAS)',
-  d:'This week and next, Saturday to Friday, in the project\u2019s TWLAS layout: physical assessments, '
-    +'pre-qualifications, pre-inspection dossiers and meetings, post-inspection dossiers, FAT and '
-    +'materials release, each marked on the day it is planned or falls due. Submitted weekly under clause 2.2.6.',
-  go:async function(){
-    try{await acxLoad();}catch(e){}
-    download(twlasBook(),(DB.project||'Project')+' — TWLAS '+twStart()+'.xlsx');
-  }},
  {k:'insp',t:'Inspectors',back:true,
   d:'Everyone approved to inspect on this project, their agency and the reference SEVEN '
     +'approved them under — clause 2.2.17. Correct any of it and send it back. A row is '
