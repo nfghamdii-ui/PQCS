@@ -5322,25 +5322,21 @@ function fatTrackerBook(){
 }
 
 /* ---------------- Physical Assessment Summary ---------------- */
-function paSummaryBook(){
+/* The surveys that took place (passed or failed), oldest first: one
+   row each, read by the report and by the Main Log's own sheet alike. */
+function paSummaryData(){
   var list=(DB.mfrs||[]).filter(function(v){
     var k=kindOf(v);if(k!=='maker'&&k!=='makesub')return false;
-    /* only a survey that has taken place: passed or failed */
     var pa=(v.steps||{}).pa||{};
     return /Passed|Failed/.test(pa.status||'');
-  }).sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
-  var S={
-    title:{fill:'F8CBAD',sz:14,color:'843C0C',border:false},grp:{fill:'B4C6E7',b:true,sz:9},
-    head:{fill:'B4C6E7',b:true,sz:9},cell:{},left:{align:'left'},bad:{align:'left',color:'FF0000'},
-    scope:{fill:'DDEBF7',color:'C00000'},done:{fill:'548235',color:'FFFFFF'},fail:{fill:'F4B6C2'},none:{fill:'FF0000'}};
-  var head=['S#','Suppliers proposed for participation','Material Category','Status','Ref Document No','Scope','Location',
-    'Assessment Performed','Technical Assessor','Technical report','QMS Assessor','QMS Report','Status','Ref Document No'];
-  var rows=[
-    head.map(function(_,i){return {v:i===0?'Physical Assessment Summary':'',st:'title'};}),
-    head.map(function(_,i){return {v:i===3?'PQD':i===7?'Physical Assessment':'',st:'grp'};}),
-    head.map(function(h){return {v:h,st:'head'};})];
+  }).sort(function(a,b){
+    var A=((a.steps||{}).pa||{}).date||'', B=((b.steps||{}).pa||{}).date||'';
+    /* the oldest at the top; a survey with no date after the dated ones */
+    if(A!==B){if(!A)return 1;if(!B)return -1;return A<B?-1:1;}
+    return String(a.name).localeCompare(String(b.name));
+  });
   var word=function(s){return /Pass/.test(s||'')?'Pass':/Fail/.test(s||'')?'Failed':(s||'');};
-  list.forEach(function(v,i){
+  return list.map(function(v,i){
     var pq=pqOf(v), pa=(v.steps||{}).pa||{};
     var done=/Passed|Failed|Waived/.test(pa.status||'');
     var overall=word(pa.status);
@@ -5348,19 +5344,39 @@ function paSummaryBook(){
     var rejected=/Rejected|Terminated/.test(pq.status||'');
     /* the vendor's category, or the highest among its materials */
     var cat=v.cat||matsOf(v).map(function(m){return m.cat||'';}).filter(Boolean).sort().pop()||'';
-    rows.push([
+    return [
       {v:i+1,st:'cell'},{v:v.name,st:rejected?'bad':'left'},{v:cat,st:'cell'},
       {v:pq.status||'',st:pq.ref?'cell':'none'},{v:pq.ref||'',st:pq.ref?'cell':'none'},
-      {v:v.scope||'',st:'scope'},{v:[v.site,v.country].filter(Boolean).join(' - '),st:'cell'},
+      {v:v.scope||'',st:'scope'},{v:[v.country,v.addr||v.site].filter(Boolean).join(' - '),st:'cell'},
       {v:done?'Done':(pa.status==='Scheduled'?'Scheduled':''),st:done?'done':'cell'},
+      {v:pa.date?show(pa.date):'',d:pa.date||'',st:'cell'},
       {v:pa.by2||'',st:'cell'},{v:tech,st:/Failed/.test(tech)?'fail':'cell'},
       {v:pa.by||'',st:'cell'},{v:qms,st:/Failed/.test(qms)?'fail':'cell'},
-      {v:done?overall:'',st:/Failed/.test(overall)?'fail':'cell'},{v:pa.ref||'',st:'cell'}]);
+      {v:done?overall:'',st:/Failed/.test(overall)?'fail':'cell'},{v:pa.ref||'',st:'cell'}];
   });
+}
+var PA_HEAD=['S#','Suppliers proposed for participation','Material Category','Status','Ref Document No','Scope','Location',
+  'Assessment Performed','Date','Technical Assessor','Technical report','QMS Assessor','QMS Report','Status','Ref Document No'];
+function paSummaryBook(){
+  var S={
+    title:{fill:'F8CBAD',sz:14,color:'843C0C',border:false},grp:{fill:'B4C6E7',b:true,sz:9},
+    head:{fill:'B4C6E7',b:true,sz:9},cell:{},left:{align:'left'},bad:{align:'left',color:'FF0000'},
+    scope:{fill:'DDEBF7',color:'C00000'},done:{fill:'548235',color:'FFFFFF'},fail:{fill:'F4B6C2'},none:{fill:'FF0000'}};
+  var head=PA_HEAD, data=paSummaryData();
+  var rows=[
+    head.map(function(_,i){return {v:i===0?'Physical Assessment Summary':'',st:'title'};}),
+    head.map(function(_,i){return {v:i===3?'PQD':i===7?'Physical Assessment':'',st:'grp'};}),
+    head.map(function(h){return {v:h,st:'head'};})].concat(data);
   var heights={1:24,2:16,3:30};
   return styledBook({name:'Physical Assessment',styles:S,rows:rows,heights:heights,
-    cols:[4,30,10,18,34,16,16,12,16,13,16,13,9,32],
-    merges:['A1:N1','D2:E2','H2:N2'],freeze:{x:2,y:3},filter:'A3:N'+(3+list.length)});
+    cols:[4,30,10,18,34,16,16,12,12,16,13,16,13,9,32],
+    merges:['A1:O1','D2:E2','H2:O2'],freeze:{x:2,y:3},filter:'A3:O'+(3+data.length)});
+}
+/* the same, as a sheet of the Main Log: plain cells, the two pairs of
+   Status and Ref Document No told apart */
+function paSheetRows(){
+  var head=PA_HEAD.slice();head[3]='PQD Status';head[4]='PQD Document No';head[13]='Assessment Status';head[14]='Assessment Document No';
+  return [head].concat(paSummaryData().map(function(r){return r.map(function(c){return c.d||c.v;});}));
 }
 function aheadRows(){
   var t0=today(),end=addDays(t0,14),out=[];
@@ -5531,14 +5547,18 @@ function sevenMaterials(){
 function sevenLog(){
   var loose=looseRows(), more=[{name:'Summary',rows:summaryRows()}];
   if(loose.length>1)more.push({name:'Not linked',rows:loose});
+  /* the physical assessments that took place, oldest first */
+  var pas=paSheetRows();
+  if(pas.length>1)more.push({name:'Physical Assessment',rows:pas,widths:[5,34,10,16,32,30,22,12,12,20,12,20,12,12,32]});
   return sevenBook(sevenMaterials(),more);
 }
 /* a plain sheet in the same workbook: grey bold heading, bordered cells */
-function sevenPlain(rows){
+function sevenPlain(rows,widths){
   var wide=rows.reduce(function(a,r){return Math.max(a,r.length);},0);
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    +'<cols><col min="1" max="1" width="44" customWidth="1"/><col min="2" max="'+Math.max(2,wide)+'" width="22" customWidth="1"/></cols>'
+    +(widths?'<cols>'+widths.map(function(w,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>';}).join('')+'</cols>'
+      :'<cols><col min="1" max="1" width="44" customWidth="1"/><col min="2" max="'+Math.max(2,wide)+'" width="22" customWidth="1"/></cols>')
     +'<sheetData>'+rows.map(function(row,r){
       return '<row r="'+(r+1)+'">'+row.map(function(v,c){return sevenCell(colName(c)+(r+1),v,r===0?51:2);}).join('')+'</row>';
     }).join('')+'</sheetData></worksheet>';
@@ -5749,7 +5769,7 @@ function sevenBook(list,more){
     {name:'xl/theme/theme1.xml',text:T.theme},
     {name:'xl/styles.xml',text:st},
     {name:'xl/worksheets/sheet1.xml',text:sheetXml}
-  ].concat(more.map(function(m,i){return {name:'xl/worksheets/sheet'+(i+2)+'.xml',text:sevenPlain(m.rows)};}));
+  ].concat(more.map(function(m,i){return {name:'xl/worksheets/sheet'+(i+2)+'.xml',text:sevenPlain(m.rows,m.widths)};}));
   return zipUp(files);
 }
 var REPORTS=[
