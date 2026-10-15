@@ -2073,7 +2073,7 @@ function calItems(from,to){
     });
     if(!m.doc)(m.dels||[]).forEach(function(d){
       if(d.date)put(d.date,(d.status==='Pending'?'Inspect delivery · ':'Delivered · ')+m.name,
-        d.status==='Pending'?'now':'ok',go,{c:'del',kind:'MIR',name:m.name,no:d.ref||'',st:d.status||'Pending'});
+        d.status==='Pending'?'now':'ok',go,{c:'del',kind:'MIR',name:m.name,no:d.ref||'',st:d.status||'Pending',cat:m.cat||'',disc:m.disc||''});
     });
   });
   /* what the Aconex register brought in, on the day it went in */

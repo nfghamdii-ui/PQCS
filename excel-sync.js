@@ -2441,7 +2441,7 @@ window.acxCal=function(put){
   (DB.mfrs||[]).forEach(function(v){
     var pq=pqOf(v);if(!pq.date)return;
     put(pq.date,'PQD \u00b7 '+v.name+(pq.status?(' \u00b7 '+pq.status):''),statusTone(pq.status)||'na',
-      "jump('mfr',"+v.id+")",{c:'apqd',kind:'PQD',name:v.name,no:pq.ref||'',st:pq.status||''});
+      "jump('mfr',"+v.id+")",{c:'apqd',kind:'PQD',name:v.name,no:pq.ref||'',st:pq.status||'',rev:pq.rev==null?'':pq.rev});
   });
 };
 
@@ -5022,58 +5022,47 @@ function twStart(){
   d.setDate(d.getDate()-((d.getDay()+1)%7));              /* back to Saturday */
   return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
 }
+/* The section of the look-ahead a calendar item belongs to, or none:
+   deadlines, reminders and expiries are not activities, and a document
+   is placed by its kind, or failing that by what its title says. */
+function twSecOf(x){
+  var k=x.kind||'', t=String(x.t||'');
+  function byTitle(){
+    if(/post.?insp/i.test(t))return '8';
+    if(/pre.?insp\w*\s+(dossier|package)|\bPID\b/i.test(t))return '6';
+    if(/meeting|minutes|\bPIM\b|\bPFM\b|kick.?off/i.test(t))return '7';
+    if(/\bFAT\b|final insp|factory accept|in.?process|\bIPI\b/i.test(t))return '9';
+    if(/\bMIR\b|\bIRN\b|release|deliver/i.test(t))return '10';
+    if(/\bPQD\b|pre.?qual/i.test(t))return '2';
+    if(/\bPA\b|assessment|survey|audit|factory visit/i.test(t))return '1';
+    return '';
+  }
+  if(x.c==='visit')return k==='Survey'||k==='PA'?'1':k==='Pre-fab'?'7':(k==='FAT'||k==='IPI')?'9':'';
+  if(x.c==='apqd')return '2';
+  if(x.c==='del'||x.c==='amir')return '10';
+  if(x.c==='adoc')return k==='PID'?'6':k==='IRN'?'10':byTitle();
+  if(x.c==='mine'){var s=byTitle();return s||(x.k==='na'&&/meet/i.test(t)?'7':'');}
+  return '';
+}
+/* What the fortnight holds, read from the calendar itself: whatever it
+   shows on a day shows here on the same day, in its section. */
 function twItems(t0,end){
-  var sec={};TW_SECTIONS.forEach(function(x){sec[x[0]]=[];});
-  function inWin(d){return d&&d>=t0&&d<=end;}
-  function put(k,label,disc,dates){
-    dates=dates.filter(inWin);
-    if(dates.length)sec[k].push({label:label,disc:disc,dates:dates});
-  }
-  /* the day of the thing itself, and a real deadline after it — not a
-     day something merely becomes allowed (a purchase order may follow,
-     fabrication may start), which is no activity on the schedule */
-  /* the day it went in, and nothing after it */
-  function stepDates(rec,st,d){
-    return [d.date];
-  }
-  (DB.mfrs||[]).forEach(function(v){
-    var stp=v.steps||{}, pq=pqOf(v), code=twDisc(pq.ref,'');
-    var pa=stp.pa||{};
-    /* the tentative date — the visit as planned, before the official one
-       and its report; failing that, a survey recorded as Scheduled */
-    var tent=(v.logf||{})['PA Tentative Date']||(/^(Scheduled|Upcoming)$/.test(pa.status||'')?pa.date:'');
-    if(tent)put('1',v.name+(tent>=today()?' ( upcoming )':''),code,[tent]);
-    var pqs=MFR_ROAD.filter(function(x){return x.k==='pqd';})[0];
-    /* a first submission only: a resubmission (revision 1 and on) is not new */
-    var first=pq.rev==null||pq.rev===''||/^0*$/.test(String(pq.rev).trim());
-    if(first&&(pq.date||pq.ref))put('2',v.name+(pq.status?' — '+pq.status:''),code,stepDates(v,pqs,pq));
-  });
-  (DB.mats||[]).forEach(function(m){
-    if(isDoc(m))return;
-    var code=twDisc(matNo(m),m.disc), road=matRoad(m).steps;
-    var step=function(k){return road.filter(function(x){return x.s.k===k;})[0];};
-    [['pid','6'],['pfm','7'],['post','8']].forEach(function(p){
-      var x=step(p[0]);if(!x)return;
-      put(p[1],m.name,code,stepDates(m,x.s,x.data));
-    });
-    var vs=function(k){return (m.visits||[]).filter(function(y){return y.step===k;}).map(function(y){return y.date;});};
-    if(step('fat'))put('9',m.name,code,vs('fat').concat(stepDates(m,step('fat').s,step('fat').data)));
-    /* materials released on site: each inspection request (consignment)
-       on its day, its number beside the material */
-    if(m.cat==='C2'||m.cat==='C3')(m.dels||[]).forEach(function(c){
-      if(c.date)put('10',m.name+(c.ref?' — '+c.ref:''),code,[c.date]);
-    });
-  });
-  /* and every inspection request from Aconex not linked to a material
-     yet, by its own title and number, on the day it went in */
-  (DB.mats||[]).forEach(function(d){
-    if(d.doc!=='MIR'||isLinked(d)||(d.cat!=='C2'&&d.cat!=='C3'))return;          /* C2 and C3 only */
-    var no=refOf(d);
-    put('10',d.name+(no?' — '+no:''),twDisc(no,d.disc),[acxDateOf(d)]);
-  });
-  acxRows().forEach(function(d){
-    if(d.doc!=='MIR'||isLinked(d)||(d.cat!=='C2'&&d.cat!=='C3'))return;
-    put('10',d.name+' — '+d.ref,twDisc(d.ref,d.disc),[d.date]);
+  var sec={}, seen={};TW_SECTIONS.forEach(function(x){sec[x[0]]=[];});
+  var items=typeof calItems==='function'?calItems(t0,end):[];
+  items.forEach(function(x){
+    var k=twSecOf(x);if(!k||!x.d||x.d<t0||x.d>end)return;
+    /* a PQD only when first submitted; a release for C2 and C3 only */
+    if(k==='2'&&x.rev!=null&&x.rev!==''&&!/^0*$/.test(String(x.rev).trim()))return;
+    if(k==='10'&&x.cat!=null&&x.cat!==''&&x.cat!=='C2'&&x.cat!=='C3')return;
+    var name=x.name||String(x.t||'').replace(/^[^·]*·\s*/,'')||x.t;
+    var label=k==='1'?name+(x.d>=today()?' ( upcoming )':'')
+      :k==='2'?name+(x.st?' — '+x.st:'')
+      :(k==='10'||x.c==='adoc')&&x.no?name+' — '+x.no
+      :x.c==='mine'?x.t:name;
+    var key=k+'|'+label;
+    if(seen[key]){if(seen[key].dates.indexOf(x.d)<0)seen[key].dates.push(x.d);return;}
+    seen[key]={label:label,disc:twDisc(x.no,x.disc),dates:[x.d]};
+    sec[k].push(seen[key]);
   });
   return sec;
 }
