@@ -5446,7 +5446,7 @@ function paSheetRows(){
   parts.forEach(function(p){
     var list=data.filter(p[1]);if(!list.length)return;
     if(out.length)out.push([]);
-    out.push([{v:p[0]+' ('+list.length+')',t:'head'}]);
+    out.push(head.map(function(_,i){return {v:i?'':p[0]+' ('+list.length+')',t:'title'};}));
     out.push(head.map(function(h){return {v:h,t:'head'};}));
     list.forEach(function(r,i){out.push([i+1].concat(r.slice(1)));});
   });
@@ -5634,6 +5634,11 @@ function sevenLog(){
 /* a plain sheet in the same workbook: grey bold heading, bordered cells */
 function sevenPlain(rows,widths,tint,red){
   var wide=rows.reduce(function(a,r){return Math.max(a,r.length);},0);
+  /* a title line spans the whole width of its table */
+  var merges=[];
+  rows.forEach(function(row,r){
+    if(row.length>1&&row[0]&&typeof row[0]==='object'&&row[0].t==='title')merges.push('A'+(r+1)+':'+colName(row.length-1)+(r+1));
+  });
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     +'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
     +(widths?'<cols>'+widths.map(function(w,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>';}).join('')+'</cols>'
@@ -5647,11 +5652,13 @@ function sevenPlain(rows,widths,tint,red){
         var tag=v&&typeof v==='object'&&'t' in v?v.t:'';
         if(v&&typeof v==='object'&&'t' in v)v=v.v;
         var w=String(v==null?'':v).trim(), st=r===0?51:2;
-        if(tag==='head')return sevenCell(colName(c)+(r+1),v,51);
+        if(tag==='head'||tag==='title')return sevenCell(colName(c)+(r+1),v,51);
         if(r&&tint&&tag&&tint[tag]!=null)return sevenCell(colName(c)+(r+1),v,tint[tag]);
         if(r&&tint)st=/^Pass(ed)?$/i.test(w)?tint.pass:/^Failed$/i.test(w)?tint.fail:/^Upcoming$/i.test(w)?tint.soon:/^Waived$/i.test(w)?tint.waived:/^Valid$/i.test(w)?tint.pass:/^Expired$/i.test(w)?tint.fail:/^(AVL|Not required \(AVL\))$/i.test(w)?tint.avl:st;
         return sevenCell(colName(c)+(r+1),v,st);}).join('')+'</row>';
-    }).join('')+'</sheetData></worksheet>';
+    }).join('')+'</sheetData>'
+    +(merges.length?'<mergeCells count="'+merges.length+'">'+merges.map(function(m){return '<mergeCell ref="'+m+'"/>';}).join('')+'</mergeCells>':'')
+    +'</worksheet>';
 }
 /* A data cell's style: the template's own, except the green and red its
    sample rows were filled with, which were somebody's data and not the
