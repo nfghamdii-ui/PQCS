@@ -5436,7 +5436,21 @@ function vendorSheetRows(){
    Status and Ref Document No told apart */
 function paSheetRows(){
   var head=PA_HEAD.slice();head[3]='PQD Status';head[4]='PQD Document No';head[13]='Assessment Status';head[14]='Assessment Document No';
-  return [head].concat(paSummaryData().map(function(r){return r.map(function(c){return c.d||c.v;});}));
+  /* three tables, one under the other: AVL and waived first, then the
+     factories visited, then the visits to come; each its own title and
+     heading, numbered from one */
+  var data=paSummaryData().map(function(r){return r.map(function(c){return c.d||c.v;});});
+  var parts=[['AVL and Waived',function(r){return r[7]!=='Done'&&r[7]!=='Upcoming';}],
+    ['Assessed',function(r){return r[7]==='Done';}],['Upcoming',function(r){return r[7]==='Upcoming';}]];
+  var out=[];
+  parts.forEach(function(p){
+    var list=data.filter(p[1]);if(!list.length)return;
+    if(out.length)out.push([]);
+    out.push([{v:p[0]+' ('+list.length+')',t:'head'}]);
+    out.push(head.map(function(h){return {v:h,t:'head'};}));
+    list.forEach(function(r,i){out.push([i+1].concat(r.slice(1)));});
+  });
+  return out;
 }
 function aheadRows(){
   var t0=today(),end=addDays(t0,14),out=[];
@@ -5609,7 +5623,7 @@ function sevenLog(){
   if(loose.length>1)more.push({name:'Not linked',rows:loose});
   /* the physical assessments that took place, oldest first */
   var pas=paSheetRows();
-  if(pas.length>1)more.push({name:'Physical Assessment',rows:pas,widths:[5,34,10,16,32,30,22,12,12,20,12,20,12,12,32],tint:true});
+  if(pas.length)more.push({name:'Physical Assessment',rows:pas,widths:[5,34,10,16,32,30,22,12,12,20,12,20,12,12,32],tint:true});
   /* this week and next, in the TWLAS layout */
   more.push({name:'TWLAS',xml:function(S){return twSheetXml(S).sheet;}});
   /* every company, where its certificate stands, and how many materials it serves */
@@ -5633,6 +5647,7 @@ function sevenPlain(rows,widths,tint,red){
         var tag=v&&typeof v==='object'&&'t' in v?v.t:'';
         if(v&&typeof v==='object'&&'t' in v)v=v.v;
         var w=String(v==null?'':v).trim(), st=r===0?51:2;
+        if(tag==='head')return sevenCell(colName(c)+(r+1),v,51);
         if(r&&tint&&tag&&tint[tag]!=null)return sevenCell(colName(c)+(r+1),v,tint[tag]);
         if(r&&tint)st=/^Pass(ed)?$/i.test(w)?tint.pass:/^Failed$/i.test(w)?tint.fail:/^Upcoming$/i.test(w)?tint.soon:/^Waived$/i.test(w)?tint.waived:/^Valid$/i.test(w)?tint.pass:/^Expired$/i.test(w)?tint.fail:/^(AVL|Not required \(AVL\))$/i.test(w)?tint.avl:st;
         return sevenCell(colName(c)+(r+1),v,st);}).join('')+'</row>';
