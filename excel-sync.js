@@ -5390,7 +5390,7 @@ function paSummaryBook(){
 function vendorSheetRows(){
   var mats=(MATS_ALL||DB.mats||[]).filter(function(m){return !isDoc(m);});
   var head=['S#','Vendor','Kind','Category','Country','City','Telephone 1','PQD Number','PQD Status',
-    'ISO Number','ISO Expires','ISO Status','No. of MAT'];
+    'ISO Number','ISO Expires','ISO Status','Visit Status','Visit Date','No. of MAT'];
   var list=(DB.mfrs||[]).filter(function(v){return kindOf(v)!=='agency';})
     .sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
   return [head].concat(list.map(function(v,i){
@@ -5398,8 +5398,13 @@ function vendorSheetRows(){
     var st=iso.date?(daysTo(iso.date)<0?'Expired':'Valid'):(iso.status||(iso.ref?'Valid':'Not recorded'));
     if(!needsQual(v)&&!iso.date&&!iso.ref)st='Not required (C0)';
     var n=mats.filter(function(m){return String(m.mfr)===String(v.id)||String(m.supplier)===String(v.id);}).length;
+    /* the factory visit, in the words of the Physical Assessment sheet */
+    var pa=(v.steps||{}).pa||{}, ps=pa.status||'';
+    var visit=/Passed/.test(ps)?'Pass':/Failed/.test(ps)?'Failed':/^(Scheduled|Upcoming)$/.test(ps)||(v.logf||{})['PA Tentative Date']?'Upcoming'
+      :ps==='Waived'?'Waived':/AVL/.test(ps)?'AVL':ps==='Pending'?'Pending':'';
+    var vdate=pa.date||(visit==='Upcoming'?((v.logf||{})['PA Tentative Date']||''):'');
     return [i+1,v.name,KINDS[kindOf(v)].l,v.cat||'',v.country||'',v.addr||'',v.tel||'',pq.ref||'',pq.status||'',
-      iso.ref||'',iso.date||'',st,n];
+      iso.ref||'',iso.date||'',st,visit,vdate,n];
   }));
 }
 /* the same, as a sheet of the Main Log: plain cells, the two pairs of
@@ -5582,7 +5587,7 @@ function sevenLog(){
   if(pas.length>1)more.push({name:'Physical Assessment',rows:pas,widths:[5,34,10,16,32,30,22,12,12,20,12,20,12,12,32],tint:true});
   /* every company, where its certificate stands, and how many materials it serves */
   var ven=vendorSheetRows();
-  if(ven.length>1)more.push({name:'Vendors',rows:ven,widths:[5,36,22,10,16,16,18,32,18,22,14,14,10],tint:true});
+  if(ven.length>1)more.push({name:'Vendors',rows:ven,widths:[5,36,22,10,16,16,18,32,18,22,14,14,14,14,10],tint:true});
   return sevenBook(sevenMaterials(),more);
 }
 /* a plain sheet in the same workbook: grey bold heading, bordered cells */
