@@ -5661,7 +5661,7 @@ function sevenPlain(rows,widths,tint,red){
         var w=String(v==null?'':v).trim(), st=r===0?51:2;
         if(tag==='head'||tag==='title')return sevenCell(colName(c)+(r+1),v,51);
         if(r&&tint&&tag&&tint[tag]!=null)return sevenCell(colName(c)+(r+1),v,tint[tag]);
-        if(r&&tint)st=/^Pass(ed)?$/i.test(w)?tint.pass:/^Failed$/i.test(w)?tint.fail:/^Upcoming$/i.test(w)?tint.soon:/^Waived$/i.test(w)?tint.waived:/^Valid$/i.test(w)?tint.pass:/^Expired$/i.test(w)?tint.fail:/^(AVL|Not required \(AVL\))$/i.test(w)?tint.avl:st;
+        if(r&&tint)st=/^Pass(ed)?$/i.test(w)?tint.pass:/^Failed$/i.test(w)?tint.fail:/^(Upcoming|In-process)$/i.test(w)?tint.soon:/^Waived$/i.test(w)?tint.waived:/^Valid$/i.test(w)?tint.pass:/^Expired$/i.test(w)?tint.fail:/^(AVL|Not required \(AVL\))$/i.test(w)?tint.avl:st;
         return sevenCell(colName(c)+(r+1),v,st);}).join('')+'</row>';
     }).join('')+'</sheetData>'
     +(merges.length?'<mergeCells count="'+merges.length+'">'+merges.map(function(m){return '<mergeCell ref="'+m+'"/>';}).join('')+'</mergeCells>':'')
