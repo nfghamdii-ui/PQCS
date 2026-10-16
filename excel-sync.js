@@ -4489,9 +4489,18 @@ function generalRows(){
    one-row-per-material, so it is written to a sheet of its own rather
    than quietly dropped */
 function looseRows(){
+  /* a number written on a vendor's page (its PQD, ISO, visit report…)
+     is that vendor's document, so it is not left over */
+  var onVendor={};
+  (DB.mfrs||[]).forEach(function(v){
+    var put=function(x){if(typeof x==='string')splitRefs(x).forEach(function(n){onVendor[K(n)]=1;});};
+    Object.keys(v.steps||{}).forEach(function(k){var st=v.steps[k]||{};Object.keys(st).forEach(function(f){put(st[f]);});});
+    Object.keys(v.logf||{}).forEach(function(f){put(v.logf[f]);});
+  });
   var loose=(DB.mats||[]).filter(function(m){
     return waitsForLink(m)||(m.doc==='MIR'&&!isLinked(m));
-  }).concat(acxRows().filter(function(d){return LINE_VIEWS.mir(d)||LINE_VIEWS.doc(d);}));
+  }).concat(acxRows().filter(function(d){return LINE_VIEWS.mir(d)||LINE_VIEWS.doc(d);}))
+    .filter(function(d){return !onVendor[K(refOf(d))];});
   var rows=[['Kind','Reference','Title','Discipline','Revision','Outcome','Note']];
   loose.forEach(function(d){
     var r=d.raw||{};
