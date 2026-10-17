@@ -3596,6 +3596,7 @@ window.logGroupsFor=function(m,keys){
       +'<span class="tag t-'+(filled===g[1].length?'ok':filled?'wait':'na')+'">'+filled+' of '+g[1].length+'</span>'
       +'<span style="flex:1"></span>'
       +(g[0]==='Installation & WIR'?'<button class="btn btn-s btn-p no-print" style="margin-right:6px" onclick="linkPick('+m.id+',\'\',false,\'wir\')">Link a WIR</button>':'')
+      +(g[0]==='Sample and mock-up'?'<button class="btn btn-s btn-p no-print" style="margin-right:6px" onclick="linkPick('+m.id+',\'\',false,\'mas\')">Link a sample</button>':'')
       +'<button class="btn btn-s no-print" onclick="editLog('+m.id+','+gi+')">Edit</button></div>'
       +'<div class="props">'+g[1].map(function(f){
         var v=logShow(f,raw[f[0]]);
@@ -3977,10 +3978,10 @@ var ROLE_STEP={fat:'fat',ipi:'ipi',pid:'pid',fatp:'fat',pfm:'pfm',irn:'irn',post
 /* the steps a linked document fills, and the kind Aconex gives it if any */
 var STEP_FROM_DOCS={itp:'ITP',pid:'PID',pfm:'',post:''};
 /* what the button and the list say, step by step */
-var LINK_TEXT={fat:'FAT report',fatp:'FAT procedure',ipi:'in-process inspection report',pid:'PID',
+var LINK_TEXT={mas:'material sample',fat:'FAT report',fatp:'FAT procedure',ipi:'in-process inspection report',pid:'PID',
   pfm:'the meeting minutes',irn:'release note',post:'post-inspection dossier',mir:'an MIR',wir:'WIR'};
 /* the kind Aconex itself gives the thing, where it has one */
-var ROLE_KIND={pid:'PID',mir:'MIR',wir:'WIR'};
+var ROLE_KIND={pid:'PID',mir:'MIR',wir:'WIR',mas:'MAS'};
 function roleName(r){var x=DOC_ROLES.filter(function(y){return y[0]===r;})[0];return x?x[1]:'';}
 /* a document's outcome and date, from its own kind's columns or, for a
    type with no home of its own, wherever the register put them */
@@ -4029,8 +4030,24 @@ function syncDocVisits(m,docs){
   return changed;
 }
 var STEP_RANK={'Rejected':0,'Resubmit':1,'Pending':2,'Approved with comments':3,'Approved':4};
+/* The Sample column: what was typed in it, then each material sample
+   linked, its number and its outcome in Aconex. Unlinked all, the typed
+   text is back as it was. */
+function masRaw(m){
+  var l=docsOf(m).filter(function(d){return d.doc==='MAS';});
+  m.raw=m.raw||{};
+  if(!l.length){
+    if(m.masTyped!=null){if(m.masTyped)m.raw['Sample']=m.masTyped;else delete m.raw['Sample'];delete m.masTyped;}
+    return;
+  }
+  var nos={};l.forEach(function(d){nos[K(refOf(d))]=1;});
+  if(m.masTyped==null)m.masTyped=m.raw['Sample']||'';
+  var typed=splitRefs(m.masTyped).filter(function(x){return !nos[K(x)];});
+  m.raw['Sample']=typed.concat(l.map(function(d){var st=docStatus(d);return refOf(d)+(st?' — '+st:'');})).join('\n');
+}
 function syncDocSteps(m){
   if(!m||isDoc(m))return false;
+  try{masRaw(m);}catch(e){}
   var changed=false, docs=docsOf(m);
   m.steps=m.steps||{};
   Object.keys(STEP_FROM_DOCS).forEach(function(k){
@@ -4094,7 +4111,7 @@ window.linkPick=function(matId,q,go,role){
   /* linked from a step, only what that step can hold is offered:
      Aconex's reports, procedures and transmittals, or its own kind */
   /* an inspection request is its own kind: only those are offered */
-  var fits=function(d){return !role||((role==='mir'||role==='wir')?d.doc===ROLE_KIND[role]
+  var fits=function(d){return !role||((role==='mir'||role==='wir'||role==='mas')?d.doc===ROLE_KIND[role]
     :(ASK_KINDS[d.doc]||d.doc===ROLE_KIND[role]||(role==='irn'&&/release/i.test(d.doc))));};
   var recs=(DB.mats||[]).filter(function(d){return isDoc(d)&&fits(d);});
   /* a line already a record is offered once, as the record */
@@ -4172,7 +4189,7 @@ window.linkAdd=function(matId,docId,role,ds){
   var d0=mat(docId);
   if(d0&&ASK_KINDS[d0.doc]&&!role)return askRole(matId,docId,ds);
   var was=d0?d0.role:'';
-  if(d0&&role&&role!=='mir')d0.role=role;
+  if(d0&&role&&role!=='mir'&&role!=='mas')d0.role=role;
   /* the same document on other materials reads the new answer too */
   if(d0&&role&&was!==role)servedBy(d0).forEach(function(x){if(String(x.id)!==String(matId))syncDocSteps(x);});
   m.docs=m.docs||[];
@@ -4206,7 +4223,7 @@ function linkRef(m,docId,role,ds){
       m.wirTyped=splitRefs(m.raw['WIR Number']).filter(function(n){return K(n)!==K(x.no);}).join('\n');
     m.refs.push(x);
   }
-  if(role&&role!=='mir'&&role!=='wir')x.role=role;
+  if(role&&role!=='mir'&&role!=='wir'&&role!=='mas')x.role=role;
   var d=lightDoc(x);
   var made=mirToDel(m,d);
   if(x.kind==='WIR')wirRaw(m);
