@@ -6406,6 +6406,7 @@ var TABLES_DEF={
     col('MAT Number','matno',function(r){return rawOf(r,'MAT Number')||r.ref;},'text',300),
     col('PQD Reference','pqref',function(r){var v=r.mfr?mfr(r.mfr):null;return v?(pqOf(v).ref||''):'';},'text',300),
     asTag(col('MAT Status','matst',function(r){return stepOf(r,'mts','status')||rawOf(r,'MAT Status');},'pick',150)),
+    col('MAT Revision','matrev',function(r){return rawOf(r,'MAT Revision');},'pick',110),
     col('MAT Date','matdt',function(r){return show(stepOf(r,'mts','date')||rawOf(r,'MAT Submittal Date'));},'text',110),
     /* read from the documents linked to the material, as the Main Log
        is, and only failing those from what the material once carried */
@@ -6419,7 +6420,7 @@ var TABLES_DEF={
     asNum(col('Delivered','got',function(r){return (r.dels||[]).length?String(received(r)):'';},'text',100)),
     asNum(col('Documents','ndoc',function(r){return String((r.docs||[]).length||'');},'text',100)),
     asNum(col('Consignments','ndel',function(r){return String((r.dels||[]).length||'');},'text',110))],
-   show:['name','cat','disc','ven','supp','vst','stage','who','prog','logp','matst','itpst','mesno','messt']},
+   show:['name','cat','disc','ven','supp','vst','stage','who','prog','logp','matst','matrev','itpst','mesno','messt']},
 
  /* The MIR tab is the work still to do, as Documents is: a request
     leaves it once a material links it, and every request, linked or
