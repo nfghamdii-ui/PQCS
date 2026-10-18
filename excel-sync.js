@@ -4112,7 +4112,7 @@ window.linkPick=function(matId,q,go,role){
      Aconex's reports, procedures and transmittals, or its own kind */
   /* an inspection request is its own kind: only those are offered */
   var fits=function(d){return !role||((role==='mir'||role==='wir'||role==='mas')?d.doc===ROLE_KIND[role]
-    :(ASK_KINDS[d.doc]||d.doc===ROLE_KIND[role]||(role==='irn'&&/release/i.test(d.doc))));};
+    :(ASK_KINDS[d.doc]||d.doc===ROLE_KIND[role]||(role==='irn'&&(/release/i.test(d.doc)||d.doc==='MIR'))));};
   var recs=(DB.mats||[]).filter(function(d){return isDoc(d)&&fits(d);});
   /* a line already a record is offered once, as the record */
   var seen={};recs.forEach(function(d){var r=refOf(d);if(r)seen[K(r)]=1;});
@@ -4121,7 +4121,13 @@ window.linkPick=function(matId,q,go,role){
   var rl=role?("'"+role+"'"):'undefined';
   var rows=all.filter(function(d){
     /* from a step, one linked already but not yet said to be this can be */
-    if(d.light?has['r:'+K(d.ref)]:(has[String(d.id)]&&(!role||!ASK_KINDS[d.doc]||(d.role&&d.role!=='doc'))))return false;
+    /* an inspection request already on the material can still be named
+       its release note, unless it is that already */
+    if(role==='irn'&&d.doc==='MIR'){
+      var mine=d.light?(m.refs||[]).filter(function(y){return K(y.no)===K(d.ref);})[0]:(has[String(d.id)]?d:null);
+      if(mine&&mine.role==='irn')return false;
+    }
+    else if(d.light?has['r:'+K(d.ref)]:(has[String(d.id)]&&(!role||!ASK_KINDS[d.doc]||(d.role&&d.role!=='doc'))))return false;
     if(!need)return K(plainDisc(d.disc||''))===mdisc;   /* start with its own trade */
     return K(d.name+' '+refOf(d)+' '+(d.doc||'')).indexOf(need)>=0;
   });
@@ -4131,7 +4137,7 @@ window.linkPick=function(matId,q,go,role){
   if(role){
     var want={fat:'Report',ipi:'Report',fatp:'Procedure',pid:'Transmittal',post:'Transmittal',pfm:'Report'}[role];
     var hint={fat:/FAT|final insp/i,fatp:/FAT/i,ipi:/in.?process|IPI/i,pid:/pre.?insp|dossier|PID|TRN/i,
-      pfm:/minutes|pre.?fab|MOM/i,irn:/release/i,post:/post.?insp|dossier/i}[role]||/$^/;
+      pfm:/minutes|pre.?fab|MOM/i,irn:/release|MIR/i,post:/post.?insp|dossier/i}[role]||/$^/;
     var score=function(d){return (d.doc===want||d.doc===ROLE_KIND[role]?2:0)+(hint.test(d.name+' '+refOf(d))?1:0);};
     rows.sort(function(a,b){return score(b)-score(a);});}
   var already=need?all.filter(function(d){
@@ -4196,7 +4202,7 @@ window.linkAdd=function(matId,docId,role,ds){
   if(m.docs.indexOf(docId)<0&&!m.docs.some(function(x){return String(x)===String(docId);}))
     m.docs.push(docId);
   var d=mat(docId);
-  var made=mirToDel(m,d);
+  var made=role==='irn'?false:mirToDel(m,d);
   syncDocSteps(m);
   touch();closeSheet();rPane();paintTabs();
   if(ds)setTimeout(function(){daySheet(ds);},60);
@@ -4225,7 +4231,8 @@ function linkRef(m,docId,role,ds){
   }
   if(role&&role!=='mir'&&role!=='wir'&&role!=='mas')x.role=role;
   var d=lightDoc(x);
-  var made=mirToDel(m,d);
+  /* named as a release note it is that, and no consignment is made of it */
+  var made=role==='irn'?false:mirToDel(m,d);
   if(x.kind==='WIR')wirRaw(m);
   syncDocSteps(m);
   touch();closeSheet();rPane();paintTabs();
