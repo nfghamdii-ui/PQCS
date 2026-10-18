@@ -5241,7 +5241,9 @@ function twlasBook(){
    once ({fill, color, b, sz, u, i, align, wrap, border}) and the
    fonts, fills and formats Excel needs are made from the names used.
    ================================================================ */
-function styledBook(spec){
+/* a styled sheet and its styles, apart, so the sheet can also go into
+   another workbook (the Main Log) */
+function styledParts(spec){
   var fonts=['<font><sz val="10"/><name val="Calibri"/></font>'], fills=['<fill><patternFill patternType="none"/></fill>','<fill><patternFill patternType="gray125"/></fill>'];
   var xfs=['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'], idx={};
   Object.keys(spec.styles).forEach(function(k){
@@ -5285,6 +5287,10 @@ function styledBook(spec){
     +(spec.merges&&spec.merges.length?'<mergeCells count="'+spec.merges.length+'">'+spec.merges.map(function(m){return '<mergeCell ref="'+m+'"/>';}).join('')+'</mergeCells>':'')
     +'<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>'
     +'<pageSetup orientation="landscape"/></worksheet>';
+  return {styles:styles,sheet:sheet};
+}
+function styledBook(spec){
+  var o=styledParts(spec), styles=o.styles, sheet=o.sheet;
   return zipUp([
     {name:'[Content_Types].xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       +'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
@@ -5321,7 +5327,8 @@ function dShort(iso){
 }
 
 /* ---------------- Final Inspection / FAT Schedule Tracker ---------------- */
-function fatTrackerBook(){
+function fatTrackerBook(){return styledBook(fatTrackerSpec());}
+function fatTrackerSpec(){
   var list=(DB.mats||[]).filter(function(m){
     if(isDoc(m))return false;
     var has=(m.visits||[]).some(function(v){return v.step==='fat'||v.step==='ipi';})||((m.steps||{}).fat&&((m.steps.fat.date)||(m.steps.fat.status)))
@@ -5376,7 +5383,7 @@ function fatTrackerBook(){
   rows.push([{v:'TBA- To Be Assigned; TBD- To Be Determined',st:'note2'}]);
   var heights={1:22,2:18,3:52};
   for(var i=4;i<4+rowsData.length;i++)heights[i]=30;
-  return styledBook({name:'FAT Schedule',styles:S,rows:rows,heights:heights,
+  return ({name:'FAT Schedule',styles:S,rows:rows,heights:heights,
     cols:[5,26,16,10,16,20,18,18,11,13,13,16,18,12,18],
     merges:['A1:O1','A2:O2'],freeze:{x:2,y:3}});
 }
@@ -5659,6 +5666,8 @@ function sevenLog(){
   if(pas.length)more.push({name:'Physical Assessment',rows:pas,widths:[5,34,10,16,32,30,22,12,12,20,12,20,12,12,32],tint:true});
   /* this week and next, in the TWLAS layout */
   more.push({name:'TWLAS',xml:function(S){return twSheetXml(S).sheet;}});
+  /* the final inspection / FAT schedule, in the tracker's own layout */
+  more.push({name:'Final Inspection - FAT',styled:function(){return styledParts(fatTrackerSpec());}});
   /* every company, where its certificate stands, and how many materials it serves */
   var ven=vendorSheetRows();
   if(ven.length>1)more.push({name:'Vendors',rows:ven,widths:[5,36,22,10,16,16,18,32,18,22,14,14,14,14,10],tint:true});
@@ -5853,9 +5862,7 @@ function sevenBook(list,more){
   })();
   /* and the TWLAS sheet's own: its fonts (in the workbook's typeface, the
      mark's symbol font kept), fills, border and twelve styles, renumbered */
-  var TWS=[0];
-  (function(){
-    var tw=twSheetXml(null).styles;
+  function mergeStyles(tw){
     function items(tag,re){var m=new RegExp('<'+tag+'[^>]*>([\\s\\S]*?)</'+tag+'>').exec(tw);return m?(m[1].match(re)||[]):[];}
     function count(tag){return +(new RegExp('<'+tag+' count="(\\d+)"').exec(st)[1]);}
     var tf=items('fonts',/<font>[\s\S]*?<\/font>/g), tl=items('fills',/<fill>[\s\S]*?<\/fill>/g),
@@ -5871,8 +5878,16 @@ function sevenBook(list,more){
       return x.replace(/fontId="(\d+)"/,function(_,n){return 'fontId="'+(nF+(+n))+'"';})
         .replace(/fillId="(\d+)"/,function(_,n){return 'fillId="'+(nL+(+n))+'"';})
         .replace(/borderId="(\d+)"/,function(_,n){return 'borderId="'+(nB+(+n))+'"';});}));
-    TWS=tx.map(function(_,i){return nX+i;});
-  })();
+    return tx.map(function(_,i){return nX+i;});
+  }
+  var TWS=mergeStyles(twSheetXml(null).styles);
+  /* a styled sheet's own styles go in too, its cells renumbered to them */
+  var STYLED={};
+  more.forEach(function(m,i){
+    if(!m.styled)return;
+    var o=m.styled(), map=mergeStyles(o.styles);
+    STYLED[i]=o.sheet.replace(/(<c r="[A-Z]+\d+" s=")(\d+)"/g,function(_,a,n){return a+(map[+n]!=null?map[+n]:0)+'"';});
+  });
   var rows=list.map(function(m,i){
     var vals=sevenRow(m,i), r=7+i;
     var dead=vals.some(function(x){return /terminat/i.test(String(x));});
@@ -5935,7 +5950,7 @@ function sevenBook(list,more){
     {name:'xl/styles.xml',text:st},
     {name:'xl/worksheets/sheet1.xml',text:sheetXml}
   ].concat(more.map(function(m,i){return {name:'xl/worksheets/sheet'+(i+2)+'.xml',
-    text:m.xml?m.xml(TWS):sevenPlain(m.rows,m.widths,m.tint?TINT:null,RED)};}));
+    text:STYLED[i]!=null?STYLED[i]:m.xml?m.xml(TWS):sevenPlain(m.rows,m.widths,m.tint?TINT:null,RED)};}));
   return zipUp(files);
 }
 var REPORTS=[
