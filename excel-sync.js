@@ -6861,6 +6861,10 @@ function filtered(){
     var c2=byKey2[s.k];
     if(c2)rows.sort(function(a,b){
       var A=c2.sort?c2.sort(a):cellOf(a,c2),B=c2.sort?c2.sort(b):cellOf(b,c2);
+      /* a date as shown (31/01/2026) sorts as a date; an empty cell goes last */
+      var dt=function(v){var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v));return m?m[3]+'-'+m[2]+'-'+m[1]:v;};
+      A=dt(A);B=dt(B);
+      if((A===''||A==null)!==(B===''||B==null))return (A===''||A==null)?1:-1;
       var num=(A!==''&&B!==''&&!isNaN(A)&&!isNaN(B));
       var d2=num?(parseFloat(A)-parseFloat(B)):String(A).localeCompare(String(B));
       return s.dir<0?-d2:d2;
