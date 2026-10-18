@@ -5349,6 +5349,12 @@ function fatSheetRows(){
   });
   return out;
 }
+/* a vendor's physical assessment in one word, as the Vendors sheet says it */
+function paWordOf(v){
+  var pa=(v.steps||{}).pa||{}, ps=pa.status||'';
+  return /Passed/.test(ps)?'Pass':/Failed/.test(ps)?'Failed':/^(Scheduled|Upcoming)$/.test(ps)||(v.logf||{})['PA Tentative Date']?'Upcoming'
+    :ps==='Waived'?'Waived':/AVL/.test(ps)?'AVL':ps==='Pending'?'Pending':'';
+}
 function fatTrackerSpec(){
   var list=(DB.mats||[]).filter(function(m){
     if(isDoc(m))return false;
@@ -5383,7 +5389,7 @@ function fatTrackerSpec(){
     var ipi=ipis.sort(function(a,b){return String(a.date).localeCompare(String(b.date));})
       .map(function(x){var r=x.result||x.status||'';return dShort(x.date)+(r?' ('+r+')':'');}).join(', ');
     return {m:m,date:last.date||'',remark:remark,cells:[
-      m.name,matNo(m),v?v.name:'',m.cat||'',v?[v.site,v.country].filter(Boolean).join(' / '):'',v?v.name:'',
+      m.name,matNo(m),v?v.name:'',m.cat||'',v?[v.site,v.country].filter(Boolean).join(' / '):'',v?paWordOf(v):'',
       who?(who.agency||'TBA'):(remark==='upcoming'?'TBA':'N/A'),by||(remark==='upcoming'?'TBA':'N/A'),
       who?(who.status||'Pending'):(remark==='upcoming'?'TBA':'N/A'),
       pfm?dShort(pfm):'',fab,ipi,last.date?dShort(last.date):'',docs,first,remark]};
