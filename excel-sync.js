@@ -6388,6 +6388,7 @@ var TABLES_DEF={
     col('Local / Foreign','loc',function(r){var v=companyOfMat(r);return v?(v.locality||''):'';},'pick',120),
     col('Sub-contractor','sub',function(r){return r.sub;},'pick',150),
     col('MAT Number','matno',function(r){return rawOf(r,'MAT Number')||r.ref;},'text',300),
+    col('PQD Reference','pqref',function(r){var v=r.mfr?mfr(r.mfr):null;return v?(pqOf(v).ref||''):'';},'text',300),
     asTag(col('MAT Status','matst',function(r){return stepOf(r,'mts','status')||rawOf(r,'MAT Status');},'pick',150)),
     col('MAT Date','matdt',function(r){return show(stepOf(r,'mts','date')||rawOf(r,'MAT Submittal Date'));},'text',110),
     /* read from the documents linked to the material, as the Main Log
@@ -6507,6 +6508,19 @@ var TABLES_DEF={
     asNum(col('PAA','npaa',function(r){var n=(r.docs||[]).length;return n?String(n):'';},'text',80))],
    show:['name','kind','role','agency','status','ref','npaa']}
 };
+/* Every table: its reference numbers first, on the left, and shown from
+   the start, not only when asked for */
+Object.keys(TABLES_DEF).forEach(function(k){
+  var d=TABLES_DEF[k];if(!d||!d.cols)return;
+  var isRef=function(c){return /(^|\s)(Number|Reference)$/.test(c.t||'');};
+  var refs=d.cols.filter(isRef);if(!refs.length)return;
+  d.cols=refs.concat(d.cols.filter(function(c){return !isRef(c);}));
+  d.show=(d.show||[]).slice();
+  refs.forEach(function(c){if(d.show.indexOf(c.k)<0)d.show.push(c.k);});
+});
+/* the materials open on their MAT and PQD numbers; the ITP and PO
+   numbers stay on the left, there to tick */
+TABLES_DEF.mat.show=TABLES_DEF.mat.show.filter(function(k){return k!=='itpno'&&k!=='pono';});
 
 /* ================================================================
    SEVEN's vendor list (the AVL). The client's own list of which makers
