@@ -4112,7 +4112,8 @@ window.linkPick=function(matId,q,go,role){
      Aconex's reports, procedures and transmittals, or its own kind */
   /* an inspection request is its own kind: only those are offered */
   var fits=function(d){return !role||((role==='mir'||role==='wir'||role==='mas')?d.doc===ROLE_KIND[role]
-    :(ASK_KINDS[d.doc]||d.doc===ROLE_KIND[role]||(role==='irn'&&(/release/i.test(d.doc)||d.doc==='MIR'))));};
+    :(ASK_KINDS[d.doc]||d.doc===ROLE_KIND[role]||(role==='irn'&&(/release/i.test(d.doc)||d.doc==='MIR'))
+    ||(role==='pfm'&&/minute|^MOM$/i.test(d.doc||''))));};
   var recs=(DB.mats||[]).filter(function(d){return isDoc(d)&&fits(d);});
   /* a line already a record is offered once, as the record */
   var seen={};recs.forEach(function(d){var r=refOf(d);if(r)seen[K(r)]=1;});
