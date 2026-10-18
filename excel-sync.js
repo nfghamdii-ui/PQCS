@@ -1568,7 +1568,7 @@ function planRegister(reg){
   reg.forEach(function(d){
     if(K(d.type)!=='pre-qualification')return;          /* by Type only */
     var holders=(DB.mfrs||[]).filter(function(v){return K(pqOf(v).ref||'')===K(d.no);});
-    if(holders.length<2)return;
+    if(holders.length<2||pqPair(holders))return;      /* a maker and its supplier share it */
     var co=coName(companyOf(d.title));
     var owner=holders.filter(function(v){return K(v.scope||'')===K(d.title);})[0]
       ||holders.filter(function(v){var n=coName(v.name);return n&&co&&(n===co||co.indexOf(n)===0||n.indexOf(co)===0);})[0]
@@ -4570,13 +4570,19 @@ var VEN_KINDS={'manufacturer':'maker','maker':'maker','subcontractor':'sub','sub
    carries the pre-qualification's own title (it came from the register),
    then a subcontractor — and can be changed before anything is written.
    --------------------------------------------------------------- */
+function pqPair(list){
+  var sup=list.filter(function(v){return kindOf(v)==='supplier';}).length;
+  return sup<=1&&list.length-sup<=1;
+}
 function pqGroups(){
   var by={};
   (DB.mfrs||[]).forEach(function(v){
     var ref=trim(pqOf(v).ref||'');if(!ref||ref==='-')return;
     (by[K(ref)]=by[K(ref)]||{ref:ref,list:[]}).list.push(v);
   });
-  return Object.keys(by).map(function(k){return by[k];}).filter(function(g){return g.list.length>1;})
+  /* one pre-qualification can cover a manufacturer and the supplier who
+     brings its goods: a maker with a supplier is one submission, not a clash */
+  return Object.keys(by).map(function(k){return by[k];}).filter(function(g){return g.list.length>1&&!pqPair(g.list);})
     .sort(function(a,b){return b.list.length-a.list.length||String(a.ref).localeCompare(String(b.ref));});
 }
 function pqGuess(g){
