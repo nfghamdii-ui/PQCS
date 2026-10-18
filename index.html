@@ -2067,6 +2067,21 @@ function calItems(from,to){
     if(st.pfm&&st.pfm.date&&st.pfm.status!=='Approved')put(st.pfm.date,'Pre-fab meeting · '+m.name,'na',go,{c:'visit',kind:'Pre-fab',name:m.name,st:st.pfm.status||''});
     if(st.fat&&st.fat.date)put(st.fat.date,(st.fat.status==='Scheduled'?'FAT · ':'FAT held · ')+m.name,'wait',go,{c:'visit',kind:'FAT',name:m.name,st:st.fat.status||'',no:st.fat.ref||''});
     if(st.ipi&&st.ipi.date)put(st.ipi.date,'In-process visit · '+m.name,'wait',go,{c:'visit',kind:'IPI',name:m.name,st:st.ipi.status||'',no:st.ipi.ref||''});
+    /* the fabrication, from the day it starts (or is planned to) until the
+       FAT, or failing one the first delivery planned; a start alone is a day */
+    if(!m.doc){
+      var rw=m.raw||{}, iso=function(v){var x=String(v||'').split('\n')[0].trim();return /^\d{4}-\d{2}-\d{2}$/.test(x)?x:'';};
+      var fs=iso(rw['Fabrication 1st Batch Started Date'])||iso(rw['Fabrication Planned Date']);
+      var fe=iso(st.fat&&st.fat.date)||iso(rw['FAT Planned Date'])||iso(rw['1st Batch Delivery To Site Planned Date']);
+      if(fs){
+        var fdays=fe&&fe>fs?span(fs,fe,180):[fs];
+        fdays.forEach(function(d,i){
+          put(d,'Fabrication · '+m.name,'wait',go,{c:'fab',kind:'Fabrication',name:m.name,
+            st:fe&&fe>fs?(show(fs)+' to '+show(fe)):'starts '+show(fs),
+            pos:fdays.length<2?'':(i===0?'start':(i===fdays.length-1?'end':'mid'))});
+        });
+      }
+    }
     matRoad(m).steps.forEach(function(x){
       var due=x.s.due?x.s.due(m,x.data):null;
       if(due&&!due.soft)put(due.on,x.s.n+' due · '+m.name,daysTo(due.on)<0?'bad':'now',go,{c:'due',kind:'Due',name:m.name,st:x.s.n+' — '+due.t});
@@ -2104,11 +2119,18 @@ function calItems(from,to){
 }
 /* what the month shows: every kind, unless some are switched off; and
    whether it is drawn as a month or as a list of days */
-var CAL_KINDS=[['due','Deadlines'],['visit','Visits, FAT and meetings'],['del','Deliveries'],
+var CAL_KINDS=[['due','Deadlines'],['visit','Visits, FAT and meetings'],['fab','Fabrication'],['del','Deliveries'],
   ['exp','Expiries'],['rem','Your reminders'],['mine','Your events'],
   ['amat','Aconex MAT'],['amir','Aconex MIR'],['adoc','Aconex ITP, MES and others'],['apqd','Aconex PQD']];
 var CALOFF={}, CALV='month';
 window.calKind=function(k){CALOFF[k]=!CALOFF[k];rPane();};
+/* The Aconex documents are many: they start hidden, and each kind (MAT,
+   MIR, ITP, MES, PAA…) is switched on by itself. */
+var ACX_C={amat:1,amir:1,adoc:1,apqd:1}, CALDOC={};
+function calDocKind(x){return x.kind||(x.c==='amat'?'MAT':x.c==='amir'?'MIR':x.c==='apqd'?'PQD':'Other');}
+function calHidden(x){return ACX_C[x.c]?!CALDOC[calDocKind(x)]:!!CALOFF[x.c];}
+window.calDoc=function(k){CALDOC[k]=!CALDOC[k];rPane();};
+window.calDocAll=function(on,list){CALDOC={};if(on)String(list).split('|').forEach(function(k){CALDOC[k]=1;});rPane();};
 window.calView=function(v){CALV=v;rPane();};
 function calPane(){
   var y=CAL.getFullYear(), mo=CAL.getMonth();
@@ -2121,8 +2143,11 @@ function calPane(){
   var from=ymd(cells[0].o), to=ymd(cells[cells.length-1].o);
   var all=calItems(from,to), byDay={}, count={};
   var mk=y+'-'+('0'+(mo+1)).slice(-2);
-  all.forEach(function(x){if(x.d.slice(0,7)===mk)count[x.c]=(count[x.c]||0)+1;});
-  var items=all.filter(function(x){return !CALOFF[x.c];});
+  var dcount={};
+  all.forEach(function(x){if(x.d.slice(0,7)!==mk)return;
+    if(ACX_C[x.c]){var dk=calDocKind(x);dcount[dk]=(dcount[dk]||0)+1;}
+    else count[x.c]=(count[x.c]||0)+1;});
+  var items=all.filter(function(x){return !calHidden(x);});
   items.forEach(function(x){(byDay[x.d]=byDay[x.d]||[]).push(x);});
   var t0=today();
 
@@ -2141,12 +2166,22 @@ function calPane(){
     +'<button class="btn-q no-print" onclick="window.print()">Print</button></div></div></div>';
 
   /* the kinds, each switched on or off, with how many fall this month */
+  var dks=Object.keys(dcount).sort(function(a,b){return dcount[b]-dcount[a]||a.localeCompare(b);});
+  var dnow=dks.filter(function(k){return CALDOC[k];}).length;
   var kinds='<div class="cal-kinds no-print">'
-    +CAL_KINDS.map(function(k){
+    +CAL_KINDS.filter(function(k){return !ACX_C[k[0]];}).map(function(k){
       var off=!!CALOFF[k[0]];
       return '<button class="chip'+(off?'':' set')+'" aria-pressed="'+(!off)+'" onclick="calKind(\''+k[0]+'\')">'
         +esc(k[1])+' <span class="meta">'+(count[k[0]]||0)+'</span></button>';
-    }).join('')+'</div>';
+    }).join('')+'</div>'
+    /* the Aconex documents of the month, a switch for each kind */
+    +(dks.length?'<div class="cal-kinds no-print"><span class="dim" style="font-size:12.5px;margin-right:4px">Aconex documents</span>'
+      +dks.map(function(k){var on=!!CALDOC[k];
+        return '<button class="chip'+(on?' set':'')+'" aria-pressed="'+on+'" onclick="calDoc('+attr(JSON.stringify(k))+')">'
+          +esc(k)+' <span class="meta">'+dcount[k]+'</span></button>';}).join('')
+      +(dnow?'<button class="chip flat" onclick="calDocAll(0)">Hide all</button>'
+        :'<button class="chip flat" onclick="calDocAll(1,'+attr(JSON.stringify(dks.join('|')))+')">Show all</button>')
+      +'</div>':'');
 
   function row(x){
     var go=x.own?('editEvent('+x.id+')'):(x.go||'');
