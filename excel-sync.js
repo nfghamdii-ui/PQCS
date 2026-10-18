@@ -6511,16 +6511,23 @@ var TABLES_DEF={
 /* Every table: its reference numbers first, on the left, and shown from
    the start, not only when asked for */
 Object.keys(TABLES_DEF).forEach(function(k){
-  var d=TABLES_DEF[k];if(!d||!d.cols)return;
+  var d=TABLES_DEF[k];if(!d||!d.cols||k==='mat')return;
   var isRef=function(c){return /(^|\s)(Number|Reference)$/.test(c.t||'');};
   var refs=d.cols.filter(isRef);if(!refs.length)return;
   d.cols=refs.concat(d.cols.filter(function(c){return !isRef(c);}));
   d.show=(d.show||[]).slice();
   refs.forEach(function(c){if(d.show.indexOf(c.k)<0)d.show.push(c.k);});
 });
-/* the materials open on their MAT and PQD numbers; the ITP and PO
-   numbers stay on the left, there to tick */
-TABLES_DEF.mat.show=TABLES_DEF.mat.show.filter(function(k){return k!=='itpno'&&k!=='pono';});
+/* the materials: their own MAT number alone first, the vendor's PQD
+   number beside the vendor, both shown from the start */
+(function(d){
+  var by=function(k){return d.cols.filter(function(c){return c.k===k;})[0];};
+  var mat=by('matno'), pq=by('pqref');
+  var rest=d.cols.filter(function(c){return c!==mat&&c!==pq;});
+  var at=rest.indexOf(by('supp'))+1;
+  d.cols=[mat].concat(rest.slice(0,at),[pq],rest.slice(at));
+  ['matno','pqref'].forEach(function(k){if(d.show.indexOf(k)<0)d.show.push(k);});
+})(TABLES_DEF.mat);
 
 /* ================================================================
    SEVEN's vendor list (the AVL). The client's own list of which makers
