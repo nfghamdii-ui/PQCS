@@ -5364,9 +5364,17 @@ function fatTrackerSpec(){
     var by=last.by||'', who=by?(DB.people||[]).filter(function(p){return K(p.name)===K(by);})[0]:null;
     var remark=/Failed/.test(res)?'Re-FAT is required'
       :/Passed/.test(res)?(m.cat==='C2'?'Final inspection done':'FAT done'):'upcoming';
-    var first=raw['1st Batch Delivery To Site Actual Date']||raw['1st Batch Delivery To Site Planned Date']||'';
-    first=String(first).split('\n')[0];
-    var fab=raw['Fabrication 1st Batch Started Date']||raw['Fabrication Planned Date']||'';
+    /* an actual date as it is; a planned one, when that is all there is,
+       says so */
+    var line=function(x){return String(x||'').split('\n')[0];};
+    var fa=line(raw['1st Batch Delivery To Site Actual Date']), fp=line(raw['1st Batch Delivery To Site Planned Date']);
+    var first=fa?dShort(fa):fp?dShort(fp)+' (Planned)':'';
+    var ba=line(raw['Fabrication 1st Batch Started Date']), bp=line(raw['Fabrication Planned Date']);
+    var fab=ba?dShort(ba):bp?dShort(bp)+' (Planned)':'';
+    /* the documents behind the row: the FAT report and procedure numbers */
+    var rep=last.ref||((m.steps||{}).fat||{}).ref||'';
+    var procs=docsOf(m).filter(function(d){return d.role==='fatp';}).map(refOf).filter(Boolean);
+    var docs=[rep?'Report: '+rep:'' ].concat(procs.map(function(n){return 'Procedure: '+n;})).filter(Boolean).join('\n');
     var pfm=((m.steps||{}).pfm||{}).date||'';
     /* the in-process inspection visits, each with its result, oldest first */
     var ipis=(m.visits||[]).filter(function(x){return x.step==='ipi'&&x.date;});
@@ -5375,10 +5383,10 @@ function fatTrackerSpec(){
     var ipi=ipis.sort(function(a,b){return String(a.date).localeCompare(String(b.date));})
       .map(function(x){var r=x.result||x.status||'';return dShort(x.date)+(r?' ('+r+')':'');}).join(', ');
     return {m:m,date:last.date||'',remark:remark,cells:[
-      m.name,v?v.name:'',m.cat||'',v?[v.site,v.country].filter(Boolean).join(' / '):'',v?v.name:'',
+      m.name,matNo(m),v?v.name:'',m.cat||'',v?[v.site,v.country].filter(Boolean).join(' / '):'',v?v.name:'',
       who?(who.agency||'TBA'):(remark==='upcoming'?'TBA':'N/A'),by||(remark==='upcoming'?'TBA':'N/A'),
       who?(who.status||'Pending'):(remark==='upcoming'?'TBA':'N/A'),
-      pfm?dShort(pfm):'',fab?dShort(fab):'',ipi,last.date?dShort(last.date):'',first?dShort(first):'',remark]};
+      pfm?dShort(pfm):'',fab,ipi,last.date?dShort(last.date):'',docs,first,remark]};
   }).sort(function(a,b){
     var A=a.remark==='upcoming'?1:0,B=b.remark==='upcoming'?1:0;
     return A-B||String(a.date).localeCompare(String(b.date));
@@ -5388,9 +5396,9 @@ function fatTrackerSpec(){
     head:{fill:'1F4E78',b:true,color:'FFFFFF',sz:9},cell:{fill:'F2F2F2'},name:{fill:'F2F2F2'},
     done:{fill:'92D050'},refat:{fill:'F8CBAD'},up:{fill:'FFFF00'},
     note:{color:'FF0000',align:'left',border:false,wrap:false,sz:11},note2:{align:'left',border:false,wrap:false,sz:8}};
-  var head=['S#','Material','Manufacturer / Supplier Name','Material Category','Country / Location','Manufacturer / Supplier Assessment',
+  var head=['S#','Material','MAT Reference','Manufacturer / Supplier Name','Material Category','Country / Location','Manufacturer / Supplier Assessment',
     'Third Party Inspection Agency','Third Party Inspection Name','TPIA Approval','Pre-fabrication Dates (Kick-off meeting)',
-    'Fabrication Dates (Start of Fabrication)','In-process Inspection Dates','Factory Acceptance Test (FAT) / Final Inspection Date','First Delivery Date','Remark/Comments'];
+    'Fabrication Dates (Start of Fabrication)','In-process Inspection Dates','Factory Acceptance Test (FAT) / Final Inspection Date','FAT Report / Procedure No.','First Delivery Date','Remark/Comments'];
   var rows=[
     [{v:'Project:   '+(DB.project||''),st:'title'}].concat(head.slice(1).map(function(){return {v:'',st:'title'};})),
     [{v:'Final Inspection  /  FAT Schedule Tracker',st:'sub'}].concat(head.slice(1).map(function(){return {v:'',st:'sub'};})),
@@ -5405,8 +5413,8 @@ function fatTrackerSpec(){
   var heights={1:22,2:18,3:52};
   for(var i=4;i<4+rowsData.length;i++)heights[i]=30;
   return ({name:'FAT Schedule',styles:S,rows:rows,heights:heights,
-    cols:[5,26,16,10,16,20,18,18,11,13,13,16,18,12,18],
-    merges:['A1:O1','A2:O2'],freeze:{x:2,y:3}});
+    cols:[5,26,24,16,10,16,20,18,18,11,13,15,16,18,30,15,18],
+    merges:['A1:Q1','A2:Q2'],freeze:{x:2,y:3}});
 }
 
 /* ---------------- Physical Assessment Summary ---------------- */
@@ -5689,7 +5697,7 @@ function sevenLog(){
   more.push({name:'TWLAS',xml:function(S){return twSheetXml(S).sheet;}});
   /* the final inspection / FAT schedule, drawn as the physical assessments are */
   var fats=fatSheetRows();
-  if(fats.length)more.push({name:'Final Inspection - FAT',rows:fats,widths:[5,30,24,10,18,22,20,20,12,16,16,22,18,14,20],tint:true});
+  if(fats.length)more.push({name:'Final Inspection - FAT',rows:fats,widths:[5,30,30,24,10,18,22,20,20,12,16,18,22,18,36,18,20],tint:true});
   /* every company, where its certificate stands, and how many materials it serves */
   var ven=vendorSheetRows();
   if(ven.length>1)more.push({name:'Vendors',rows:ven,widths:[5,36,22,10,16,16,18,32,18,22,14,14,14,14,10],tint:true});
