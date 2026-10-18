@@ -5106,6 +5106,12 @@ function twItems(t0,end){
     if(isDoc(m))return;
     var d=((m.steps||{}).pfm||{}).date;
     if(d&&d>=t0&&d<=end)sec['7'].push({label:m.name,disc:twDisc(matNo(m),m.disc),dates:[d]});
+    /* the pre- and post-inspection dossiers on the day the material's step
+       says, whether typed or read from the document linked to it */
+    [['pid','6'],['post','8']].forEach(function(p){
+      var s=(m.steps||{})[p[0]]||{}, dd=s.date;
+      if(dd&&dd>=t0&&dd<=end)sec[p[1]].push({label:m.name+(s.ref?' — '+s.ref:''),disc:twDisc(s.ref||matNo(m),m.disc),dates:[dd]});
+    });
   });
   var items=typeof calItems==='function'?calItems(t0,end):[];
   items.forEach(function(x){
@@ -5115,6 +5121,8 @@ function twItems(t0,end){
     /* a meeting comes from the material's step only: minutes in Aconex
        are of one already held */
     if(k==='7')return;
+    /* a document linked to a material shows through that material's step */
+    if(x.c==='adoc'&&x.linkedTo)return;
     if(k==='10'&&x.c!=='del')return;
     if(k==='10'&&x.cat!=null&&x.cat!==''&&x.cat!=='C2'&&x.cat!=='C3')return;
     var name=x.name||String(x.t||'').replace(/^[^·]*·\s*/,'')||x.t;
