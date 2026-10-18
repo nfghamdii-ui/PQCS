@@ -6840,8 +6840,10 @@ function choices(c,rows){
     var v=cellOf(r,c);
     if(v)n[v]=(n[v]||0)+1;
   });
-  return Object.keys(n).sort(function(a,b){return n[b]-n[a];})
-    .slice(0,c.k==='kind'?120:40).map(function(v){return {v:v,n:n[v]};});
+  /* every value, the commonest first: the list has a search line, so a
+     name used once is found as well as one used fifty times */
+  return Object.keys(n).sort(function(a,b){return n[b]-n[a]||a.localeCompare(b);})
+    .slice(0,3000).map(function(v){return {v:v,n:n[v]};});
 }
 
 function filtered(){
