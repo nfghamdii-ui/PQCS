@@ -5328,6 +5328,27 @@ function dShort(iso){
 
 /* ---------------- Final Inspection / FAT Schedule Tracker ---------------- */
 function fatTrackerBook(){return styledBook(fatTrackerSpec());}
+/* The FAT schedule as a sheet of the Main Log, in the Physical Assessment
+   sheet's design: a table each for those done, those to be repeated and
+   those to come, each its own title across and heading, numbered from
+   one, the remark shaded by what it says. */
+function fatSheetRows(){
+  var spec=fatTrackerSpec(), head=spec.rows[2].map(function(c){return c.v;});
+  var data=spec.rows.slice(3).filter(function(r){return r.length>1;});
+  var tag={done:'pass',refat:'fail',up:'soon'};
+  var parts=[['Done','done'],['Re-FAT required','refat'],['Upcoming','up']];
+  var out=[];
+  parts.forEach(function(p){
+    var list=data.filter(function(r){return r[r.length-1].st===p[1];});if(!list.length)return;
+    if(out.length)out.push([]);
+    out.push(head.map(function(_,i){return {v:i?'':p[0]+' ('+list.length+')',t:'title'};}));
+    out.push(head.map(function(h){return {v:h,t:'head'};}));
+    list.forEach(function(r,i){
+      out.push([i+1].concat(r.slice(1,-1).map(function(c){return c.v;}),[{v:r[r.length-1].v,t:tag[p[1]]}]));
+    });
+  });
+  return out;
+}
 function fatTrackerSpec(){
   var list=(DB.mats||[]).filter(function(m){
     if(isDoc(m))return false;
@@ -5666,8 +5687,9 @@ function sevenLog(){
   if(pas.length)more.push({name:'Physical Assessment',rows:pas,widths:[5,34,10,16,32,30,22,12,12,20,12,20,12,12,32],tint:true});
   /* this week and next, in the TWLAS layout */
   more.push({name:'TWLAS',xml:function(S){return twSheetXml(S).sheet;}});
-  /* the final inspection / FAT schedule, in the tracker's own layout */
-  more.push({name:'Final Inspection - FAT',styled:function(){return styledParts(fatTrackerSpec());}});
+  /* the final inspection / FAT schedule, drawn as the physical assessments are */
+  var fats=fatSheetRows();
+  if(fats.length)more.push({name:'Final Inspection - FAT',rows:fats,widths:[5,30,24,10,18,22,20,20,12,16,16,22,18,14,20],tint:true});
   /* every company, where its certificate stands, and how many materials it serves */
   var ven=vendorSheetRows();
   if(ven.length>1)more.push({name:'Vendors',rows:ven,widths:[5,36,22,10,16,16,18,32,18,22,14,14,14,14,10],tint:true});
