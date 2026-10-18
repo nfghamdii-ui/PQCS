@@ -2393,7 +2393,10 @@ function matPane(m){
          ITP Number…), not in the material's, so it is read from there */
       var r=m.ref||(typeof window.docRef==='function'?window.docRef(m):'');
       return '<button class="chip" data-pop onclick="editText(event,\'ref\',\'Aconex reference\')">'
-        +(r?('<span class="mono">'+esc(r)+'</span>'):'no reference')+'</button>';})()
+        +(r?('<span class="mono">'+esc(r)+'</span>'):'no reference')+'</button>'
+        /* the submittal's revision in Aconex, beside its number */
+        +(!isD&&(m.raw||{})['MAT Revision']!=null&&String(m.raw['MAT Revision']).trim()!==''
+          ?'<span class="chip flat">Rev '+esc(String(m.raw['MAT Revision']).trim())+'</span>':'');})()
     +(isD?'':'<button class="chip" data-pop onclick="editQty(event)">'+(ord?(got+' of '+ord+' '+esc(m.unit||'')+' received'):'set the quantity')+'</button>'
       +'<span class="chip flat">'+(r.at<0?'all steps cleared':(r.done+' of '+r.steps.length+' done'))+'</span>')
     +'<span style="flex:1"></span>'
