@@ -5391,7 +5391,7 @@ function fatTrackerSpec(){
     var res=last.result||last.status||'';
     var by=last.by||'', who=by?(DB.people||[]).filter(function(p){return K(p.name)===K(by);})[0]:null;
     var remark=/Failed/.test(res)?'Re-FAT is required'
-      :/Passed/.test(res)?(m.cat==='C2'?'Final inspection done':'FAT done'):'upcoming';
+      :/Passed/.test(res)?'Final Inspection/FAT done':'upcoming';   /* one requirement for C2 and C3 alike (the procedure's categories) */
     /* an actual date as it is; a planned one, when that is all there is,
        says so */
     var line=function(x){return String(x||'').split('\n')[0];};
