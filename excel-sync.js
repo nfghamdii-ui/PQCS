@@ -5377,6 +5377,16 @@ function paWordOf(v){
   return /Passed/.test(ps)?'Pass':/Failed/.test(ps)?'Failed':/^(Scheduled|Upcoming)$/.test(ps)||(v.logf||{})['PA Tentative Date']?'Upcoming'
     :ps==='Waived'?'Waived':/AVL/.test(ps)?'AVL':ps==='Pending'?'Pending':'';
 }
+/* Whether a material's inspection is a FAT or a final inspection: as the
+   visit says, or as the title of the report linked for it reads; neither,
+   and it is not guessed (the procedure asks the same of C2 and C3). */
+function fatTypeOf(m,v){
+  if(v&&v.type)return v.type;
+  var d=v&&v.fromDoc?getDoc(v.fromDoc,m):null, t=d?String(d.name||''):'';
+  if(/final\s*insp/i.test(t))return 'Final inspection';
+  if(/\bFAT\b|factory\s*accept/i.test(t))return 'FAT';
+  return '';
+}
 function fatTrackerSpec(){
   var list=(DB.mats||[]).filter(function(m){
     if(isDoc(m))return false;
@@ -5390,8 +5400,9 @@ function fatTrackerSpec(){
     var last=fats[0]||(m.steps||{}).fat||{};
     var res=last.result||last.status||'';
     var by=last.by||'', who=by?(DB.people||[]).filter(function(p){return K(p.name)===K(by);})[0]:null;
-    var remark=/Failed/.test(res)?'Re-FAT is required'
-      :/Passed/.test(res)?'Final Inspection/FAT done':'upcoming';   /* one requirement for C2 and C3 alike (the procedure's categories) */
+    var type=fatTypeOf(m,last);
+    var remark=/Failed/.test(res)?(type==='Final inspection'?'Re-inspection is required':'Re-FAT is required')
+      :/Passed/.test(res)?(type?type+' done':'Final Inspection/FAT done'):'upcoming';
     /* an actual date as it is; a planned one, when that is all there is,
        says so */
     var line=function(x){return String(x||'').split('\n')[0];};
@@ -5434,7 +5445,7 @@ function fatTrackerSpec(){
   ];
   rowsData.forEach(function(x,i){
     rows.push([{v:i+1,st:'cell'}].concat(x.cells.map(function(c,j){
-      return {v:c,st:j===x.cells.length-1?(x.remark==='upcoming'?'up':x.remark==='Re-FAT is required'?'refat':'done'):'cell'};})));
+      return {v:c,st:j===x.cells.length-1?(x.remark==='upcoming'?'up':/^Re-/.test(x.remark)?'refat':'done'):'cell'};})));
   });
   rows.push([{v:'* Proposed dates are tentative dates, actual dates will be updated regularly based on manufacturing progress.',st:'note'}]);
   rows.push([{v:'TBA- To Be Assigned; TBD- To Be Determined',st:'note2'}]);
@@ -7289,6 +7300,10 @@ window.editVisit=function(matId,k,id){
     +personInput('v-by',v.by||'')+'</div>'
     +'<div class="f wide"><label for="v-ref">'+w.ref+'</label>'
     +'<input id="v-ref" class="mono" value="'+attr(v.ref||'')+'" autocomplete="off"></div>'
+    +(k==='fat'?'<div class="f"><label for="v-type">Inspection type</label><select id="v-type">'
+      +['','FAT','Final inspection'].map(function(o){
+        return '<option value="'+o+'"'+((v.type||'')===o?' selected':'')+'>'+(o||'—')+'</option>';}).join('')
+      +'</select></div>':'')
     +'<div class="f"><label for="v-res">'+w.res+'</label><select id="v-res">'
     +VISIT_RESULTS[k].map(function(o){
         return '<option'+((v.result||'Pending')===o?' selected':'')+'>'+esc(o)+'</option>';}).join('')
@@ -7312,7 +7327,11 @@ window.saveVisit=function(matId,k,id){
     ref:trim(document.getElementById('v-ref').value),
     result:document.getElementById('v-res').value,
     note:trim(document.getElementById('v-note').value)};
+  var ty=document.getElementById('v-type');if(ty&&ty.value)o.type=ty.value;
   m.visits=m.visits||[];
+  /* a visit read from a linked report stays tied to it */
+  var was=(m.visits||[]).filter(function(x){return String(x.id)===String(id);})[0];
+  if(was&&was.fromDoc)o.fromDoc=was.fromDoc;
   var i=m.visits.map(function(x){return String(x.id);}).indexOf(String(id));
   if(id&&i>-1)m.visits[i]=o;else m.visits.push(o);
   restep(m,k);
