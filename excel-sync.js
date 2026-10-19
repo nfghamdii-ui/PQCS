@@ -3967,6 +3967,7 @@ var DOC_STEP={ITP:'itp',PID:'pid'};
 var ASK_KINDS={Report:1,Procedure:1,Transmittal:1};
 var DOC_ROLES=[
   ['fat','FAT report','a visit under Final inspection or FAT — fills FAT/TPI Results'],
+  ['fin','Final inspection report','a visit under Final inspection or FAT, as a final inspection'],
   ['ipi','In-process inspection report','a visit under In-process inspection'],
   ['fatp','FAT procedure','fills FAT Package/Procedure Number and FAT Package Status'],
   ['pid','Pre-inspection dossier (PID)','fills the Pre-inspection dossier step'],
@@ -3974,11 +3975,11 @@ var DOC_ROLES=[
   ['irn','Inspection release note','a note under Inspection release note'],
   ['post','Post-inspection dossier','fills the Post-inspection dossier step'],
   ['doc','Just a document','listed under Documents, nothing filled']];
-var ROLE_STEP={fat:'fat',ipi:'ipi',pid:'pid',fatp:'fat',pfm:'pfm',irn:'irn',post:'post'};
+var ROLE_STEP={fin:'fat',fat:'fat',ipi:'ipi',pid:'pid',fatp:'fat',pfm:'pfm',irn:'irn',post:'post'};
 /* the steps a linked document fills, and the kind Aconex gives it if any */
 var STEP_FROM_DOCS={itp:'ITP',pid:'PID',pfm:'',post:''};
 /* what the button and the list say, step by step */
-var LINK_TEXT={mas:'material sample',fat:'FAT report',fatp:'FAT procedure',ipi:'in-process inspection report',pid:'PID',
+var LINK_TEXT={fin:'final inspection report',mas:'material sample',fat:'FAT report',fatp:'FAT procedure',ipi:'in-process inspection report',pid:'PID',
   pfm:'the meeting minutes',irn:'release note',post:'post-inspection dossier',mir:'an MIR',wir:'WIR'};
 /* the kind Aconex itself gives the thing, where it has one */
 var ROLE_KIND={pid:'PID',mir:'MIR',wir:'WIR',mas:'MAS'};
@@ -4004,7 +4005,7 @@ function syncDocVisits(m,docs){
   var changed=false;
   m.visits=m.visits||[];
   ['fat','ipi','irn'].forEach(function(k){
-    var want=docs.filter(function(d){return d.role===k;});
+    var want=docs.filter(function(d){return d.role===k||(k==='fat'&&d.role==='fin');});
     var touched=false;
     m.visits=m.visits.filter(function(v){
       if(v.step!==k||!v.fromDoc)return true;
@@ -4136,8 +4137,8 @@ window.linkPick=function(matId,q,go,role){
   if(go&&need&&rows.length===1)return linkAdd(matId,rows[0].id,role);
   /* the likeliest first: a title that says what the step is */
   if(role){
-    var want={fat:'Report',ipi:'Report',fatp:'Procedure',pid:'Transmittal',post:'Transmittal',pfm:'Report'}[role];
-    var hint={fat:/FAT|final insp/i,fatp:/FAT/i,ipi:/in.?process|IPI/i,pid:/pre.?insp|dossier|PID|TRN/i,
+    var want={fin:'Report',fat:'Report',ipi:'Report',fatp:'Procedure',pid:'Transmittal',post:'Transmittal',pfm:'Report'}[role];
+    var hint={fin:/final\s*insp/i,fat:/FAT|final insp/i,fatp:/FAT/i,ipi:/in.?process|IPI/i,pid:/pre.?insp|dossier|PID|TRN/i,
       pfm:/minutes|pre.?fab|MOM/i,irn:/release|MIR/i,post:/post.?insp|dossier/i}[role]||/$^/;
     var score=function(d){return (d.doc===want||d.doc===ROLE_KIND[role]?2:0)+(hint.test(d.name+' '+refOf(d))?1:0);};
     rows.sort(function(a,b){return score(b)-score(a);});}
@@ -5383,6 +5384,9 @@ function paWordOf(v){
 function fatTypeOf(m,v){
   if(v&&v.type)return v.type;
   var d=v&&v.fromDoc?getDoc(v.fromDoc,m):null, t=d?String(d.name||''):'';
+  /* linked as the one or the other, it is that */
+  if(d&&d.role==='fin')return 'Final inspection';
+  if(d&&d.role==='fat')return 'FAT';
   if(/final\s*insp/i.test(t))return 'Final inspection';
   if(/\bFAT\b|factory\s*accept/i.test(t))return 'FAT';
   return '';
@@ -7258,6 +7262,7 @@ function visitPanel(m,k){
     +'<div class="cl-foot"><button class="btn btn-s" onclick="editVisit('+m.id+',\''+k+'\')">'
     +w.add+'</button>'
     +(k==='fat'?'<button class="btn btn-s" onclick="linkPick('+m.id+',\'\',false,\'fat\')">Link a FAT report</button>'
+       +'<button class="btn btn-s" onclick="linkPick('+m.id+',\'\',false,\'fin\')">Link a final inspection report</button>'
        +'<button class="btn btn-s" onclick="linkPick('+m.id+',\'\',false,\'fatp\')">Link a FAT procedure</button>'
       :k==='ipi'?'<button class="btn btn-s" onclick="linkPick('+m.id+',\'\',false,\'ipi\')">Link a report</button>'
       :k==='irn'?'<button class="btn btn-s" onclick="linkPick('+m.id+',\'\',false,\'irn\')">Link a release note</button>':'')
