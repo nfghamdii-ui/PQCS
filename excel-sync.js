@@ -969,6 +969,15 @@ function rawOut(m){
   step('mts','MAT Number','MAT Submittal Date','MAT Status');
   step('itp','ITP Number','ITP Submittal Date','ITP Status');
   step('pid','PID Number','PID Submittal Date','PID Status');
+  /* the revision of each ITP and pre-inspection dossier linked, from Aconex */
+  if((m.docs||[]).length||(m.refs||[]).length){
+    var lk=docsOf(m);
+    [['ITP','itp','ITP Revision'],['PID','pid','PID Revision']].forEach(function(x){
+      var revs=lk.filter(function(d){return d.doc===x[0]||d.role===x[1];})
+        .map(function(d){return trim(rawEnd(d,'Revision'));}).filter(Boolean);
+      if(revs.length)set(x[2],revs.join('\n'));
+    });
+  }
   if(s.pfm&&s.pfm.date)set('Pre-Fabrication Meeting Date',s.pfm.date);
   if(s.fat){
     /* a report linked from Aconex is a result, not the package */
