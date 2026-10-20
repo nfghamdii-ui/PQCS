@@ -975,7 +975,9 @@ function rawOut(m){
      Aconex list's line for the same number gives it. */
   if((m.docs||[]).length||(m.refs||[]).length){
     var lk=docsOf(m);
-    if(!ACX&&lk.length)acxLoad().then(function(){if(TAB==='mat')rPane();},function(){});
+    /* the list is asked for once, and the page drawn again once when it comes */
+    if(!ACX&&lk.length&&!ACX_KICK){ACX_KICK=true;
+      acxLoad().then(function(){if(document.querySelector('.pgroup'))rPane();},function(){ACX_KICK=false;});}
     [['ITP','itp','ITP Revision','ITP Status'],['PID','pid','PID Revision','PID Status']].forEach(function(x){
       var ds=lk.filter(function(d){return d.doc===x[0]||d.role===x[1];});
       var line=function(d){return ACX?acxFind(refOf(d)):null;};
@@ -1682,7 +1684,7 @@ function applyRegister(p,alsoEnded,tag){
    each upload brings the copies up to date.
    --------------------------------------------------------------- */
 var CORE_TYPE={'material submittal':1,'pre-qualification':1,'personnel approval form':1};
-var ACX=null, ACX_AT=null, ACX_ITEMS=null, ACX_KEYS=0, ACX_OLD=0, ACX_CHUNK=2500, ACX_P=null;
+var ACX_KICK=false, ACX=null, ACX_AT=null, ACX_ITEMS=null, ACX_KEYS=0, ACX_OLD=0, ACX_CHUNK=2500, ACX_P=null;
 function acxRow(d){
   var w=verdictOf(d.status)==='Terminated'?'Terminated':(verdictOf(d.review)||verdictOf(d.status)||trim(d.status));
   return [d.no,d.title,kindOfType(d.type),w,d.date||'',trim(d.disc||''),d.rev||''];
