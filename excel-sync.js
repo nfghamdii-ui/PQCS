@@ -969,13 +969,24 @@ function rawOut(m){
   step('mts','MAT Number','MAT Submittal Date','MAT Status');
   step('itp','ITP Number','ITP Submittal Date','ITP Status');
   step('pid','PID Number','PID Submittal Date','PID Status');
-  /* the revision of each ITP and pre-inspection dossier linked, from Aconex */
+  /* the revision (and, where the step has none, the outcome) of each ITP
+     and pre-inspection dossier linked. A record made before revisions
+     were kept for its type (a transmittal) has none of its own, so the
+     Aconex list's line for the same number gives it. */
   if((m.docs||[]).length||(m.refs||[]).length){
     var lk=docsOf(m);
-    [['ITP','itp','ITP Revision'],['PID','pid','PID Revision']].forEach(function(x){
-      var revs=lk.filter(function(d){return d.doc===x[0]||d.role===x[1];})
-        .map(function(d){return trim(rawEnd(d,'Revision'));}).filter(Boolean);
+    if(!ACX&&lk.length)acxLoad().then(function(){if(TAB==='mat')rPane();},function(){});
+    [['ITP','itp','ITP Revision','ITP Status'],['PID','pid','PID Revision','PID Status']].forEach(function(x){
+      var ds=lk.filter(function(d){return d.doc===x[0]||d.role===x[1];});
+      var line=function(d){return ACX?acxFind(refOf(d)):null;};
+      var revs=ds.map(function(d){var r=trim(rawEnd(d,'Revision'));if(r)return r;var l=line(d);return l?trim(l[6]||''):'';})
+        .filter(Boolean);
       if(revs.length)set(x[2],revs.join('\n'));
+      if(ds.length&&!trim(raw[x[3]]||'')){
+        var sts=ds.map(function(d){var t=trim(docStatus(d));if(t)return t;var l=line(d);return l?trim(l[3]||''):'';})
+          .filter(Boolean);
+        if(sts.length)set(x[3],sts.join('\n'));
+      }
     });
   }
   if(s.pfm&&s.pfm.date)set('Pre-Fabrication Meeting Date',s.pfm.date);
