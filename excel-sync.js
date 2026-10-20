@@ -958,6 +958,10 @@ function rawOut(m){
     else if(pa.date)set('PA Date',pa.date);
     if(pa.ref)set('PA Document Number',pa.ref);
     if(pa.status&&!/^(Pending|Scheduled|Upcoming)$/.test(pa.status))set('Assessment Result',pa.status);
+    /* no visit for a maker on SEVEN's AVL, or one waived: the visit's
+       date and report do not apply */
+    if(/AVL|Waived/.test(pa.status||''))['PA Tentative Date','PA Date','PA Document Number'].forEach(function(c){
+      if(!trim(raw[c]||''))set(c,'N/A');});
   }
   /* the inspector assigned on the material: a third party — his company,
      then his name, in the one cell */
