@@ -3680,6 +3680,31 @@ function logWhere(c){
   var w=LOG_WHERE.filter(function(x){return x[0].test(c);})[0];
   return w?w[1]:'';
 }
+/* Where on the page an empty column is filled: its group of Main Log
+   fields, its step, or the vendor's own page */
+var LOG_JUMP=[
+  [/^(Item Description|Material Category|Discipline|Sub-contractor Name)$/,'pg-material'],
+  [/^MAT /,'pg-mts'],[/^ITP /,'pg-itp'],[/^(Method Statement Number|MES Revision|MES Status)$/,'pg-docs'],
+  [/^PID /,'pg-pid'],[/^Pre-Fabrication/,'pg-pfm'],[/^(FAT Package|FAT Planned|FAT\/TPI)/,'pg-fat'],
+  [/^(MIR |Delivered|Remaining)/,'pg-del'],[/^Total Quantity/,'top']
+];
+window.logJump=function(id,c){
+  var m=mat(id);if(!m)return;
+  var gi=LOG_FORM.findIndex(function(g){return g[1].some(function(f){return f[0]===c;});});
+  var to=gi>=0?'pg-log-'+gi:'';
+  if(!to&&/^(Manufacturer|Country of Origin|PQD |PA |Assessment Result|3rd Party Assessment|Client Assessment|PMC\/LDC Assessment|Contractor Assessment)/.test(c)){
+    if(m.mfr&&mfr(m.mfr))return jump('mfr',m.mfr);
+    to='pg-mfr';
+  }
+  if(!to){var w=LOG_JUMP.filter(function(x){return x[0].test(c);})[0];to=w?w[1]:'';}
+  if(to==='top'){var b=document.querySelector('#pane .body');if(b)b.scrollTop=0;window.scrollTo(0,0);return;}
+  var el=to&&document.getElementById(to);
+  /* a group shown inside a step, or not drawn: open it to fill */
+  if(!el){if(gi>=0)return editLog(id,gi);return toast('Not on this page');}
+  navTo(to);
+  el.style.transition='box-shadow .3s';el.style.boxShadow='0 0 0 3px #f5c542';
+  setTimeout(function(){el.style.boxShadow='';},1600);
+};
 function logPanel(m){
   var raw=m.raw||{},filled=0,total=0;
   var fill=logFill(m,true), pct=Math.round(fill.n/fill.total*100);
@@ -3688,7 +3713,8 @@ function logPanel(m){
   var miss=fill.missing.map(function(c){
     var w=logWhere(c);
     return '<div style="display:flex;gap:12px;padding:3px 0;font-size:13px;border-top:1px solid var(--line)">'
-      +'<span style="flex:0 0 46%">'+esc(c)+'</span><span class="dim">'+esc(w)+'</span></div>';
+      +'<span style="flex:0 0 46%">'+esc(c)+'</span><span class="dim" style="flex:1">'+esc(w)+'</span>'
+      +'<button class="btn btn-s no-print" style="padding:1px 10px;font-size:12px" onclick="logJump('+m.id+','+attr(JSON.stringify(c))+')">Jump</button></div>';
   }).join('');
   return '<div class="sec"'+navAttr('Main Log',pct>=80?'ok':pct>=50?'wait':'now','pg-mainlog')+'>Main Log</div><div class="panel">'
     +'<div class="panel-h"><div style="flex:1;min-width:220px">'
@@ -7600,13 +7626,15 @@ function editMatSheet(){
     +'<div class="f wide"><label for="ed-sub">Sub-contractor '
       +'<span class="dim">— type to narrow the list</span></label>'
       +'<input id="ed-sub" list="sub-list" value="'+attr(m.sub||'')+'" placeholder="none" autocomplete="off">'
-      /* the subcontractors on the vendor list, and any name already
-         written on a material */
+      /* every company on the vendor list, the subcontractors first, each
+         with what it is; then a name already written on a material that
+         is not one of them */
       +'<datalist id="sub-list">'
+      +vendors.slice().sort(function(a,b){
+          var A=/sub/.test(kindOf(a))?0:1, B=/sub/.test(kindOf(b))?0:1;return A-B;}).map(venOpt).join('')
       +(function(){
-        var seen={},out=[];
-        (DB.mfrs||[]).forEach(function(x){if((kindOf(x)==='sub'||kindOf(x)==='makesub')&&x.name&&!seen[K(x.name)]){seen[K(x.name)]=1;out.push(x.name);}});
-        (DB.mats||[]).forEach(function(x){if(x.sub&&!seen[K(x.sub)]){seen[K(x.sub)]=1;out.push(x.sub);}});
+        var seen={};vendors.forEach(function(x){seen[K(x.name)]=1;});
+        var out=[];(DB.mats||[]).forEach(function(x){if(x.sub&&!seen[K(x.sub)]){seen[K(x.sub)]=1;out.push(x.sub);}});
         return out.sort().map(function(n){return '<option value="'+attr(n)+'">';}).join('');
       })()
       +'</datalist></div>'
@@ -7645,7 +7673,9 @@ window.saveMatSheet=function(){
   m.cat=v('ed-cat');
   m.catFrom=m.cat?'set by you':'';m.catSure=true;
   m.disc=v('ed-disc');
-  m.sub=v('ed-sub');
+  /* a company on the vendor list is written as the list names it */
+  var subHit=v('ed-sub')?venFind(v('ed-sub')):null;
+  m.sub=subHit?subHit.name:v('ed-sub');
   /* the supplier is a company on the vendor list, made a supplier if new;
      the inspector a person on Personnel Approval, added as pending if new */
   m.supplier=supHit?String(supHit.id):'';
