@@ -3633,6 +3633,7 @@ window.logGroupsFor=function(m,keys){
       +'<span style="flex:1"></span>'
       +(g[0]==='Installation & WIR'?'<button class="btn btn-s btn-p no-print" style="margin-right:6px" onclick="linkPick('+m.id+',\'\',false,\'wir\')">Link a WIR</button>':'')
       +(g[0]==='Sample and mock-up'?'<button class="btn btn-s btn-p no-print" style="margin-right:6px" onclick="linkPick('+m.id+',\'\',false,\'mas\')">Link a sample</button>':'')
+      +(filled<g[1].length?'<button class="btn btn-s no-print" style="margin-right:6px" data-pop onclick="logNA(event,'+m.id+','+gi+')">Not applicable</button>':'')
       +'<button class="btn btn-s no-print" onclick="editLog('+m.id+','+gi+')">Edit</button></div>'
       +'<div class="props">'+g[1].map(function(f){
         var v=logShow(f,raw[f[0]]);
@@ -3727,13 +3728,29 @@ window.editLog=function(id,only){
     +'<div class="f-act"><button class="btn btn-p" onclick="saveLog('+id+')">Save</button>'
     +'<button class="btn-q" onclick="closeSheet()">Cancel</button></div></div>');
 };
+/* A group that does not apply to the material (no sample, no mock-up):
+   each of its empty fields says N/A, which the Main Log counts as filled */
+window.logNA=function(ev,id,gi){
+  var m=mat(id), g=LOG_FORM[gi];if(!m||!g)return;
+  var empty=g[1].filter(function(f){return !trim((m.raw||{})[f[0]]||'');});
+  if(!empty.length)return;
+  popConfirm(ev.currentTarget,'Mark '+empty.length+' empty field'+(empty.length===1?'':'s')+' as N/A?',
+    'What is filled stays. Edit the group to change any of them later.','Mark N/A',function(){
+      if(m.doc==null)m.doc='';
+      m.raw=m.raw||{};
+      empty.forEach(function(f){m.raw[f[0]]='N/A';});
+      touch();rPane();
+      toast(g[0]+': '+empty.length+' marked N/A');
+    });
+};
 window.saveLog=function(id){
   var m=mat(id);if(!m)return;
   var out={},bad=false;
   LOG_FORM.forEach(function(g,gi){g[1].forEach(function(f,fi){
     var fid='lg-'+gi+'-'+fi, el=document.getElementById(fid);if(!el)return;
     var v=trim(el.value);
-    if(f[1]==='date'&&v){
+    if(f[1]==='date'&&/^(n\/?a|-+)$/i.test(v))v='N/A';       /* does not apply */
+    else if(f[1]==='date'&&v){
       var iso=parseDate(v);
       if(!iso){bad=true;var e=document.getElementById('e-'+fid);if(e)e.textContent='Use dd/mm/yyyy';return;}
       v=iso;
