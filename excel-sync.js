@@ -7879,11 +7879,19 @@ var SORT_ERR=[];
 function sortOut(){
   if(!DB)return;                     /* nothing has arrived yet */
   var n=0;
+  /* what each record was before the tidying, to tell afterwards which
+     ones the system changed by itself (a save then knows they were not
+     edited by hand) */
+  var AK=['mats','mfrs','people'], before={};
+  if(typeof window.autoKey==='function')AK.forEach(function(k){
+    before[k]={};(DB[k]||[]).forEach(function(o){before[k][o.id]=window.autoKey(o);});});
   [liftExpired,labelDocuments,liftVisits,liftTerminated,liftMirLinks,liftRefs,liftDocSteps,paaSyncPeople,liftCats]
     .forEach(function(f){
       try{n+=f()||0;}
       catch(e){SORT_ERR.push((f.name||'?')+': '+(e&&e.message||e));if(window.console)console.error('sortOut',f.name,e);}
     });
+  if(typeof window.autoMark==='function')AK.forEach(function(k){
+    (DB[k]||[]).forEach(function(o){if(before[k]&&before[k][o.id]!==window.autoKey(o))window.autoMark(k,o);});});
   try{if(n){rList();rPane();}else paintTabs();}catch(e){}
 }
 window.sortErrors=function(){return SORT_ERR.slice();};

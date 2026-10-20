@@ -826,6 +826,13 @@ function slim(o){
   return out;
 }
 
+/* A record as the system itself left it after tidying the data on load
+   (AUTO, written by sortOut), without the time of its last edit. One
+   still the same when a save meets somebody else's write was not touched
+   by hand here, so their version is simply taken. */
+var AUTO={};
+function autoKey(o){var x=Object.assign({},o);delete x.edited;return JSON.stringify(slim(x));}
+window.autoKey=autoKey;window.autoMark=function(key,o){(AUTO[key]=AUTO[key]||{})[o.id]=autoKey(o);};
 function snapshot(){
   SNAP={project:DB.project};
   for(var key in TABLES){
@@ -929,6 +936,36 @@ window.save=async function(force){
         changed[k2]=plan[k2].map(function(o){return o.id;}).concat(dels[k2].map(Number));
       }
       var clash=await conflicts(c,changed);
+      /* the records only the system changed here take the other version,
+         quietly; only one changed by hand here is a question */
+      var auto=clash.filter(function(h){
+        var a=(AUTO[h.key]||{})[h.id];if(!a)return false;
+        var rec=(DB[h.key]||[]).find(function(x){return String(x.id)===String(h.id);});
+        return !!rec&&autoKey(rec)===a;
+      });
+      if(auto.length){
+        var byKey={};auto.forEach(function(h){(byKey[h.key]=byKey[h.key]||[]).push(h.id);});
+        for(var ak in byKey){
+          var got=[], aparts=chunks(byKey[ak]);
+          for(var ai=0;ai<aparts.length;ai++){
+            var ar=await c.from(TABLES[ak]).select('id,data,updated_at,updated_by').in('id',aparts[ai]);
+            if(ar.error)throw ar.error;
+            got=got.concat(ar.data||[]);
+          }
+          got.forEach(function(row){
+            var o=cleanIds(row.data||{},true);o.id=Number(row.id);
+            var list=DB[ak]||[], i=list.findIndex(function(x){return String(x.id)===String(row.id);});
+            if(i>=0)list[i]=o;
+            SNAP[ak][row.id]=JSON.stringify(slim(o));
+            STAMPS[ak]=STAMPS[ak]||{};STAMPS[ak][row.id]={at:row.updated_at,by:row.updated_by};
+            delete AUTO[ak][row.id];
+            plan[ak]=plan[ak].filter(function(x){return String(x.id)!==String(row.id);});
+          });
+        }
+        var took={};auto.forEach(function(h){took[h.key+'|'+h.id]=1;});
+        clash=clash.filter(function(h){return !took[h.key+'|'+h.id];});
+        try{rPane();}catch(e){}
+      }
       if(clash.length){
         HELD=true;
         var first=clash[0];
