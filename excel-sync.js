@@ -2689,12 +2689,26 @@ function viewFor(m){
 /* A material's page is drawn from a set narrowed to materials, so its
    documents are looked up in the whole record set — or a link just
    made saved, and the page still said nothing was linked. */
+/* Where each record sits in the list, so a material's documents are found
+   without reading the whole list for each one. A position that no longer
+   holds the record asked for (the list changed) rebuilds it. */
+var DOC_POS=typeof WeakMap==='function'?new WeakMap():null;
+function recById(all,id){
+  id=String(id);
+  if(DOC_POS){
+    var c=DOC_POS.get(all);
+    if(!c||c.n!==all.length){c={n:all.length,at:{}};all.forEach(function(x,i){c.at[String(x.id)]=i;});DOC_POS.set(all,c);}
+    var i=c.at[id], x=i==null?null:all[i];
+    if(x&&String(x.id)===id)return x;
+    DOC_POS.delete(all);                   /* stale: read afresh next time */
+  }
+  return all.filter(function(x){return String(x.id)===id;})[0]||null;
+}
 function docsOf(m){
   var ids=(m&&m.docs)||[];
   var all=MATS_ALL||DB.mats||[];
-  return ids.map(function(id){
-    return all.filter(function(x){return String(x.id)===String(id);})[0];
-  }).filter(Boolean).concat(((m&&m.refs)||[]).map(lightDoc));
+  return ids.map(function(id){return recById(all,id);})
+    .filter(Boolean).concat(((m&&m.refs)||[]).map(lightDoc));
 }
 /* inspection requests that no material has linked yet */
 function looseMir(){
